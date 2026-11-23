@@ -2,7 +2,7 @@
 title: GALILEOnautic 2+ — Cooperative Navigation & Perception for Vessels
 summary: A navigation, detection, tracking and mapping pipeline for a real multi-vessel scenario — deployed on vessels in the port of Rostock.
 year: 2025
-status: active
+status: completed
 featured: true
 tags: [navigation, sensor fusion, tracking, field deployment]
 image: /images/publications/icmass2025.svg

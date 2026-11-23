@@ -13,6 +13,14 @@ export const LINK_LABELS: Record<string, string> = {
   slides: 'Slides',
   poster: 'Poster',
   press: 'Press',
+  website: 'Website',
+};
+
+// Display labels for project status.
+export const STATUS_LABELS: Record<string, string> = {
+  active: 'What I’m currently on',
+  completed: 'Completed',
+  archived: 'Archived',
 };
 
 export const linkEntries = (links: Record<string, string | undefined>) =>

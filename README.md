@@ -51,6 +51,6 @@ One-time setup: **Settings → Pages → Build and deployment → Source: GitHub
 
 ## Privacy notes (DE)
 
-- No external fonts, analytics or trackers are loaded.
-- YouTube videos are loaded from `youtube-nocookie.com` only after a click. Add a local
-  `thumbnail` in `videos.yaml` to avoid fetching the preview image from YouTube as well.
+- No cookies, browser storage, analytics or trackers; fonts, images and videos are self-hosted.
+- The privacy policy lives at `src/pages/privacy.astro`. **Update it** whenever you add third-party
+  content (e.g. YouTube embeds via `youtubeId` in `videos.yaml`), analytics or cookies.

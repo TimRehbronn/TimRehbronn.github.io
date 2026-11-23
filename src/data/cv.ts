@@ -63,11 +63,13 @@ export const experience: CvEntry[] = [
   {
     title: 'Head of Electrical Powertrain',
     org: 'Ecurie Aix — Formula Student Team RWTH Aachen e.V.',
+    orgUrl: 'https://ecurie-aix.de',
     location: 'Aachen',
     start: 'Jan 2020',
     end: 'Jun 2021',
     details: [
-      'Led a team of seven students (Oct 2020 – Jun 2021); responsible for the electrical system of two self-developed electric race cars.',
+      'Member of the electrical powertrain department from Jan 2020; Head of Department Oct 2020 – Jun 2021 (semester off) for the eace09 “Nuri” season.',
+      'Led a team of seven students; responsible for the electrical system of two self-developed electric race cars.',
     ],
   },
 ];
@@ -149,20 +151,23 @@ export const skills: { group: string; items: string[] }[] = [
 ];
 
 // What I'm working on right now — shown on the home page. **text** is highlighted.
-export const current: { title: string; text: string; href?: string }[] = [
+export const current: { title: string; text: string; tags: string[]; href?: string }[] = [
   {
     title: 'Robust navigation in GNSS-sparse harbors',
-    text: 'Fusing **IMU, LiDAR, radar, camera and GNSS** with **factor graphs** and an **iterated error-state EKF** for vessels in constrained port environments.',
+    text: 'Multi-sensor fusion with factor graphs and an iterated error-state EKF for vessels in constrained port environments.',
+    tags: ['IMU', 'LiDAR', 'Radar', 'Camera', 'GNSS', 'Factor graphs', 'Iterated ES-EKF'],
     href: '/projects/robust-harbor-navigation/',
   },
   {
     title: 'Trajectory prediction for inland vessels',
-    text: 'Learned, **physics-inspired** models that predict vessel trajectories from **AIS** data.',
+    text: 'Learned, physics-inspired models that predict vessel trajectories from AIS data.',
+    tags: ['AIS', 'Deep learning', 'Ship kinematics'],
     href: '/projects/inland-vessel-trajectory-prediction/',
   },
   {
     title: 'A learning blog on estimation & perception',
-    text: 'From **probability theory** and **state estimation** to **multi-object detection, tracking and SLAM** — with interactive explanations.',
+    text: 'From probability theory and state estimation to multi-object detection, tracking and SLAM — with interactive explanations.',
+    tags: ['Probability', 'Filtering', 'Tracking', 'SLAM'],
     href: '/blog/',
   },
 ];

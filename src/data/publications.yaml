@@ -10,7 +10,7 @@
   year: 2026
   type: journal
   selected: true
-  thumbnail: /images/publications/simple-c.png
+  thumbnail: /images/publications/simple-c.svg
   abstract: >-
     Multi-LiDAR sensor configurations enhance perception for autonomous tasks in robotics compared to single
     sensors, but they require precise extrinsic calibration. Existing methods often depend on moving the platform
@@ -55,7 +55,7 @@
   year: 2026
   type: preprint
   selected: true
-  thumbnail: /images/publications/mstnet.png
+  thumbnail: /images/publications/mstnet.svg
   links:
     code: "https://github.com/rwth-irt/mstnet"
     data: "https://doi.org/10.5281/zenodo.22825184"

@@ -6,9 +6,10 @@ import { linkEntries } from '../lib/format';
 interface Props { pub: CollectionEntry<'publications'>; showThumb?: boolean }
 const { pub, showThumb = true } = Astro.props;
 const p = pub.data;
-
-const tile = p.venueShort ?? p.type;
 const links = linkEntries(p.links);
+const typeLabel: Record<string, string> = {
+  journal: 'Journal', conference: 'Conference', workshop: 'Workshop', preprint: 'Preprint', thesis: 'Thesis', other: 'Other',
+};
 ---
 
 <article class:list={['pub', { 'no-thumb': !showThumb }]} id={pub.id}>
@@ -17,33 +18,31 @@ const links = linkEntries(p.links);
       (p.thumbnail ? (
         <img class="thumb" src={p.thumbnail} alt="" loading="lazy" />
       ) : (
-        <div class="thumb tile" aria-hidden="true">
-          <span>{tile}</span>
-        </div>
+        <div class="thumb tile" aria-hidden="true"><span>{p.venueShort ?? p.type}</span></div>
       ))
   }
   <div class="body">
-    <h3 class="title">{p.title}</h3>
-    <div class="meta"><Authors authors={p.authors} /></div>
-    <div class="venue">
-      <em>{p.venueShort ?? p.venue}</em>{!p.venueShort?.includes(String(p.year)) && `, ${p.year}`}
+    <p class="meta label">
+      <span>{typeLabel[p.type]}</span><span class="sep">/</span><span>{p.venueShort ?? p.venue}</span>
+      {!p.venueShort?.includes(String(p.year)) && <><span class="sep">/</span><span>{p.year}</span></>}
       {p.note && <span class="note">{p.note}</span>}
-    </div>
-    <ul class="link-row">
-      {links.map((l) => <li><a href={l.href}>{l.label}</a></li>)}
-    </ul>
+    </p>
+    <h3 class="title">{p.title}</h3>
+    <p class="authors"><Authors authors={p.authors} /></p>
+    <p class="venue">{p.venue}</p>
+    <ul class="link-row">{links.map((l) => <li><a href={l.href}>{l.label}</a></li>)}</ul>
     {
       (p.abstract || p.bibtex) && (
         <div class="extras">
           {p.abstract && (
             <details>
-              <summary>Abstract</summary>
+              <summary class="label">Abstract</summary>
               <p>{p.abstract}</p>
             </details>
           )}
           {p.bibtex && (
             <details>
-              <summary>BibTeX</summary>
+              <summary class="label">BibTeX</summary>
               <div class="bib">
                 <pre><code>{p.bibtex.trim()}</code></pre>
                 <button class="btn copy" type="button" data-copy={p.bibtex.trim()}>Copy</button>
@@ -69,28 +68,30 @@ const links = linkEntries(p.links);
 </script>
 
 <style>
-  .pub { display: grid; grid-template-columns: 11rem 1fr; gap: 1.25rem; padding: 1.25rem 0; border-bottom: 1px solid var(--border); }
-  .pub:last-child { border-bottom: 0; }
+  .pub { display: grid; grid-template-columns: 13rem 1fr; gap: 1.5rem; padding: 1.5rem 0; border-top: 1px solid var(--border); scroll-margin-top: 5rem; }
+  .pub:first-of-type { border-top: 0; padding-top: 0; }
   .pub.no-thumb { grid-template-columns: 1fr; }
-  .thumb { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-soft); }
-  .tile {
-    display: grid; place-items: center; padding: 0.75rem; text-align: center;
-    background: radial-gradient(120% 90% at 0% 0%, var(--accent-soft), var(--bg-soft) 70%);
-    color: var(--fg-soft); font-weight: 600; font-size: 0.95rem; letter-spacing: 0.02em;
-  }
-  .title { margin: 0 0 0.3rem; font-size: 1.02rem; line-height: 1.35; }
-  .meta, .venue { font-size: 0.93rem; color: var(--fg-soft); }
-  .venue { margin-bottom: 0.4rem; }
-  .note { margin-left: 0.5rem; font-size: 0.78rem; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 0.05rem 0.45rem; border-radius: 999px; }
-  .meta :global(strong) { color: var(--highlight); }
-  .extras { display: flex; flex-direction: column; gap: 0.25rem; margin-top: 0.5rem; font-size: 0.9rem; }
-  summary { cursor: pointer; color: var(--muted); width: fit-content; }
-  details p { margin: 0.5rem 0; color: var(--fg-soft); }
-  .bib { position: relative; margin-top: 0.5rem; }
-  .bib pre { margin: 0; background: var(--bg-soft); font-size: 0.8rem; }
-  .copy { position: absolute; top: 0.4rem; right: 0.4rem; padding: 0.15rem 0.55rem; font-size: 0.75rem; }
-  @media (max-width: 560px) {
-    .pub { grid-template-columns: 1fr; }
-    .thumb { max-width: 20rem; }
+  .thumb { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface); }
+  .tile { display: grid; place-items: center; font-family: var(--font-mono); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--fg-soft); }
+  .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.5rem; margin: 0 0 0.5rem; }
+  .sep { color: var(--border-strong); }
+  .note { color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); padding: 0.05rem 0.4rem; border-radius: var(--radius); margin-left: 0.25rem; }
+  .title { margin: 0 0 0.4rem; font-size: 1.05rem; line-height: 1.35; }
+  .authors { margin: 0 0 0.15rem; font-size: 0.92rem; }
+  .venue { margin: 0 0 0.85rem; font-size: 0.85rem; color: var(--muted); }
+  .extras { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; margin-top: 0.85rem; }
+  details[open] { flex-basis: 100%; }
+  summary { cursor: pointer; width: fit-content; list-style: none; }
+  summary::-webkit-details-marker { display: none; }
+  summary::before { content: '+ '; color: var(--accent); }
+  details[open] summary::before { content: '− '; }
+  summary:hover { color: var(--fg); }
+  details p { margin: 0.75rem 0 0; font-size: 0.92rem; }
+  .bib { position: relative; margin-top: 0.75rem; }
+  .bib pre { margin: 0; background: var(--surface); font-size: 0.75rem; color: var(--fg-soft); }
+  .copy { position: absolute; top: 0.4rem; right: 0.4rem; padding: 0.25rem 0.5rem; font-size: 0.62rem; background: var(--bg); }
+  @media (max-width: 600px) {
+    .pub { grid-template-columns: 1fr; gap: 1rem; }
+    .thumb { max-width: 22rem; }
   }
 </style>

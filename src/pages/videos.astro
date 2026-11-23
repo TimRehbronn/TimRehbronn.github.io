@@ -13,6 +13,7 @@ const fmt = new Intl.DateTimeFormat('en', { month: 'short', year: 'numeric' });
 
 <Base title="Videos" description="Talks, lectures and video explanations.">
   <header class="page-header">
+    <p class="kicker">Media</p>
     <h1>Videos</h1>
     <p>Short explainers of my research, talks and visual explanations.</p>
   </header>
@@ -30,7 +31,7 @@ const fmt = new Intl.DateTimeFormat('en', { month: 'short', year: 'numeric' });
               v.data.youtubeId && <YouTube id={v.data.youtubeId} title={v.data.title} thumbnail={v.data.thumbnail} />
             )}
             <h2>{v.data.title}</h2>
-            <p class="muted small">
+            <p class="label">
               <time datetime={v.data.date.toISOString()}>{fmt.format(v.data.date)}</time>
             </p>
             {v.data.description && <p class="desc">{v.data.description}</p>}
@@ -43,9 +44,9 @@ const fmt = new Intl.DateTimeFormat('en', { month: 'short', year: 'numeric' });
 
 <style>
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(18rem, 100%), 1fr)); gap: 2rem 1.5rem; }
-  h2 { font-size: 1.02rem; margin: 0.75rem 0 0.15rem; }
+  h2 { font-size: 1.05rem; margin: 1rem 0 0.3rem; }
   p { margin: 0 0 0.25rem; }
-  .desc { color: var(--fg-soft); font-size: 0.95rem; }
+  .desc { font-size: 0.92rem; margin-top: 0.5rem; }
   article { scroll-margin-top: 5rem; }
   .portrait { max-width: 24rem; }
 </style>

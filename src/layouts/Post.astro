@@ -14,7 +14,7 @@ const toc = headings.filter((h) => h.depth === 2);
 <Base title={title} description={description} type="article">
   <article class="post">
     <header class="page-header">
-      <p class="muted small">
+      <p class="kicker">
         <time datetime={date.toISOString()}>{fmt.format(date)}</time>
         {updated && <> · updated {fmt.format(updated)}</>} · {minutes} min read
       </p>
@@ -26,7 +26,7 @@ const toc = headings.filter((h) => h.depth === 2);
     {
       toc.length > 2 && (
         <nav class="toc" aria-label="Contents">
-          <p class="muted small">Contents</p>
+          <p class="label">Contents</p>
           <ol>{toc.map((h) => <li><a href={`#${h.slug}`}>{h.text}</a></li>)}</ol>
         </nav>
       )
@@ -37,12 +37,15 @@ const toc = headings.filter((h) => h.depth === 2);
     </div>
 
     <hr />
-    <p class="muted small"><a href="/blog/">← All posts</a></p>
+    <a class="btn" href="/blog/">← All posts</a>
   </article>
 </Base>
 
 <style>
-  .toc { margin: 0 0 2rem; padding: 0.75rem 1rem; border-left: 2px solid var(--border); max-width: var(--w-text); }
+  .toc { margin: 0 0 2.5rem; padding: 1rem 1.25rem; border: 1px solid var(--border); background: var(--surface); max-width: var(--w-text); }
+  .toc a { text-decoration: none; color: var(--fg-soft); }
+  .toc a:hover { color: var(--accent); }
+  .toc li::marker { color: var(--accent); font-family: var(--font-mono); font-size: .8em; }
   .toc p { margin: 0 0 0.25rem; }
   .toc ol { margin: 0; padding-left: 1.2rem; font-size: 0.93rem; }
 </style>

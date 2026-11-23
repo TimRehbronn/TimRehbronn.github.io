@@ -1,7 +1,7 @@
 ---
 import { getCollection, render, type CollectionEntry } from 'astro:content';
 import Base from '../../layouts/Base.astro';
-import { linkEntries } from '../../lib/format';
+import { linkEntries, STATUS_LABELS } from '../../lib/format';
 
 export async function getStaticPaths() {
   const projects = await getCollection('projects');
@@ -17,7 +17,7 @@ const links = linkEntries(p.links);
 <Base title={p.title} description={p.summary}>
   <article>
     <header class="page-header">
-      <p class="muted small">{p.year} · <span style="text-transform:capitalize">{p.status}</span></p>
+      <p class="kicker meta"><a href="/projects/">Projects</a><span>/</span><span>{p.year}</span><span class="status" data-status={p.status}>{STATUS_LABELS[p.status]}</span></p>
       <h1>{p.title}</h1>
       <p>{p.summary}</p>
       <ul class="tags" style="margin-top:0.75rem">{p.tags.map((t) => <li class="tag">{t}</li>)}</ul>
@@ -30,10 +30,13 @@ const links = linkEntries(p.links);
     {p.image && <img class="hero-img" src={p.image} alt="" />}
     <div class="prose prose-width"><Content /></div>
     <hr />
-    <p class="muted small"><a href="/projects/">← All projects</a></p>
+    <a class="btn" href="/projects/">← All projects</a>
   </article>
 </Base>
 
 <style>
-  .hero-img { width: 100%; max-width: var(--w-wide); aspect-ratio: 16 / 8; object-fit: cover; border-radius: var(--radius); border: 1px solid var(--border); margin-bottom: 2rem; }
+  .meta { display: flex; gap: 0.6rem; align-items: center; }
+  .meta a { color: var(--muted); text-decoration: none; }
+  .meta a:hover { color: var(--accent); }
+  .hero-img { width: 100%; max-width: var(--w-wide); aspect-ratio: 16 / 10; object-fit: cover; border-radius: var(--radius); border: 1px solid var(--border); margin-bottom: 2rem; }
 </style>

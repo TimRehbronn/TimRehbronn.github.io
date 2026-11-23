@@ -1,0 +1,78 @@
+---
+import Base from '../layouts/Base.astro';
+import { SITE } from '../config';
+// Keep this page in sync with what the site actually loads. If you add third-party embeds
+// (e.g. YouTube), analytics or cookies, this policy must be updated.
+---
+
+<Base title="Datenschutzerklärung" description="Datenschutzerklärung / privacy policy of this website.">
+  <header class="page-header">
+    <p class="kicker">Legal</p>
+    <h1>Datenschutzerklärung</h1>
+    <p>
+      <em>English summary:</em> this website sets no cookies, uses no tracking or analytics and loads no third-party
+      content. It is hosted on GitHub Pages, which processes technical access data (such as IP addresses) in server logs.
+    </p>
+  </header>
+
+  <div class="prose prose-width">
+    <h2>1. Verantwortlicher</h2>
+    <p>
+      Verantwortlich für die Datenverarbeitung auf dieser Website im Sinne der Datenschutz-Grundverordnung (DSGVO) ist:<br />
+      {SITE.name}<br />
+      E-Mail: <a href={`mailto:${SITE.email}`}>{SITE.email}</a>
+    </p>
+
+    <h2>2. Hosting durch GitHub Pages</h2>
+    <p>
+      Diese Website wird über GitHub Pages bereitgestellt, einen Dienst der GitHub, Inc., 88 Colin P. Kelly Jr. Street,
+      San Francisco, CA 94107, USA. Beim Aufruf der Website verarbeitet GitHub technisch notwendige Zugriffsdaten
+      (sogenannte Server-Logfiles), insbesondere IP-Adresse, Datum und Uhrzeit des Zugriffs, aufgerufene Seite,
+      Referrer-URL sowie Browser- und Betriebssysteminformationen. Diese Daten sind erforderlich, um die Website
+      auszuliefern und ihre Sicherheit und Stabilität zu gewährleisten.
+    </p>
+    <p>
+      Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO; das berechtigte Interesse liegt in der sicheren und zuverlässigen
+      Bereitstellung dieser Website. Dabei können Daten in die USA übermittelt werden. GitHub ist nach dem
+      EU-U.S. Data Privacy Framework zertifiziert, für das ein Angemessenheitsbeschluss der Europäischen Kommission
+      (Art. 45 DSGVO) besteht. Ich selbst habe keinen Zugriff auf diese Logdaten. Weitere Informationen finden Sie in
+      der <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">Datenschutzerklärung von GitHub</a>.
+    </p>
+
+    <h2>3. Keine Cookies, kein Tracking</h2>
+    <p>
+      Diese Website setzt keine Cookies, speichert keine Informationen in Ihrem Browser und verwendet keine Analyse-,
+      Tracking- oder Werbedienste. Schriftarten, Bilder und Videos werden direkt von dieser Website ausgeliefert;
+      es werden keine Inhalte von Drittanbietern (z. B. Google Fonts oder YouTube) nachgeladen.
+    </p>
+
+    <h2>4. Kontakt per E-Mail</h2>
+    <p>
+      Wenn Sie mir eine E-Mail schreiben, verarbeite ich Ihre E-Mail-Adresse und die Inhalte Ihrer Nachricht, um Ihre
+      Anfrage zu beantworten. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO (Beantwortung von Anfragen) bzw.
+      Art. 6 Abs. 1 lit. b DSGVO, sofern Ihre Anfrage auf einen Vertrag oder vorvertragliche Maßnahmen gerichtet ist.
+      Die Daten werden gelöscht, sobald sie für diesen Zweck nicht mehr erforderlich sind und keine gesetzlichen
+      Aufbewahrungspflichten entgegenstehen.
+    </p>
+
+    <h2>5. Links zu externen Websites</h2>
+    <p>
+      Diese Website enthält Links zu externen Angeboten (z. B. GitHub, LinkedIn, ORCID, ResearchGate, Verlagsseiten).
+      Erst wenn Sie einen solchen Link anklicken, werden Daten an den jeweiligen Anbieter übertragen. Für die
+      Datenverarbeitung auf diesen Seiten ist der jeweilige Anbieter verantwortlich.
+    </p>
+
+    <h2>6. Ihre Rechte</h2>
+    <p>
+      Sie haben nach Maßgabe der DSGVO das Recht auf Auskunft (Art. 15), Berichtigung (Art. 16), Löschung (Art. 17),
+      Einschränkung der Verarbeitung (Art. 18), Datenübertragbarkeit (Art. 20) sowie das Recht, der Verarbeitung auf
+      Grundlage von Art. 6 Abs. 1 lit. f DSGVO zu widersprechen (Art. 21). Wenden Sie sich dazu einfach per E-Mail an mich.
+    </p>
+    <p>
+      Außerdem haben Sie das Recht, sich bei einer Datenschutz-Aufsichtsbehörde zu beschweren (Art. 77 DSGVO), z. B. bei
+      der <a href="https://www.ldi.nrw.de">Landesbeauftragten für Datenschutz und Informationsfreiheit Nordrhein-Westfalen</a>.
+    </p>
+
+    <p class="label">Stand: November 2026</p>
+  </div>
+</Base>

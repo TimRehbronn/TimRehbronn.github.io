@@ -1,18 +1,18 @@
 ---
 import Icon from './Icon.astro';
 import { SOCIALS } from '../config';
-interface Props { rss?: boolean; size?: number }
-const { rss = false, size = 16 } = Astro.props;
+interface Props { rss?: boolean; compact?: boolean }
+const { rss = false, compact = false } = Astro.props;
 const items = rss ? [...SOCIALS, { label: 'RSS', href: '/rss.xml', icon: 'rss' as const }] : SOCIALS;
 ---
 
-<ul class="socials">
+<ul class:list={['socials', { compact }]}>
   {
     items.map((s) => (
       <li>
-        <a href={s.href} rel={s.href.startsWith('http') ? 'me noopener' : undefined}>
-          <Icon name={s.icon} size={size} />
-          <span>{s.label}</span>
+        <a href={s.href} rel={s.href.startsWith('http') ? 'me noopener' : undefined} aria-label={compact ? s.label : undefined} title={s.label}>
+          <Icon name={s.icon} size={compact ? 15 : 14} />
+          {!compact && <span>{s.label}</span>}
         </a>
       </li>
     ))
@@ -20,8 +20,18 @@ const items = rss ? [...SOCIALS, { label: 'RSS', href: '/rss.xml', icon: 'rss' a
 </ul>
 
 <style>
-  .socials { display: flex; flex-wrap: wrap; gap: 0.4rem 1.1rem; padding: 0; margin: 0; list-style: none; font-size: 0.92rem; }
-  a { display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 500; color: var(--fg-soft); }
-  a:hover { color: var(--accent); text-decoration: none; }
-  a :global(.icon) { color: var(--accent); }
+  .socials { display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0; margin: 0; list-style: none; }
+  a {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    padding: 0.45rem 0.7rem; border: 1px solid var(--border-strong); border-radius: var(--radius);
+    font-family: var(--font-mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--fg); text-decoration: none; background: var(--bg);
+  }
+  a :global(.icon) { color: var(--fg-soft); transition: color 0.15s; }
+  a:hover { border-color: var(--accent); color: var(--accent); }
+  a:hover :global(.icon) { color: var(--accent); }
+  .compact { gap: 0.25rem; }
+  .compact a { border-color: transparent; padding: 0.4rem; background: transparent; }
+  .compact a :global(.icon) { color: var(--muted); }
+  .compact a:hover { border-color: var(--border-strong); }
 </style>

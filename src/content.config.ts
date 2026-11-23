@@ -17,6 +17,7 @@ const links = z
     data: z.string().optional(),
     press: z.string().optional(),
     paper: z.string().optional(),
+    website: z.string().optional(),
   })
   .default({});
 

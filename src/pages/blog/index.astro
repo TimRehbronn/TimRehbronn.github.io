@@ -21,6 +21,7 @@ const roadmap = [
 
 <Base title="Blog" description="Interactive explanations and notes.">
   <header class="page-header">
+    <p class="kicker">Learning blog</p>
     <h1>Blog</h1>
     <p>A learning blog on estimation and perception for autonomous systems — explained step by step, with interactive figures. <a href="/rss.xml">RSS</a></p>
   </header>
@@ -28,7 +29,13 @@ const roadmap = [
   <section class="section">
     <h2 class="section-title">Roadmap</h2>
     <ol class="roadmap">
-      {roadmap.map((r) => <li><strong>{r.title}</strong> <span class="muted">— {r.text}</span></li>)}
+      {roadmap.map((r, i) => (
+        <li class="panel">
+          <span class="label idx">{String(i + 1).padStart(2, '0')}</span>
+          <h3>{r.title}</h3>
+          <p>{r.text}</p>
+        </li>
+      ))}
     </ol>
   </section>
 
@@ -43,7 +50,7 @@ const roadmap = [
             .filter((p) => p.data.date.getFullYear() === year)
             .map((p) => (
               <li>
-                <time class="muted small" datetime={p.data.date.toISOString()}>{fmt.format(p.data.date)}</time>
+                <time class="label" datetime={p.data.date.toISOString()}>{fmt.format(p.data.date)}</time>
                 <div>
                   <a href={`/blog/${p.id}/`}>{p.data.title}</a>
                   {p.data.draft && <span class="tag">draft</span>}
@@ -58,10 +65,11 @@ const roadmap = [
 </Base>
 
 <style>
-  .roadmap { margin: 0; padding-left: 1.4rem; display: grid; gap: 0.45rem; }
-  .roadmap li::marker { color: var(--highlight); font-weight: 700; }
-  .roadmap li { padding-left: 0.3rem; }
-  .roadmap strong { font-weight: 600; }
+  .roadmap { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(17rem, 100%), 1fr)); gap: 0.75rem; }
+  .roadmap li { padding: 1.1rem 1.2rem; }
+  .roadmap .idx { color: var(--accent); }
+  .roadmap h3 { margin: 0.4rem 0 0.3rem; font-size: 1rem; }
+  .roadmap p { margin: 0; font-size: 0.9rem; }
   .posts { list-style: none; padding: 0; margin: 0; display: grid; gap: 1.1rem; }
   .posts li { display: grid; grid-template-columns: 4.5rem 1fr; gap: 1rem; }
   .posts li a { font-weight: 550; font-size: 1.05rem; }

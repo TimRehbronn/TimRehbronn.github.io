@@ -7,7 +7,6 @@ import NewsList from '../components/NewsList.astro';
 import SocialLinks from '../components/SocialLinks.astro';
 import { SITE, SOCIALS } from '../config';
 import { interests, current } from '../data/cv';
-import { emph } from '../lib/format';
 
 const selected = (await getCollection('publications', (p) => p.data.selected)).sort((a, b) => b.data.year - a.data.year);
 const featured = (await getCollection('projects', (p) => p.data.featured)).sort((a, b) => b.data.year - a.data.year).slice(0, 4);
@@ -31,25 +30,32 @@ const jsonLd = {
 
   <section class="hero">
     <div class="intro">
+      <p class="kicker"><span class="dot" aria-hidden="true"></span>{SITE.role} · {SITE.affiliationShort} · {SITE.location}</p>
       <h1>{SITE.name}</h1>
-      <p class="role">
-        {SITE.role} · {SITE.affiliationShort} · {SITE.location}
-      </p>
+      <p class="lead">Sensor fusion, navigation and perception for autonomous maritime systems.</p>
       <p>I'm a researcher and PhD candidate in the <a href="https://www.irt.rwth-aachen.de">Navigation Group at the Institute of Automatic Control (IRT)</a>, RWTH Aachen University, supervised by Prof. Heike Vallery. I design, deploy and field-validate <strong>state estimation and sensor fusion</strong> systems for autonomous platforms — mostly ships.</p>
-      <p>My work spans the whole chain from <strong>sensor calibration</strong> and <strong>GNSS/IMU navigation</strong> to <strong>LiDAR 3D object detection</strong>, <strong>multi-object tracking</strong> and trajectory prediction, running on real vessels. Before my PhD, I studied Electrical Engineering at RWTH Aachen (M.Sc. <strong>with distinction</strong>, Dean’s List) and worked on automated driving at Bosch and the Institute for Automotive Engineering (ika).</p>
+      <p>My work spans the whole chain from sensor calibration and GNSS/IMU navigation to LiDAR 3D object detection, multi-object tracking and trajectory prediction — running on real vessels. This has given me a <strong>broad overview of the field</strong>: I identify where existing systems fall short, turn those gaps into concrete solutions, implement them and evaluate them on real-world data. Alongside research, I lead the “Water” expert group of the innocam.NRW competence network and have supervised ten Bachelor’s and Master’s theses.</p>
+      <p>Before my PhD, I studied Electrical Engineering at RWTH Aachen (M.Sc. <strong>with distinction</strong>, Dean’s List) and worked on automated driving at Bosch and the Institute for Automotive Engineering (ika).</p>
       <SocialLinks />
     </div>
-    <img class="avatar" src={SITE.avatar} alt={`Portrait of ${SITE.name}`} width="176" height="176" />
+    <figure class="portrait">
+      <img src={SITE.avatar} alt={`Portrait of ${SITE.name}`} width="220" height="220" />
+      <figcaption class="label">Aachen, DE</figcaption>
+    </figure>
   </section>
 
   <section class="section">
     <h2 class="section-title">Currently working on</h2>
     <ol class="current">
       {
-        current.map((c) => (
-          <li>
-            <h3>{c.href ? <a href={c.href}>{c.title}</a> : c.title}</h3>
-            <p set:html={emph(c.text)} />
+        current.map((c, i) => (
+          <li class="panel">
+            <span class="idx label">{String(i + 1).padStart(2, '0')}</span>
+            <div>
+              <h3>{c.href ? <a href={c.href}>{c.title}</a> : c.title}</h3>
+              <p>{c.text}</p>
+              <ul class="tags">{c.tags.map((t) => <li class="tag">{t}</li>)}</ul>
+            </div>
           </li>
         ))
       }
@@ -59,7 +65,7 @@ const jsonLd = {
   <section class="section">
     <h2 class="section-title">Research interests</h2>
     <ul class="interests">
-      {interests.map((i) => <li><h3>{i.title}</h3><p>{i.text}</p></li>)}
+      {interests.map((i) => <li class="panel"><h3>{i.title}</h3><p>{i.text}</p></li>)}
     </ul>
   </section>
 
@@ -71,7 +77,7 @@ const jsonLd = {
   {
     selected.length > 0 && (
       <section class="section">
-        <h2 class="section-title">Selected publications <a href="/publications/">All publications →</a></h2>
+        <h2 class="section-title">Selected publications <a href="/publications/">All →</a></h2>
         {selected.map((pub) => <Publication pub={pub} />)}
       </section>
     )
@@ -80,7 +86,7 @@ const jsonLd = {
   {
     featured.length > 0 && (
       <section class="section">
-        <h2 class="section-title">Featured projects <a href="/projects/">All projects →</a></h2>
+        <h2 class="section-title">Featured projects <a href="/projects/">All →</a></h2>
         <div class="grid">{featured.map((p) => <ProjectCard project={p} />)}</div>
       </section>
     )
@@ -89,12 +95,12 @@ const jsonLd = {
   {
     posts.length > 0 && (
       <section class="section">
-        <h2 class="section-title">Writing <a href="/blog/">All posts →</a></h2>
+        <h2 class="section-title">Writing <a href="/blog/">All →</a></h2>
         <ul class="posts">
           {posts.map((p) => (
             <li>
               <a href={`/blog/${p.id}/`}>{p.data.title}</a>
-              <time class="muted small" datetime={p.data.date.toISOString()}>{fmt.format(p.data.date)}</time>
+              <time class="label" datetime={p.data.date.toISOString()}>{fmt.format(p.data.date)}</time>
             </li>
           ))}
         </ul>
@@ -104,33 +110,48 @@ const jsonLd = {
 </Base>
 
 <style>
-  .hero { display: grid; grid-template-columns: 1fr auto; gap: 2.5rem; align-items: start; margin: 3.5rem 0 1rem; }
-  h1 { margin: 0 0 0.25rem; font-size: 2.4rem; }
-  .role { color: var(--muted); margin-bottom: 1.25rem; }
-  .intro > p:not(.role) { color: var(--fg-soft); max-width: var(--w-text); }
-  .intro strong { color: var(--highlight); font-weight: 600; }
-  .avatar { width: 11rem; height: 11rem; border-radius: 50%; object-fit: cover; border: 1px solid var(--border); }
-  .interests { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(19rem, 100%), 1fr)); gap: 1rem; }
-  .interests li { padding: 1rem 1.1rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-soft); }
-  .interests li:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
-  .interests h3 { margin: 0 0 0.35rem; font-size: 1rem; }
-  .interests p { margin: 0; color: var(--fg-soft); font-size: 0.95rem; }
-  .current { list-style: none; padding: 0; margin: 0; display: grid; gap: 1.1rem; counter-reset: now; }
-  .current li { position: relative; padding-left: 2.4rem; counter-increment: now; }
-  .current li::before {
-    content: counter(now, decimal-leading-zero); position: absolute; left: 0; top: 0.1rem;
-    font-size: 0.8rem; font-weight: 700; color: var(--highlight); font-variant-numeric: tabular-nums;
+  .hero { position: relative; display: grid; grid-template-columns: 1fr auto; gap: 3rem; align-items: start; padding: 5rem 0 1rem; }
+  .hero::before {
+    content: ''; position: absolute; z-index: -1; pointer-events: none; inset: 0 -50vw -4rem;
+    background-image:
+      linear-gradient(to right, rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse 55% 75% at 50% 25%, #000 25%, transparent 75%);
   }
-  .current h3 { margin: 0 0 0.2rem; font-size: 1.02rem; }
-  .current h3 a { color: var(--fg); }
-  .current h3 a:hover { color: var(--accent); }
-  .current p { margin: 0; color: var(--fg-soft); font-size: 0.97rem; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(16rem, 100%), 1fr)); gap: 1rem; }
-  .posts { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.6rem; }
+  .kicker { display: flex; align-items: center; gap: 0.6rem; margin: 0 0 1.25rem; }
+  .dot { width: 7px; height: 7px; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+  h1 { margin: 0 0 0.75rem; }
+  .lead { font-size: 1.2rem; color: var(--fg); letter-spacing: -0.01em; margin-bottom: 1.75rem; max-width: 34rem; }
+  .intro > p:not(.kicker):not(.lead) { max-width: var(--w-text); }
+  .intro :global(.socials) { margin-top: 1.75rem; }
+
+  .portrait { margin: 0.5rem 0 0; position: relative; padding: 8px; border: 1px solid var(--border-strong); }
+  .portrait img { width: 13rem; height: 13rem; object-fit: cover; }
+  .portrait::before, .portrait::after { content: ''; position: absolute; width: 12px; height: 12px; border: 2px solid var(--accent); }
+  .portrait::before { top: -2px; left: -2px; border-right: 0; border-bottom: 0; }
+  .portrait::after { bottom: -2px; right: -2px; border-left: 0; border-top: 0; }
+  .portrait figcaption { margin-top: 0.5rem; display: flex; justify-content: space-between; }
+
+  .current { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.75rem; }
+  .current > li { display: grid; grid-template-columns: 2.5rem 1fr; gap: 0.5rem; padding: 1.25rem 1.25rem 1.25rem 1rem; }
+  .current .idx { color: var(--accent); padding-top: 0.2rem; }
+  .current h3 { margin: 0 0 0.35rem; }
+  .current h3 a { text-decoration: none; }
+  .current p { margin: 0 0 0.75rem; }
+
+  .interests { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(22rem, 100%), 1fr)); gap: 0.75rem; }
+  .interests li { padding: 1.25rem; }
+  .interests h3 { margin: 0 0 0.5rem; }
+  .interests p { margin: 0; font-size: 0.95rem; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(17rem, 100%), 1fr)); gap: 0.75rem; }
+  .posts { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.75rem; }
   .posts li { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; flex-wrap: wrap; }
-  @media (max-width: 640px) {
-    .hero { grid-template-columns: 1fr; gap: 1.5rem; margin-top: 2rem; }
-    .avatar { order: -1; width: 7rem; height: 7rem; }
-    h1 { font-size: 2rem; }
+
+  @media (max-width: 760px) {
+    .hero { grid-template-columns: 1fr; gap: 2rem; padding-top: 2.5rem; }
+    .portrait { order: -1; width: fit-content; }
+    .portrait img { width: 8rem; height: 8rem; }
   }
 </style>

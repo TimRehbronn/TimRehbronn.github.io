@@ -18,6 +18,7 @@ const lists = [
 <Base title="CV" description={`Curriculum vitae of ${SITE.name}.`}>
   <header class="page-header head">
     <div>
+      <p class="kicker">Résumé</p>
       <h1>Curriculum Vitae</h1>
       <p>{SITE.role} · {SITE.affiliation} · {SITE.location}</p>
     </div>
@@ -36,7 +37,7 @@ const lists = [
           <ol class="entries">
             {s.items.map((e) => (
               <li>
-                <span class="when muted small">
+                <span class="when label">
                   {e.start}
                   {e.end !== e.start && <> – {e.end ?? 'present'}</>}
                 </span>
@@ -64,7 +65,7 @@ const lists = [
           <ol class="entries">
             {l.items.map((a) => (
               <li>
-                <span class="when muted small">{a.year}</span>
+                <span class="when label">{a.year}</span>
                 <div>
                   <h3>{a.url ? <a href={a.url} set:html={emph(a.title)} /> : <span set:html={emph(a.title)} />}</h3>
                   {a.detail && <p class="org" set:html={emph(a.detail)} />}
@@ -79,25 +80,31 @@ const lists = [
   <section class="section">
     <h2 class="section-title">Skills</h2>
     <dl class="skills">
-      {skills.map((s) => <><dt>{s.group}</dt><dd>{s.items.join(' · ')}</dd></>)}
+      {skills.map((s) => <><dt class="label">{s.group}</dt><dd>{s.items.join(' · ')}</dd></>)}
     </dl>
   </section>
 
-  <p class="muted small">Publications are listed on the <a href="/publications/">publications page</a>.</p>
+  <p class="small muted">Publications are listed on the <a href="/publications/">publications page</a>.</p>
 </Base>
 
 <style>
   .head { display: flex; justify-content: space-between; align-items: end; gap: 1.5rem; flex-wrap: wrap; }
   .actions { display: flex; gap: 0.5rem; }
-  .entries { list-style: none; padding: 0; margin: 0; display: grid; gap: 1.25rem; }
-  .entries > li { display: grid; grid-template-columns: 8rem 1fr; gap: 1rem; }
-  .when { padding-top: 0.15rem; font-variant-numeric: tabular-nums; }
-  h3 { margin: 0; font-size: 1rem; }
-  .org { margin: 0; color: var(--fg-soft); font-size: 0.95rem; }
-  .entries ul { margin: 0.35rem 0 0; padding-left: 1.1rem; font-size: 0.95rem; color: var(--fg-soft); }
-  .skills { display: grid; grid-template-columns: 8rem 1fr; gap: 0.5rem 1rem; margin: 0; }
-  dt { color: var(--muted); font-size: 0.9rem; padding-top: 0.1rem; }
-  dd { margin: 0; }
+  .entries { list-style: none; padding: 0; margin: 0; }
+  .entries > li { display: grid; grid-template-columns: 9rem 1fr; gap: 1.25rem; padding: 1.25rem 0; border-top: 1px solid var(--border); }
+  .entries > li:first-child, .skills dt:first-of-type, .skills dt:first-of-type + dd { border-top: 0; padding-top: 0; }
+  .when { padding-top: 0.2rem; }
+  h3 { margin: 0 0 0.2rem; font-size: 1rem; }
+  h3 a { text-decoration: none; }
+  .org { margin: 0; color: var(--fg-soft); font-size: 0.92rem; }
+  .org a { color: var(--fg-soft); }
+  .entries ul { margin: 0.6rem 0 0; padding-left: 1rem; font-size: 0.92rem; }
+  .entries ul li { margin: 0.25rem 0; }
+  .entries ul li::marker { content: '— '; color: var(--border-strong); }
+  .skills { display: grid; grid-template-columns: 9rem 1fr; gap: 0; margin: 0; }
+  dt, dd { padding: 0.75rem 0; border-top: 1px solid var(--border); }
+  dt { padding-top: 0.95rem; }
+  dd { margin: 0; color: var(--fg); font-size: 0.95rem; }
   @media (max-width: 560px) {
     .entries > li, .skills { grid-template-columns: 1fr; gap: 0.15rem; }
   }

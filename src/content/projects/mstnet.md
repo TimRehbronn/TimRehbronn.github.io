@@ -5,7 +5,7 @@ year: 2026
 status: active
 featured: true
 tags: [3D object detection, self-supervised learning, LiDAR, PyTorch]
-image: /images/publications/mstnet.png
+image: /images/publications/mstnet.svg
 links:
   code: https://github.com/rwth-irt/mstnet
   data: https://doi.org/10.5281/zenodo.22825184
