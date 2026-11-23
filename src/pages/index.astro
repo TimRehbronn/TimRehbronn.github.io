@@ -4,6 +4,7 @@ import Base from '../layouts/Base.astro';
 import Publication from '../components/Publication.astro';
 import ProjectCard from '../components/ProjectCard.astro';
 import NewsList from '../components/NewsList.astro';
+import SocialLinks from '../components/SocialLinks.astro';
 import { SITE, SOCIALS } from '../config';
 import { interests } from '../data/cv';
 
@@ -19,6 +20,7 @@ const jsonLd = {
   jobTitle: SITE.role,
   affiliation: SITE.affiliation,
   url: Astro.site?.toString(),
+  identifier: 'https://orcid.org/0009-0009-5241-2588',
   sameAs: SOCIALS.filter((s) => s.href.startsWith('http')).map((s) => s.href),
 };
 ---
@@ -30,12 +32,11 @@ const jsonLd = {
     <div class="intro">
       <h1>{SITE.name}</h1>
       <p class="role">
-        {SITE.role} · {SITE.affiliationUrl ? <a href={SITE.affiliationUrl}>{SITE.affiliation}</a> : SITE.affiliation}
+        {SITE.role} · {SITE.affiliationShort} · {SITE.location}
       </p>
-      <!-- TODO: write 2–4 sentences about yourself. Lead with what you work on and why. -->
-      <p>I'm a researcher and engineer interested in <strong>[your field]</strong>. My work focuses on <strong>[core problem]</strong> — building <strong>[methods / systems]</strong> that <strong>[impact]</strong>.</p>
-      <p>Previously, I [studied / worked] at [place]. I also make <a href="/videos/">videos</a> and write <a href="/blog/">interactive explanations</a> about ideas I find beautiful.</p>
-      <ul class="link-row">{SOCIALS.map((s) => <li><a href={s.href}>{s.label}</a></li>)}</ul>
+      <p>I'm a PhD candidate in the <a href="https://www.irt.rwth-aachen.de">Navigation Group at the Institute of Automatic Control (IRT)</a>, RWTH Aachen University, supervised by Prof. Heike Vallery. I design, deploy and field-validate <strong>state estimation and sensor fusion</strong> systems for autonomous platforms — mostly ships.</p>
+      <p>My work spans the whole chain from <strong>sensor calibration</strong> and <strong>GNSS/IMU navigation</strong> to <strong>LiDAR 3D object detection</strong>, <strong>multi-object tracking</strong> and trajectory prediction, running on real vessels. Before my PhD, I studied Electrical Engineering at RWTH Aachen (M.Sc. with distinction) and worked on automated driving at Bosch and the Institute for Automotive Engineering (ika).</p>
+      <SocialLinks />
     </div>
     <img class="avatar" src={SITE.avatar} alt={`Portrait of ${SITE.name}`} width="176" height="176" />
   </section>
@@ -94,8 +95,9 @@ const jsonLd = {
   .intro > p:not(.role) { color: var(--fg-soft); max-width: var(--w-text); }
   .intro strong { color: var(--fg); font-weight: 600; }
   .avatar { width: 11rem; height: 11rem; border-radius: 50%; object-fit: cover; border: 1px solid var(--border); }
-  .interests { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr)); gap: 1rem; }
+  .interests { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(19rem, 100%), 1fr)); gap: 1rem; }
   .interests li { padding: 1rem 1.1rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-soft); }
+  .interests li:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
   .interests h3 { margin: 0 0 0.35rem; font-size: 1rem; }
   .interests p { margin: 0; color: var(--fg-soft); font-size: 0.95rem; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(16rem, 100%), 1fr)); gap: 1rem; }

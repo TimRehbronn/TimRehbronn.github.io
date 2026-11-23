@@ -1,15 +1,13 @@
 ---
-import { SITE, SOCIALS } from '../config';
+import { SITE } from '../config';
+import SocialLinks from './SocialLinks.astro';
 const year = new Date().getFullYear();
 ---
 
 <footer class="site-footer">
   <div class="container inner">
     <p>© {year} {SITE.name}</p>
-    <ul class="link-row">
-      {SOCIALS.map((s) => <li><a href={s.href}>{s.label}</a></li>)}
-      <li><a href="/rss.xml">RSS</a></li>
-    </ul>
+    <SocialLinks rss size={14} />
   </div>
 </footer>
 

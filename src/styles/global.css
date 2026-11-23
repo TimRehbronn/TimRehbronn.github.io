@@ -1,14 +1,16 @@
 /* ---------- Design tokens ---------- */
+/* Black theme — the site is dark-only. Tweak colors here. */
 :root {
-  --bg: #fdfdfc;
-  --bg-soft: #f4f4f1;
-  --fg: #1c1c1a;
-  --fg-soft: #45453f;
-  --muted: #74746c;
-  --border: #e3e3dd;
-  --accent: #1f5fbf;
-  --accent-soft: #e6eefa;
-  --highlight: #fff4c2;
+  --bg: #000000;
+  --bg-soft: #0b0b0c;
+  --bg-elev: #111113;
+  --fg: #ededed;
+  --fg-soft: #b8b8b8;
+  --muted: #828282;
+  --border: #232326;
+  --accent: #5cb8ff;
+  --accent-soft: #0b2436;
+  --highlight: #3a3212;
 
   --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-serif: 'Iowan Old Style', 'Charter', 'Bitstream Charter', 'Sitka Text', Cambria, Georgia, serif;
@@ -17,19 +19,6 @@
   --w-text: 42rem;
   --w-wide: 56rem;
   --radius: 10px;
-  color-scheme: light;
-}
-
-:root[data-theme='dark'] {
-  --bg: #141413;
-  --bg-soft: #1e1e1c;
-  --fg: #ecece8;
-  --fg-soft: #c4c4bd;
-  --muted: #9a9a92;
-  --border: #2f2f2c;
-  --accent: #7fb0ff;
-  --accent-soft: #1c2a40;
-  --highlight: #4a3f12;
   color-scheme: dark;
 }
 
@@ -67,6 +56,7 @@ a {
   text-underline-offset: 0.18em;
 }
 a:hover { text-decoration: underline; }
+::selection { background: var(--accent-soft); color: var(--fg); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
 
 h1, h2, h3, h4 { line-height: 1.25; letter-spacing: -0.01em; margin: 2rem 0 0.75rem; }
@@ -81,12 +71,8 @@ code, pre, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 :not(pre) > code { background: var(--bg-soft); border: 1px solid var(--border); padding: 0.1em 0.35em; border-radius: 5px; }
 pre { padding: 1rem 1.1rem; border-radius: var(--radius); overflow-x: auto; border: 1px solid var(--border); line-height: 1.5; }
 
-/* Shiki dual theme */
-:root[data-theme='dark'] .astro-code,
-:root[data-theme='dark'] .astro-code span {
-  color: var(--shiki-dark) !important;
-  background-color: var(--shiki-dark-bg) !important;
-}
+/* Code blocks sit on the soft surface instead of the theme's own background */
+.astro-code { background-color: var(--bg-soft) !important; }
 
 .skip-link { position: absolute; left: -999px; top: 0; }
 .skip-link:focus { left: 1rem; top: 1rem; background: var(--bg); padding: 0.5rem 0.75rem; z-index: 10; }

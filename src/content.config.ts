@@ -13,6 +13,9 @@ const links = z
     video: z.string().optional(),
     slides: z.string().optional(),
     poster: z.string().optional(),
+    data: z.string().optional(),
+    press: z.string().optional(),
+    paper: z.string().optional(),
   })
   .default({});
 

@@ -1,12 +1,16 @@
 ---
 import Base from '../layouts/Base.astro';
 import { SITE } from '../config';
-import { education, experience, awards, teaching, skills, type CvEntry } from '../data/cv';
+import { education, experience, service, awards, schools, skills, type CvEntry } from '../data/cv';
 
 const sections: { title: string; items: CvEntry[] }[] = [
   { title: 'Experience', items: experience },
   { title: 'Education', items: education },
-  { title: 'Teaching', items: teaching },
+  { title: 'Service, Teaching & Supervision', items: service },
+];
+const lists = [
+  { title: 'Awards', items: awards },
+  { title: 'Schools & Trainings', items: schools },
 ];
 ---
 
@@ -17,8 +21,8 @@ const sections: { title: string; items: CvEntry[] }[] = [
       <p>{SITE.role} · {SITE.affiliation} · {SITE.location}</p>
     </div>
     <div class="actions no-print">
-      <a class="btn btn-primary" href={SITE.cvPdf}>Download PDF</a>
-      <button class="btn" type="button" onclick="window.print()">Print</button>
+      {SITE.cvPdf && <a class="btn btn-primary" href={SITE.cvPdf}>Download PDF</a>}
+      <button class="btn" type="button" onclick="window.print()">Print / Save as PDF</button>
     </div>
   </header>
 
@@ -51,22 +55,24 @@ const sections: { title: string; items: CvEntry[] }[] = [
   }
 
   {
-    awards.length > 0 && (
-      <section class="section">
-        <h2 class="section-title">Awards &amp; Scholarships</h2>
-        <ol class="entries">
-          {awards.map((a) => (
-            <li>
-              <span class="when muted small">{a.year}</span>
-              <div>
-                <h3>{a.title}</h3>
-                {a.detail && <p class="org muted">{a.detail}</p>}
-              </div>
-            </li>
-          ))}
-        </ol>
-      </section>
-    )
+    lists
+      .filter((l) => l.items.length > 0)
+      .map((l) => (
+        <section class="section">
+          <h2 class="section-title">{l.title}</h2>
+          <ol class="entries">
+            {l.items.map((a) => (
+              <li>
+                <span class="when muted small">{a.year}</span>
+                <div>
+                  <h3>{a.url ? <a href={a.url}>{a.title}</a> : a.title}</h3>
+                  {a.detail && <p class="org">{a.detail}</p>}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ))
   }
 
   <section class="section">

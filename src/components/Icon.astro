@@ -1,0 +1,61 @@
+---
+// Inline SVG icons. Brand icons come from Simple Icons (CC0, https://simpleicons.org);
+// LinkedIn is not part of Simple Icons, so a simple drawn variant is used.
+import { siGithub, siOrcid, siResearchgate, siRss, siYoutube } from 'simple-icons';
+import type { IconName } from '../config';
+
+interface Props { name: IconName; size?: number }
+const { name, size = 16 } = Astro.props;
+
+const brand: Partial<Record<IconName, string>> = {
+  github: siGithub.path,
+  orcid: siOrcid.path,
+  researchgate: siResearchgate.path,
+  rss: siRss.path,
+  youtube: siYoutube.path,
+};
+---
+
+<svg class="icon" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  {brand[name] && <path fill="currentColor" d={brand[name]} />}
+  {
+    name === 'linkedin' && (
+      <>
+        <rect x="1" y="1" width="22" height="22" rx="3.5" fill="currentColor" />
+        <g fill="var(--bg, #000)">
+          <rect x="5" y="9.5" width="3" height="9" />
+          <circle cx="6.5" cy="6.4" r="1.75" />
+          <path d="M10.5 9.5h2.9v1.3c.5-.9 1.6-1.6 3.1-1.6 2.6 0 3.5 1.6 3.5 4.2v5.1h-3v-4.5c0-1.2-.3-2.1-1.5-2.1s-1.9.9-1.9 2.1v4.5h-3.1z" />
+        </g>
+      </>
+    )
+  }
+  {
+    name === 'email' && (
+      <g fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+        <rect x="2.5" y="4.5" width="19" height="15" rx="2.5" />
+        <path d="m3.5 6.5 8.5 6.5 8.5-6.5" />
+      </g>
+    )
+  }
+  {
+    name === 'cv' && (
+      <g fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round">
+        <path d="M14 2.5H6.5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V8z" />
+        <path d="M14 2.5V8h5.5M8.5 13h7M8.5 17h5" />
+      </g>
+    )
+  }
+  {
+    name === 'link' && (
+      <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M10 14a4.5 4.5 0 0 0 6.4 0l3.2-3.2a4.5 4.5 0 0 0-6.4-6.4L12 5.6" />
+        <path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3.2 3.2a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2" />
+      </g>
+    )
+  }
+</svg>
+
+<style>
+  .icon { display: inline-block; flex: none; vertical-align: -0.15em; }
+</style>

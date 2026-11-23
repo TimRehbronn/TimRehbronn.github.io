@@ -1,39 +1,143 @@
-# Publications — one entry per paper, newest first is not required (sorted automatically).
+# Publications — sorted automatically by year.
 # `selected: true` shows the paper on the home page.
-# All entries below are PLACEHOLDERS — replace them with your own.
+# Thumbnails live in public/images/publications/. Without a thumbnail, a venue tile is shown.
 
-- id: rehbronn2026example
-  title: "An Example Paper Title That Describes the Main Contribution"
-  authors: [Tim Rehbronn, Jane Doe, John Smith]
-  venue: "Proceedings of an Example Conference"
-  venueShort: "EXCONF 2026"
+- id: rehbronn2026simplec
+  title: "SIMPLE-C: Multi-LiDAR Extrinsic Calibration using a Simple Moving Reflective Target in Feature-Sparse Maritime Environments"
+  authors: [Tim Rehbronn, Max Viehl, Heike Vallery, Tim Reuscher]
+  venue: "Journal of Intelligent & Robotic Systems, vol. 112, no. 4, art. 110"
+  venueShort: "J. Intell. Robot. Syst."
   year: 2026
-  type: conference
+  type: journal
   selected: true
-  note: "Oral presentation"
-  thumbnail: /images/publications/placeholder.svg
+  thumbnail: /images/publications/simple-c.png
   abstract: >-
-    One or two sentences that summarise the problem, the idea and the main result.
-    This text is shown when a visitor expands the abstract.
+    Multi-LiDAR sensor configurations enhance perception for autonomous tasks in robotics compared to single
+    sensors, but they require precise extrinsic calibration. Existing methods often depend on moving the platform
+    or feature-rich environments, making them impractical in extremely sparse maritime settings where water
+    surfaces yield unreliable LiDAR returns and vessels are expensive to move. This paper presents a practical tool
+    for extrinsic online calibration of multiple synchronized LiDARs in such environments called SIMPLE-C. Our
+    pragmatic approach detects a highly reflective target by combining intensity threshold and spatial clustering
+    with backtracking and filtering. Singular Value Decomposition solves the extrinsics for closed-form point cloud
+    registration. This enables calibration with arbitrary reflective objects like plastic lids with reflective tape
+    or even conventional warning vests within the overlapping field of view. Adaptive outlier rejection and
+    calibration weights enhance robustness. Our approach operates in real time and is quasi-invariant to target
+    dimension or shape, and does not require target-specific geometric calculations, manual transformation inputs
+    or additional sensors. Experiments demonstrate a pairwise calibration accuracy of 5 cm translational and 0.3°
+    rotational Root Mean Square Error (RMSE) averaged on sparse water scenarios. On land-based scenarios, we achieve
+    translational accuracy of 3 cm (RMSE). A comparison with state-of-the-art methods, including ICP variants,
+    GMMCalib, CROON, and Fast Global Registration, consistently yields superior results improving translational
+    error by up to 47 % specifically on the water side while achieving similar rotational errors. The code and
+    dataset are publicly available.
   links:
-    pdf: "#"
-    arxiv: "#"
-    code: "#"
+    doi: "https://doi.org/10.1007/s10846-026-02486-7"
+    code: "https://github.com/rwth-irt/SIMPLE-C"
+    data: "https://doi.org/10.5281/zenodo.13968727"
   bibtex: |
-    @inproceedings{rehbronn2026example,
-      title     = {An Example Paper Title That Describes the Main Contribution},
-      author    = {Rehbronn, Tim and Doe, Jane and Smith, John},
-      booktitle = {Proceedings of an Example Conference},
-      year      = {2026}
+    @article{rehbronn2026simplec,
+      title   = {{SIMPLE-C}: Multi-{LiDAR} Extrinsic Calibration using a Simple Moving Reflective Target in Feature-Sparse Maritime Environments},
+      author  = {Rehbronn, Tim and Viehl, Max and Vallery, Heike and Reuscher, Tim},
+      journal = {Journal of Intelligent \& Robotic Systems},
+      volume  = {112},
+      number  = {4},
+      pages   = {110},
+      year    = {2026},
+      doi     = {10.1007/s10846-026-02486-7}
     }
 
-- id: doe2025preprint
-  title: "A Second Placeholder: Preprint on Something Interesting"
-  authors: [Jane Doe, Tim Rehbronn]
-  venue: "arXiv preprint"
-  year: 2025
+- id: rehbronn2026mstnet
+  title: "MSTNet: Label-Efficient Maritime 3D LiDAR Object Detection by Self-Supervised Pretraining"
+  authors: [Tim Rehbronn, Laurens Keuker, Chih-Chun Chen, Christopher Schulte, Heike Vallery]
+  venue: "Manuscript in internal review; target venue: Journal of Intelligent & Robotic Systems"
+  venueShort: "Manuscript in preparation"
+  note: "Target: J. Intell. Robot. Syst."
+  year: 2026
   type: preprint
-  selected: false
-  thumbnail: /images/publications/placeholder.svg
+  selected: true
+  thumbnail: /images/publications/mstnet.png
   links:
-    arxiv: "#"
+    code: "https://github.com/rwth-irt/mstnet"
+    data: "https://doi.org/10.5281/zenodo.22825184"
+  bibtex: |
+    @misc{rehbronn2026mstnet,
+      title  = {{MSTNet}: Label-Efficient Maritime {3D} {LiDAR} Object Detection by Self-Supervised Pretraining},
+      author = {Rehbronn, Tim and Keuker, Laurens and Chen, Chih-Chun and Schulte, Christopher and Vallery, Heike},
+      year   = {2026}
+    }
+
+- id: eisenblaetter2025maneuvering
+  title: "Automated Maneuvering of Networked Vessels in Confined Waters"
+  authors: [Nick Eisenblätter, Tim Rehbronn, Martin Kurowski, David Benz, Heike Vallery, Torsten Jeinsch]
+  venue: "Journal of Physics: Conference Series, vol. 3123, 012020 (ICMASS 2025, Hamburg)"
+  venueShort: "ICMASS 2025"
+  year: 2025
+  type: conference
+  selected: true
+  abstract: >-
+    Maritime Autonomous Surface Ships technology has made substantial progress in recent years, yet challenges
+    remain in safety-critical scenarios such as maneuvering through congested, constrained waterways like ports.
+    This contribution presents an architecture for automated, networked, and cooperative maneuvering of multiple
+    vessels with two core modules: cooperative perception and centralized collision avoidance planning. The
+    environmental perception module combines LiDAR, radar, and GNSS-based navigation to enable accurate
+    self-localization and robust object detection. Its cooperative multi-object tracking fuses onboard detections
+    with AIS data and observations from other vessels. The module distinguishes between static and dynamic
+    obstacles and feeds the shapes as convex polygons to the centralized collision avoidance planning module. The
+    planning module uses optimal control to compute collision-free trajectories under geometric constraints.
+    Cooperative maneuver planning addresses complex right-of-way situations by prioritizing and decomposing
+    maneuvers into sequential sub-scenarios, with local control systems guiding individual vessels. We evaluate the
+    approach experimentally in a maneuvering scenario in the port of Rostock involving two on-site and one simulated
+    vessel. One of them is the 52m-long automated research vessel Deneb equipped with advanced sensors, which
+    exchanges state and object information via conventional communication links. Results demonstrate the reliable
+    localization of static and dynamic objects as well as collision-free automated maneuver execution. This
+    cooperative behavior is an important step towards safe mixed traffic, including non-networked vessels.
+  links:
+    pdf: "https://publications.rwth-aachen.de/record/1019980"
+    doi: "https://doi.org/10.1088/1742-6596/3123/1/012020"
+  bibtex: |
+    @inproceedings{eisenblaetter2025maneuvering,
+      title     = {Automated Maneuvering of Networked Vessels in Confined Waters},
+      author    = {Eisenbl{\"a}tter, Nick and Rehbronn, Tim and Kurowski, Martin and Benz, David and Vallery, Heike and Jeinsch, Torsten},
+      booktitle = {Journal of Physics: Conference Series},
+      volume    = {3123},
+      number    = {1},
+      pages     = {012020},
+      year      = {2025},
+      doi       = {10.1088/1742-6596/3123/1/012020}
+    }
+
+- id: vankempen2023offset
+  title: "Enhancing Lidar-Based Object Detection in Adverse Weather Using Offset Sequences in Time"
+  authors: [Raphael van Kempen, Tim Rehbronn, Abin Jose, Johannes Stegmaier, Bastian Lampe, Timo Woopen, Lutz Eckstein]
+  venue: "2023 International Conference on Electrical, Computer and Energy Technologies (ICECET), Cape Town, South Africa, pp. 1–6"
+  venueShort: "IEEE ICECET 2023"
+  year: 2023
+  type: conference
+  selected: false
+  note: "Master's thesis"
+  abstract: >-
+    Automated vehicles require an accurate perception of their surroundings for safe and efficient driving.
+    Lidar-based object detection is a widely used method for environment perception, but its performance is
+    significantly affected by adverse weather conditions such as rain and fog. In this work, we investigate various
+    strategies for enhancing the robustness of lidar-based object detection by processing sequential data samples
+    generated by lidar sensors. Our approaches leverage temporal information to improve a lidar object detection
+    model, without the need for additional filtering or pre-processing steps. We compare 10 different neural network
+    architectures that process point cloud sequences including a novel augmentation strategy introducing a temporal
+    offset between frames of a sequence during training and evaluate the effectiveness of all strategies on lidar
+    point clouds under adverse weather conditions through experiments. Our research provides a comprehensive study of
+    effective methods for mitigating the effects of adverse weather on the reliability of lidar-based object
+    detection using sequential data that are evaluated using public datasets such as nuScenes, Dense, and the
+    Canadian Adverse Driving Conditions Dataset. Our findings demonstrate that our novel method, involving temporal
+    offset augmentation through randomized frame skipping in sequences, enhances object detection accuracy compared
+    to both the baseline model (Pillar-based Object Detection) and no augmentation.
+  links:
+    doi: "https://doi.org/10.1109/ICECET58911.2023.10389489"
+    arxiv: "https://arxiv.org/abs/2401.09049"
+  bibtex: |
+    @inproceedings{vankempen2023offset,
+      title     = {Enhancing Lidar-Based Object Detection in Adverse Weather Using Offset Sequences in Time},
+      author    = {van Kempen, Raphael and Rehbronn, Tim and Jose, Abin and Stegmaier, Johannes and Lampe, Bastian and Woopen, Timo and Eckstein, Lutz},
+      booktitle = {2023 International Conference on Electrical, Computer and Energy Technologies (ICECET)},
+      pages     = {1--6},
+      year      = {2023},
+      doi       = {10.1109/ICECET58911.2023.10389489}
+    }

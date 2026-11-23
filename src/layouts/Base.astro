@@ -18,7 +18,7 @@ const ogImage = new URL(image, Astro.site);
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -38,15 +38,8 @@ const ogImage = new URL(image, Astro.site);
     <meta property="og:image" content={ogImage} />
     <meta name="twitter:card" content="summary_large_image" />
 
-    <!-- Set theme before paint to avoid a flash of the wrong theme. -->
-    <script is:inline>
-      (() => {
-        let stored = null;
-        try { stored = localStorage.getItem('theme'); } catch {}
-        const system = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-        document.documentElement.dataset.theme = stored || system;
-      })();
-    </script>
+    <meta name="theme-color" content="#000000" />
+    <meta name="color-scheme" content="dark" />
     <slot name="head" />
   </head>
   <body>

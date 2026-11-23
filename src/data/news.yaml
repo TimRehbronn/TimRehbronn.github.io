@@ -1,11 +1,30 @@
 # Short news items shown on the home page (newest first, top 6).
-# PLACEHOLDERS — replace with your own.
 
-- id: "2026-11-website"
-  date: 2026-11-23
-  text: "Launched this website."
+- id: "2026-11-simplec"
+  date: 2026-11-11
+  text: "SIMPLE-C, our multi-LiDAR calibration tool for feature-sparse maritime environments, is published in the Journal of Intelligent & Robotic Systems."
+  link: https://doi.org/10.1007/s10846-026-02486-7
 
-- id: "2026-06-paper"
-  date: 2026-06-15
-  text: "Our paper “An Example Paper Title” was accepted at EXCONF 2026."
-  link: /publications/
+- id: "2026-09-mstnet"
+  date: 2026-09-18
+  text: "Released the code for MSTNet — label-efficient maritime 3D LiDAR object detection via self-supervised pretraining (manuscript in preparation)."
+  link: https://github.com/rwth-irt/mstnet
+
+- id: "2025-10-icmass"
+  date: 2025-10-08
+  text: "Our work on automated maneuvering of networked vessels in the port of Rostock appeared at ICMASS 2025 in Hamburg."
+  link: https://doi.org/10.1088/1742-6596/3123/1/012020
+
+- id: "2025-07-navigate"
+  date: 2025-07-07
+  text: "Attended the NAVIGATE Graduate School 2025 on connected autonomous vehicles and intelligent transportation systems at TU Delft."
+  link: https://www.tudelft.nl/2025/me/nieuws/navigate-summer-school-2025-teaching-innovation-in-autonomous-transport
+
+- id: "2023-11-icecet"
+  date: 2023-11-16
+  text: "Our paper on LiDAR object detection in adverse weather, based on my Master's thesis, was presented at IEEE ICECET 2023 in Cape Town."
+  link: https://doi.org/10.1109/ICECET58911.2023.10389489
+
+- id: "2023-10-phd"
+  date: 2023-10-01
+  text: "Started my PhD in the Navigation Group at the Institute of Automatic Control, RWTH Aachen University."

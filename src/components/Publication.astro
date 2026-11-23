@@ -8,13 +8,23 @@ const p = pub.data;
 
 const labels: Record<string, string> = {
   pdf: 'PDF', arxiv: 'arXiv', doi: 'DOI', code: 'Code', project: 'Project page',
-  demo: 'Demo', video: 'Video', slides: 'Slides', poster: 'Poster',
+  demo: 'Demo', video: 'Video', slides: 'Slides', poster: 'Poster', data: 'Data', press: 'Press', paper: 'Paper',
 };
+const tile = p.venueShort ?? p.type;
 const links = Object.entries(p.links).filter(([, v]) => v) as [string, string][];
 ---
 
-<article class:list={['pub', { 'no-thumb': !showThumb || !p.thumbnail }]} id={pub.id}>
-  {showThumb && p.thumbnail && <img class="thumb" src={p.thumbnail} alt="" loading="lazy" />}
+<article class:list={['pub', { 'no-thumb': !showThumb }]} id={pub.id}>
+  {
+    showThumb &&
+      (p.thumbnail ? (
+        <img class="thumb" src={p.thumbnail} alt="" loading="lazy" />
+      ) : (
+        <div class="thumb tile" aria-hidden="true">
+          <span>{tile}</span>
+        </div>
+      ))
+  }
   <div class="body">
     <h3 class="title">{p.title}</h3>
     <div class="meta"><Authors authors={p.authors} /></div>
@@ -66,6 +76,11 @@ const links = Object.entries(p.links).filter(([, v]) => v) as [string, string][]
   .pub:last-child { border-bottom: 0; }
   .pub.no-thumb { grid-template-columns: 1fr; }
   .thumb { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-soft); }
+  .tile {
+    display: grid; place-items: center; padding: 0.75rem; text-align: center;
+    background: radial-gradient(120% 90% at 0% 0%, var(--accent-soft), var(--bg-soft) 70%);
+    color: var(--fg-soft); font-weight: 600; font-size: 0.95rem; letter-spacing: 0.02em;
+  }
   .title { margin: 0 0 0.3rem; font-size: 1.02rem; line-height: 1.35; }
   .meta, .venue { font-size: 0.93rem; color: var(--fg-soft); }
   .venue { margin-bottom: 0.4rem; }
