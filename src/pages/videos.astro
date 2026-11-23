@@ -1,0 +1,44 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '../layouts/Base.astro';
+import YouTube from '../components/YouTube.astro';
+
+// Entries whose id starts with "example-" are placeholders and are not shown.
+const videos = (await getCollection('videos', (v) => !v.id.startsWith('example-'))).sort(
+  (a, b) => +b.data.date - +a.data.date,
+);
+const fmt = new Intl.DateTimeFormat('en', { month: 'short', year: 'numeric' });
+---
+
+<Base title="Videos" description="Talks, lectures and video explanations.">
+  <header class="page-header">
+    <h1>Videos</h1>
+    <p>Talks, lectures and visual explanations.</p>
+  </header>
+
+  {
+    videos.length === 0 ? (
+      <p class="empty">Videos are coming soon.</p>
+    ) : (
+      <div class="grid">
+        {videos.map((v) => (
+          <article>
+            <YouTube id={v.data.youtubeId} title={v.data.title} thumbnail={v.data.thumbnail} />
+            <h2>{v.data.title}</h2>
+            <p class="muted small">
+              <time datetime={v.data.date.toISOString()}>{fmt.format(v.data.date)}</time>
+            </p>
+            {v.data.description && <p class="desc">{v.data.description}</p>}
+          </article>
+        ))}
+      </div>
+    )
+  }
+</Base>
+
+<style>
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(18rem, 100%), 1fr)); gap: 2rem 1.5rem; }
+  h2 { font-size: 1.02rem; margin: 0.75rem 0 0.15rem; }
+  p { margin: 0 0 0.25rem; }
+  .desc { color: var(--fg-soft); font-size: 0.95rem; }
+</style>

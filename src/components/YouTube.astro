@@ -1,0 +1,41 @@
+---
+// Privacy-friendly YouTube embed: nothing is loaded from YouTube's player
+// until the visitor clicks. Pass a local `thumbnail` to avoid even the preview request.
+interface Props { id: string; title: string; thumbnail?: string }
+const { id, title, thumbnail } = Astro.props;
+const poster = thumbnail ?? `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+---
+
+<div class="yt" data-id={id} data-title={title}>
+  <button type="button" aria-label={`Play video: ${title}`}>
+    <img src={poster} alt="" loading="lazy" referrerpolicy="no-referrer" />
+    <span class="play" aria-hidden="true">
+      <svg viewBox="0 0 68 48" width="68" height="48"><path d="M66.5 7.7a8.5 8.5 0 0 0-6-6C55.2.3 34 .3 34 .3s-21.2 0-26.5 1.4a8.5 8.5 0 0 0-6 6C.1 13 .1 24 .1 24s0 11 1.4 16.3a8.5 8.5 0 0 0 6 6C12.8 47.7 34 47.7 34 47.7s21.2 0 26.5-1.4a8.5 8.5 0 0 0 6-6C67.9 35 67.9 24 67.9 24s0-11-1.4-16.3z" fill="#f00"/><path d="M45 24 27 14v20z" fill="#fff"/></svg>
+    </span>
+  </button>
+  <p class="consent">Playing loads the video from YouTube (youtube-nocookie.com).</p>
+</div>
+
+<script>
+  document.querySelectorAll<HTMLElement>('.yt').forEach((el) => {
+    el.querySelector('button')?.addEventListener('click', () => {
+      const iframe = document.createElement('iframe');
+      iframe.src = `https://www.youtube-nocookie.com/embed/${el.dataset.id}?autoplay=1&rel=0`;
+      iframe.title = el.dataset.title ?? 'YouTube video';
+      iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+      iframe.allowFullscreen = true;
+      el.replaceChildren(iframe);
+    });
+  });
+</script>
+
+<style>
+  .yt { position: relative; aspect-ratio: 16 / 9; border-radius: var(--radius); overflow: hidden; background: #000; }
+  .yt button { all: unset; cursor: pointer; display: block; width: 100%; height: 100%; position: relative; }
+  .yt button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .yt img { width: 100%; height: 100%; object-fit: cover; opacity: 0.9; transition: opacity 0.15s; }
+  .yt button:hover img { opacity: 1; }
+  .play { position: absolute; inset: 0; display: grid; place-items: center; }
+  .consent { position: absolute; left: 0; right: 0; bottom: 0; margin: 0; padding: 0.35rem 0.6rem; font-size: 0.72rem; color: #ddd; background: linear-gradient(transparent, rgba(0, 0, 0, 0.7)); pointer-events: none; }
+  .yt :global(iframe) { width: 100%; height: 100%; border: 0; display: block; }
+</style>

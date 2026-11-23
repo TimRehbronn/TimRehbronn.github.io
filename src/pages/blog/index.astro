@@ -1,0 +1,50 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+
+const posts = (await getCollection('blog', (p) => import.meta.env.DEV || !p.data.draft)).sort(
+  (a, b) => +b.data.date - +a.data.date,
+);
+const years = [...new Set(posts.map((p) => p.data.date.getFullYear()))];
+const fmt = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' });
+---
+
+<Base title="Blog" description="Interactive explanations and notes.">
+  <header class="page-header">
+    <h1>Blog</h1>
+    <p>Explanations with interactive figures, research notes and things I learned. <a href="/rss.xml">RSS</a></p>
+  </header>
+
+  {posts.length === 0 && <p class="empty">First posts are on their way.</p>}
+
+  {
+    years.map((year) => (
+      <section class="section">
+        <h2 class="section-title">{year}</h2>
+        <ul class="posts">
+          {posts
+            .filter((p) => p.data.date.getFullYear() === year)
+            .map((p) => (
+              <li>
+                <time class="muted small" datetime={p.data.date.toISOString()}>{fmt.format(p.data.date)}</time>
+                <div>
+                  <a href={`/blog/${p.id}/`}>{p.data.title}</a>
+                  {p.data.draft && <span class="tag">draft</span>}
+                  <p class="muted small">{p.data.description}</p>
+                </div>
+              </li>
+            ))}
+        </ul>
+      </section>
+    ))
+  }
+</Base>
+
+<style>
+  .posts { list-style: none; padding: 0; margin: 0; display: grid; gap: 1.1rem; }
+  li { display: grid; grid-template-columns: 4.5rem 1fr; gap: 1rem; }
+  li a { font-weight: 550; font-size: 1.05rem; }
+  li p { margin: 0.15rem 0 0; }
+  time { padding-top: 0.2rem; font-variant-numeric: tabular-nums; }
+  .tag { margin-left: 0.5rem; }
+</style>

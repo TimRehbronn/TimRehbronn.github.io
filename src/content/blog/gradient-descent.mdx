@@ -1,0 +1,58 @@
+---
+title: 'Gradient Descent, Interactively'
+description: 'A small example of an explorable explanation: play with the learning rate and watch an optimizer find — or miss — the minimum.'
+date: 2026-11-23
+tags: [explainer, optimization]
+draft: false
+---
+
+import GradientDescent from '../../components/explainers/GradientDescent.astro';
+
+_This post is a template that shows what the blog can do: math, code and interactive figures.
+Replace it with your own explanations._
+
+## The idea
+
+To minimise a function $f(x)$, gradient descent repeatedly takes a small step
+against the slope:
+
+$$
+x_{t+1} = x_t - \eta \, f'(x_t)
+$$
+
+The **learning rate** $\eta$ decides how big each step is. Here we use the non-convex function
+
+$$
+f(x) = \tfrac{1}{4}x^4 - x^2 + 0.35\,x,
+$$
+
+which has a shallow local minimum on the right and a deeper global minimum on the left.
+
+## Try it
+
+<GradientDescent lr={0.05} start={2.2}>
+  Gradient descent on a function with two minima. The dashed line is the tangent at the current point.
+</GradientDescent>
+
+A few things to try:
+
+- With a **small** $\eta$ the ball creeps down and gets stuck in the nearest (local) minimum.
+- With a **medium** $\eta$ the first step overshoots the bump and lands in the global minimum.
+- With a **large** $\eta$ the iterates oscillate and eventually diverge.
+
+## In code
+
+```python
+def gradient_descent(df, x0, lr=0.05, steps=100):
+    x = x0
+    for _ in range(steps):
+        x = x - lr * df(x)
+    return x
+```
+
+## Why this format?
+
+Interactive figures let readers build intuition by _doing_ instead of only reading —
+the idea behind explorable explanations like Distill or Bartosz Ciechanowski's articles.
+Every explainer is a self-contained component in `src/components/explainers/` and can be
+dropped into any `.mdx` post.

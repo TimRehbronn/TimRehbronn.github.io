@@ -1,0 +1,144 @@
+---
+// Interactive explainer: gradient descent on a 1-D non-convex function.
+// Usage in MDX:  <GradientDescent lr={0.05} start={2.2}>Caption…</GradientDescent>
+interface Props { lr?: number; start?: number }
+const { lr = 0.05, start = 2.2 } = Astro.props;
+---
+
+<figure class="gd" data-lr={lr} data-start={start}>
+  <canvas role="img" aria-label="Plot of a function with a ball performing gradient descent"></canvas>
+  <div class="controls">
+    <label>
+      <span>Learning rate η = <output>{lr.toFixed(3)}</output></span>
+      <input type="range" min="0.005" max="0.45" step="0.005" value={lr} />
+    </label>
+    <div class="buttons">
+      <button class="btn btn-primary" data-action="run" type="button">Run</button>
+      <button class="btn" data-action="step" type="button">Step</button>
+      <button class="btn" data-action="reset" type="button">Reset</button>
+    </div>
+    <p class="readout small muted" aria-live="polite"></p>
+  </div>
+  <figcaption><slot /> <span class="hint">Click on the plot to choose a new starting point.</span></figcaption>
+</figure>
+
+<script>
+  const f = (x: number) => 0.25 * x ** 4 - x ** 2 + 0.35 * x;
+  const df = (x: number) => x ** 3 - 2 * x + 0.35;
+  const X0 = -2.4, X1 = 2.4, Y0 = -1.9, Y1 = 3.6;
+
+  for (const fig of document.querySelectorAll<HTMLElement>('figure.gd')) {
+    const canvas = fig.querySelector('canvas')!;
+    const ctx = canvas.getContext('2d')!;
+    const slider = fig.querySelector<HTMLInputElement>('input[type=range]')!;
+    const out = fig.querySelector('output')!;
+    const readout = fig.querySelector<HTMLElement>('.readout')!;
+    const runBtn = fig.querySelector<HTMLButtonElement>('[data-action=run]')!;
+
+    let start = Number(fig.dataset.start);
+    let lr = Number(fig.dataset.lr);
+    let path: number[] = [start];
+    let timer: number | undefined;
+
+    const css = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+    function size() {
+      const dpr = window.devicePixelRatio || 1;
+      const w = canvas.clientWidth;
+      const h = Math.round(w * 0.5);
+      canvas.style.height = `${h}px`;
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      draw();
+    }
+
+    const sx = (x: number) => ((x - X0) / (X1 - X0)) * canvas.clientWidth;
+    const sy = (y: number) => canvas.clientHeight - ((y - Y0) / (Y1 - Y0)) * canvas.clientHeight;
+
+    function draw() {
+      const w = canvas.clientWidth, h = canvas.clientHeight;
+      const fg = css('--fg'), muted = css('--muted'), border = css('--border'), accent = css('--accent');
+      ctx.clearRect(0, 0, w, h);
+
+      // axis
+      ctx.strokeStyle = border; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, sy(0)); ctx.lineTo(w, sy(0)); ctx.stroke();
+
+      // function
+      ctx.strokeStyle = muted; ctx.lineWidth = 2; ctx.beginPath();
+      for (let i = 0; i <= 300; i++) {
+        const x = X0 + (i / 300) * (X1 - X0);
+        i ? ctx.lineTo(sx(x), sy(f(x))) : ctx.moveTo(sx(x), sy(f(x)));
+      }
+      ctx.stroke();
+
+      // path of iterates
+      ctx.strokeStyle = accent; ctx.globalAlpha = 0.45; ctx.lineWidth = 1.5; ctx.beginPath();
+      path.forEach((x, i) => (i ? ctx.lineTo(sx(x), sy(f(x))) : ctx.moveTo(sx(x), sy(f(x)))));
+      ctx.stroke(); ctx.globalAlpha = 1;
+      ctx.fillStyle = accent;
+      for (const x of path.slice(0, -1)) { ctx.beginPath(); ctx.arc(sx(x), sy(f(x)), 2.5, 0, Math.PI * 2); ctx.fill(); }
+
+      // current point + tangent
+      const x = path[path.length - 1];
+      if (Math.abs(x) <= X1 + 0.5) {
+        const g = df(x), dx = 0.45;
+        ctx.strokeStyle = fg; ctx.lineWidth = 1; ctx.setLineDash([4, 4]); ctx.beginPath();
+        ctx.moveTo(sx(x - dx), sy(f(x) - g * dx)); ctx.lineTo(sx(x + dx), sy(f(x) + g * dx)); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.beginPath(); ctx.arc(sx(x), sy(f(x)), 7, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+
+    function update() {
+      const x = path[path.length - 1];
+      const diverged = !Number.isFinite(x) || Math.abs(x) > 3;
+      readout.textContent = diverged
+        ? `Diverged after ${path.length - 1} steps — the learning rate is too large.`
+        : `Step ${path.length - 1}: x = ${x.toFixed(3)}, f(x) = ${f(x).toFixed(3)}, f′(x) = ${df(x).toFixed(3)}`;
+      return diverged;
+    }
+
+    function step() {
+      const x = path[path.length - 1];
+      path.push(x - lr * df(x));
+      const diverged = update();
+      draw();
+      return diverged || Math.abs(df(path[path.length - 1])) < 1e-3 || path.length > 80;
+    }
+
+    function stop() { clearInterval(timer); timer = undefined; runBtn.textContent = 'Run'; }
+    function reset() { stop(); path = [start]; update(); draw(); }
+
+    runBtn.addEventListener('click', () => {
+      if (timer) return stop();
+      runBtn.textContent = 'Pause';
+      timer = window.setInterval(() => step() && stop(), 140);
+    });
+    fig.querySelector('[data-action=step]')!.addEventListener('click', () => { stop(); step(); });
+    fig.querySelector('[data-action=reset]')!.addEventListener('click', reset);
+    slider.addEventListener('input', () => { lr = Number(slider.value); out.textContent = lr.toFixed(3); reset(); });
+    canvas.addEventListener('click', (e) => {
+      const r = canvas.getBoundingClientRect();
+      start = X0 + ((e.clientX - r.left) / r.width) * (X1 - X0);
+      reset();
+    });
+
+    new ResizeObserver(size).observe(canvas);
+    new MutationObserver(draw).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    update();
+  }
+</script>
+
+<style>
+  .gd { margin: 2rem 0; padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-soft); font-family: var(--font-sans); }
+  canvas { width: 100%; cursor: crosshair; }
+  .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.5rem; margin-top: 0.75rem; font-size: 0.92rem; }
+  label { display: flex; flex-direction: column; gap: 0.2rem; flex: 1 1 14rem; }
+  output { font-variant-numeric: tabular-nums; }
+  input[type='range'] { width: 100%; accent-color: var(--accent); }
+  .buttons { display: flex; gap: 0.5rem; }
+  .readout { flex-basis: 100%; margin: 0; font-variant-numeric: tabular-nums; min-height: 1.5em; }
+  .hint { opacity: 0.8; }
+</style>

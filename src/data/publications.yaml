@@ -1,0 +1,39 @@
+# Publications — one entry per paper, newest first is not required (sorted automatically).
+# `selected: true` shows the paper on the home page.
+# All entries below are PLACEHOLDERS — replace them with your own.
+
+- id: rehbronn2026example
+  title: "An Example Paper Title That Describes the Main Contribution"
+  authors: [Tim Rehbronn, Jane Doe, John Smith]
+  venue: "Proceedings of an Example Conference"
+  venueShort: "EXCONF 2026"
+  year: 2026
+  type: conference
+  selected: true
+  note: "Oral presentation"
+  thumbnail: /images/publications/placeholder.svg
+  abstract: >-
+    One or two sentences that summarise the problem, the idea and the main result.
+    This text is shown when a visitor expands the abstract.
+  links:
+    pdf: "#"
+    arxiv: "#"
+    code: "#"
+  bibtex: |
+    @inproceedings{rehbronn2026example,
+      title     = {An Example Paper Title That Describes the Main Contribution},
+      author    = {Rehbronn, Tim and Doe, Jane and Smith, John},
+      booktitle = {Proceedings of an Example Conference},
+      year      = {2026}
+    }
+
+- id: doe2025preprint
+  title: "A Second Placeholder: Preprint on Something Interesting"
+  authors: [Jane Doe, Tim Rehbronn]
+  venue: "arXiv preprint"
+  year: 2025
+  type: preprint
+  selected: false
+  thumbnail: /images/publications/placeholder.svg
+  links:
+    arxiv: "#"

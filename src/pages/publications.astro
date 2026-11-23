@@ -1,0 +1,27 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '../layouts/Base.astro';
+import Publication from '../components/Publication.astro';
+
+const pubs = (await getCollection('publications')).sort((a, b) => b.data.year - a.data.year);
+const years = [...new Set(pubs.map((p) => p.data.year))];
+---
+
+<Base title="Publications" description="Peer-reviewed papers, preprints and theses.">
+  <header class="page-header">
+    <h1>Publications</h1>
+    <p>
+      Papers, preprints and theses. <strong>Bold</strong> marks me as an author. An up-to-date list is
+      also on Google Scholar.
+    </p>
+  </header>
+
+  {
+    years.map((year) => (
+      <section class="section">
+        <h2 class="section-title">{year}</h2>
+        {pubs.filter((p) => p.data.year === year).map((pub) => <Publication pub={pub} />)}
+      </section>
+    ))
+  }
+</Base>

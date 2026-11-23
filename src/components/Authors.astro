@@ -1,0 +1,17 @@
+---
+import { SITE } from '../config';
+interface Props { authors: string[] }
+const { authors } = Astro.props;
+const isMe = (a: string) => SITE.authorNames.includes(a.replace(/[*†]/g, '').trim());
+---
+
+<span class="authors">
+  {
+    authors.map((a, i) => (
+      <>
+        {isMe(a) ? <strong>{a}</strong> : a}
+        {i < authors.length - 2 ? ', ' : i === authors.length - 2 ? ' and ' : ''}
+      </>
+    ))
+  }
+</span>

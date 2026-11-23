@@ -1,0 +1,109 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '../layouts/Base.astro';
+import Publication from '../components/Publication.astro';
+import ProjectCard from '../components/ProjectCard.astro';
+import NewsList from '../components/NewsList.astro';
+import { SITE, SOCIALS } from '../config';
+import { interests } from '../data/cv';
+
+const selected = (await getCollection('publications', (p) => p.data.selected)).sort((a, b) => b.data.year - a.data.year);
+const featured = (await getCollection('projects', (p) => p.data.featured)).sort((a, b) => b.data.year - a.data.year).slice(0, 4);
+const posts = (await getCollection('blog', (p) => !p.data.draft)).sort((a, b) => +b.data.date - +a.data.date).slice(0, 3);
+const fmt = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric' });
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Person',
+  name: SITE.name,
+  jobTitle: SITE.role,
+  affiliation: SITE.affiliation,
+  url: Astro.site?.toString(),
+  sameAs: SOCIALS.filter((s) => s.href.startsWith('http')).map((s) => s.href),
+};
+---
+
+<Base>
+  <script slot="head" type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+
+  <section class="hero">
+    <div class="intro">
+      <h1>{SITE.name}</h1>
+      <p class="role">
+        {SITE.role} · {SITE.affiliationUrl ? <a href={SITE.affiliationUrl}>{SITE.affiliation}</a> : SITE.affiliation}
+      </p>
+      <!-- TODO: write 2–4 sentences about yourself. Lead with what you work on and why. -->
+      <p>I'm a researcher and engineer interested in <strong>[your field]</strong>. My work focuses on <strong>[core problem]</strong> — building <strong>[methods / systems]</strong> that <strong>[impact]</strong>.</p>
+      <p>Previously, I [studied / worked] at [place]. I also make <a href="/videos/">videos</a> and write <a href="/blog/">interactive explanations</a> about ideas I find beautiful.</p>
+      <ul class="link-row">{SOCIALS.map((s) => <li><a href={s.href}>{s.label}</a></li>)}</ul>
+    </div>
+    <img class="avatar" src={SITE.avatar} alt={`Portrait of ${SITE.name}`} width="176" height="176" />
+  </section>
+
+  <section class="section">
+    <h2 class="section-title">Research interests</h2>
+    <ul class="interests">
+      {interests.map((i) => <li><h3>{i.title}</h3><p>{i.text}</p></li>)}
+    </ul>
+  </section>
+
+  <section class="section">
+    <h2 class="section-title">News</h2>
+    <NewsList />
+  </section>
+
+  {
+    selected.length > 0 && (
+      <section class="section">
+        <h2 class="section-title">Selected publications <a href="/publications/">All publications →</a></h2>
+        {selected.map((pub) => <Publication pub={pub} />)}
+      </section>
+    )
+  }
+
+  {
+    featured.length > 0 && (
+      <section class="section">
+        <h2 class="section-title">Featured projects <a href="/projects/">All projects →</a></h2>
+        <div class="grid">{featured.map((p) => <ProjectCard project={p} />)}</div>
+      </section>
+    )
+  }
+
+  {
+    posts.length > 0 && (
+      <section class="section">
+        <h2 class="section-title">Writing <a href="/blog/">All posts →</a></h2>
+        <ul class="posts">
+          {posts.map((p) => (
+            <li>
+              <a href={`/blog/${p.id}/`}>{p.data.title}</a>
+              <time class="muted small" datetime={p.data.date.toISOString()}>{fmt.format(p.data.date)}</time>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
+</Base>
+
+<style>
+  .hero { display: grid; grid-template-columns: 1fr auto; gap: 2.5rem; align-items: start; margin: 3.5rem 0 1rem; }
+  h1 { margin: 0 0 0.25rem; font-size: 2.4rem; }
+  .role { color: var(--muted); margin-bottom: 1.25rem; }
+  .intro > p:not(.role) { color: var(--fg-soft); max-width: var(--w-text); }
+  .intro strong { color: var(--fg); font-weight: 600; }
+  .avatar { width: 11rem; height: 11rem; border-radius: 50%; object-fit: cover; border: 1px solid var(--border); }
+  .interests { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr)); gap: 1rem; }
+  .interests li { padding: 1rem 1.1rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-soft); }
+  .interests h3 { margin: 0 0 0.35rem; font-size: 1rem; }
+  .interests p { margin: 0; color: var(--fg-soft); font-size: 0.95rem; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(16rem, 100%), 1fr)); gap: 1rem; }
+  .posts { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.6rem; }
+  .posts li { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; flex-wrap: wrap; }
+  @media (max-width: 640px) {
+    .hero { grid-template-columns: 1fr; gap: 1.5rem; margin-top: 2rem; }
+    .avatar { order: -1; width: 7rem; height: 7rem; }
+    h1 { font-size: 2rem; }
+  }
+</style>

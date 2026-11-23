@@ -1,0 +1,11 @@
+# Short news items shown on the home page (newest first, top 6).
+# PLACEHOLDERS — replace with your own.
+
+- id: "2026-11-website"
+  date: 2026-11-23
+  text: "Launched this website."
+
+- id: "2026-06-paper"
+  date: 2026-06-15
+  text: "Our paper “An Example Paper Title” was accepted at EXCONF 2026."
+  link: /publications/

@@ -1,0 +1,84 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import Authors from './Authors.astro';
+
+interface Props { pub: CollectionEntry<'publications'>; showThumb?: boolean }
+const { pub, showThumb = true } = Astro.props;
+const p = pub.data;
+
+const labels: Record<string, string> = {
+  pdf: 'PDF', arxiv: 'arXiv', doi: 'DOI', code: 'Code', project: 'Project page',
+  demo: 'Demo', video: 'Video', slides: 'Slides', poster: 'Poster',
+};
+const links = Object.entries(p.links).filter(([, v]) => v) as [string, string][];
+---
+
+<article class:list={['pub', { 'no-thumb': !showThumb || !p.thumbnail }]} id={pub.id}>
+  {showThumb && p.thumbnail && <img class="thumb" src={p.thumbnail} alt="" loading="lazy" />}
+  <div class="body">
+    <h3 class="title">{p.title}</h3>
+    <div class="meta"><Authors authors={p.authors} /></div>
+    <div class="venue">
+      <em>{p.venueShort ?? p.venue}</em>{!p.venueShort?.includes(String(p.year)) && `, ${p.year}`}
+      {p.note && <span class="note">{p.note}</span>}
+    </div>
+    <ul class="link-row">
+      {links.map(([k, v]) => <li><a href={v}>{labels[k] ?? k}</a></li>)}
+    </ul>
+    {
+      (p.abstract || p.bibtex) && (
+        <div class="extras">
+          {p.abstract && (
+            <details>
+              <summary>Abstract</summary>
+              <p>{p.abstract}</p>
+            </details>
+          )}
+          {p.bibtex && (
+            <details>
+              <summary>BibTeX</summary>
+              <div class="bib">
+                <pre><code>{p.bibtex.trim()}</code></pre>
+                <button class="btn copy" type="button" data-copy={p.bibtex.trim()}>Copy</button>
+              </div>
+            </details>
+          )}
+        </div>
+      )
+    }
+  </div>
+</article>
+
+<script>
+  document.querySelectorAll<HTMLButtonElement>('.pub .copy').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(btn.dataset.copy ?? '');
+        btn.textContent = 'Copied';
+        setTimeout(() => (btn.textContent = 'Copy'), 1500);
+      } catch {}
+    });
+  });
+</script>
+
+<style>
+  .pub { display: grid; grid-template-columns: 11rem 1fr; gap: 1.25rem; padding: 1.25rem 0; border-bottom: 1px solid var(--border); }
+  .pub:last-child { border-bottom: 0; }
+  .pub.no-thumb { grid-template-columns: 1fr; }
+  .thumb { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-soft); }
+  .title { margin: 0 0 0.3rem; font-size: 1.02rem; line-height: 1.35; }
+  .meta, .venue { font-size: 0.93rem; color: var(--fg-soft); }
+  .venue { margin-bottom: 0.4rem; }
+  .note { margin-left: 0.5rem; font-size: 0.78rem; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 0.05rem 0.45rem; border-radius: 999px; }
+  .meta :global(strong) { color: var(--fg); }
+  .extras { display: flex; flex-direction: column; gap: 0.25rem; margin-top: 0.5rem; font-size: 0.9rem; }
+  summary { cursor: pointer; color: var(--muted); width: fit-content; }
+  details p { margin: 0.5rem 0; color: var(--fg-soft); }
+  .bib { position: relative; margin-top: 0.5rem; }
+  .bib pre { margin: 0; background: var(--bg-soft); font-size: 0.8rem; }
+  .copy { position: absolute; top: 0.4rem; right: 0.4rem; padding: 0.15rem 0.55rem; font-size: 0.75rem; }
+  @media (max-width: 560px) {
+    .pub { grid-template-columns: 1fr; }
+    .thumb { max-width: 20rem; }
+  }
+</style>

@@ -1,0 +1,48 @@
+---
+import 'katex/dist/katex.min.css';
+import Base from './Base.astro';
+import type { CollectionEntry } from 'astro:content';
+import type { MarkdownHeading } from 'astro';
+
+interface Props { post: CollectionEntry<'blog'>; headings: MarkdownHeading[]; minutes: number }
+const { post, headings, minutes } = Astro.props;
+const { title, description, date, updated, tags } = post.data;
+const fmt = new Intl.DateTimeFormat('en', { day: 'numeric', month: 'long', year: 'numeric' });
+const toc = headings.filter((h) => h.depth === 2);
+---
+
+<Base title={title} description={description} type="article">
+  <article class="post">
+    <header class="page-header">
+      <p class="muted small">
+        <time datetime={date.toISOString()}>{fmt.format(date)}</time>
+        {updated && <> · updated {fmt.format(updated)}</>} · {minutes} min read
+      </p>
+      <h1>{title}</h1>
+      <p>{description}</p>
+      {tags.length > 0 && <ul class="tags" style="margin-top:0.75rem">{tags.map((t) => <li class="tag">{t}</li>)}</ul>}
+    </header>
+
+    {
+      toc.length > 2 && (
+        <nav class="toc" aria-label="Contents">
+          <p class="muted small">Contents</p>
+          <ol>{toc.map((h) => <li><a href={`#${h.slug}`}>{h.text}</a></li>)}</ol>
+        </nav>
+      )
+    }
+
+    <div class="prose prose-width">
+      <slot />
+    </div>
+
+    <hr />
+    <p class="muted small"><a href="/blog/">← All posts</a></p>
+  </article>
+</Base>
+
+<style>
+  .toc { margin: 0 0 2rem; padding: 0.75rem 1rem; border-left: 2px solid var(--border); max-width: var(--w-text); }
+  .toc p { margin: 0 0 0.25rem; }
+  .toc ol { margin: 0; padding-left: 1.2rem; font-size: 0.93rem; }
+</style>

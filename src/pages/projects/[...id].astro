@@ -1,0 +1,38 @@
+---
+import { getCollection, render, type CollectionEntry } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+
+export async function getStaticPaths() {
+  const projects = await getCollection('projects');
+  return projects.map((project) => ({ params: { id: project.id }, props: { project } }));
+}
+
+const { project } = Astro.props as { project: CollectionEntry<'projects'> };
+const { Content } = await render(project);
+const p = project.data;
+const links = Object.entries(p.links).filter(([, v]) => v) as [string, string][];
+---
+
+<Base title={p.title} description={p.summary}>
+  <article>
+    <header class="page-header">
+      <p class="muted small">{p.year} · <span style="text-transform:capitalize">{p.status}</span></p>
+      <h1>{p.title}</h1>
+      <p>{p.summary}</p>
+      <ul class="tags" style="margin-top:0.75rem">{p.tags.map((t) => <li class="tag">{t}</li>)}</ul>
+      {links.length > 0 && (
+        <ul class="link-row" style="margin-top:0.75rem; text-transform:capitalize">
+          {links.map(([k, v]) => <li><a href={v}>{k}</a></li>)}
+        </ul>
+      )}
+    </header>
+    {p.image && <img class="hero-img" src={p.image} alt="" />}
+    <div class="prose prose-width"><Content /></div>
+    <hr />
+    <p class="muted small"><a href="/projects/">← All projects</a></p>
+  </article>
+</Base>
+
+<style>
+  .hero-img { width: 100%; max-width: var(--w-wide); aspect-ratio: 16 / 8; object-fit: cover; border-radius: var(--radius); border: 1px solid var(--border); margin-bottom: 2rem; }
+</style>

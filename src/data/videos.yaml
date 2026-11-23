@@ -1,0 +1,12 @@
+# Videos — add your YouTube videos here.
+# youtubeId is the part after "watch?v=" in the URL.
+# Optional `thumbnail: /images/videos/foo.jpg` avoids loading the preview image from YouTube
+# before the visitor clicks (privacy / GDPR friendly).
+# The entry below is a PLACEHOLDER and is hidden because its id starts with "example-".
+
+- id: example-video
+  title: "Example: Explaining an Idea in 10 Minutes"
+  youtubeId: "REPLACE_ME"
+  date: 2026-01-01
+  description: "Short description of what the video covers."
+  tags: [explainer]
