@@ -33,6 +33,7 @@
     doi: "https://doi.org/10.1007/s10846-026-02486-7"
     code: "https://github.com/rwth-irt/SIMPLE-C"
     data: "https://doi.org/10.5281/zenodo.13968727"
+    video: "/videos/#simple-c-explainer"
   bibtex: |
     @article{rehbronn2026simplec,
       title   = {{SIMPLE-C}: Multi-{LiDAR} Extrinsic Calibration using a Simple Moving Reflective Target in Feature-Sparse Maritime Environments},
@@ -73,6 +74,7 @@
   year: 2025
   type: conference
   selected: true
+  thumbnail: /images/publications/icmass2025.svg
   abstract: >-
     Maritime Autonomous Surface Ships technology has made substantial progress in recent years, yet challenges
     remain in safety-critical scenarios such as maneuvering through congested, constrained waterways like ports.
@@ -114,6 +116,7 @@
   type: conference
   selected: false
   note: "Master's thesis"
+  thumbnail: /images/publications/icecet2023.svg
   abstract: >-
     Automated vehicles require an accurate perception of their surroundings for safe and efficient driving.
     Lidar-based object detection is a widely used method for environment perception, but its performance is
@@ -130,7 +133,7 @@
     offset augmentation through randomized frame skipping in sequences, enhances object detection accuracy compared
     to both the baseline model (Pillar-based Object Detection) and no augmentation.
   links:
-    doi: "https://doi.org/10.1109/ICECET58911.2023.10389489"
+    ieee: "https://ieeexplore.ieee.org/document/10389489"
     arxiv: "https://arxiv.org/abs/2401.09049"
   bibtex: |
     @inproceedings{vankempen2023offset,

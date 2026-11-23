@@ -1,4 +1,5 @@
 // CV data — rendered on /cv/ and (interests) on the home page.
+// In titles and details, **text** is highlighted (orange).
 
 export interface CvEntry {
   title: string;
@@ -24,7 +25,7 @@ export const experience: CvEntry[] = [
       'Implemented, deployed and field-tested a navigation (ES-EKF, GNSS/IMU), LiDAR detection, tracking (JPDA) and grid-mapping pipeline for a real multi-vessel scenario (GALILEOnautic 2+).',
       'Developed SIMPLE-C, a target-based multi-LiDAR extrinsic calibration tool for feature-sparse maritime settings, deployed on real vessels.',
       'Developed MSTNet, a self-supervised pretraining pipeline for label-efficient maritime 3D LiDAR object detection.',
-      'Working on factor-graph-based navigation fusing LiDAR, radar and IMU for GNSS-denied operation, multi-target tracking with a trajectory PMBM filter, and grey-box vessel trajectory prediction from AIS data.',
+      'Working on robust navigation in GNSS-sparse harbors fusing IMU, LiDAR, radar, camera and GNSS with factor graphs and an iterated ES-EKF, multi-target tracking with a trajectory PMBM filter, and learned physics-inspired models for AIS-based trajectory prediction of inland vessels.',
       'Industry-related projects: GALILEOnautic 2+, KORIS (medical robotics), innocam.NRW.',
     ],
   },
@@ -73,8 +74,9 @@ export const experience: CvEntry[] = [
 
 export const education: CvEntry[] = [
   {
-    title: 'Dr.-Ing. (PhD candidate), Electrical Engineering',
-    org: 'RWTH Aachen University',
+    title: 'Dr.-Ing. (PhD candidate)',
+    org: 'Faculty of Mechanical Engineering, RWTH Aachen University — Institute of Automatic Control (IRT)',
+    orgUrl: IRT,
     location: 'Aachen',
     start: '2023',
     end: '2027 (expected)',
@@ -87,8 +89,8 @@ export const education: CvEntry[] = [
     start: '2020',
     end: '2023',
     details: [
-      'Major: Systems and Automation. Graduated with distinction (Dean’s List), overall grade 1.4 (top 5%).',
-      'Thesis: “Current Approaches to Robust Lidar Object Detection under Adverse Weather Conditions” (grade 1.0), Institute for Automotive Engineering & Chair for Computer Vision.',
+      'Major: Systems and Automation. Graduated **with distinction (Dean’s List)**, overall grade **1.4 (top 5%)**.',
+      'Thesis: “Current Approaches to Robust Lidar Object Detection under Adverse Weather Conditions” (grade **1.0**), Institute for Automotive Engineering & Chair for Computer Vision.',
     ],
   },
   {
@@ -121,7 +123,7 @@ export const service: CvEntry[] = [
 ];
 
 export const awards: { year: string; title: string; detail?: string; url?: string }[] = [
-  { year: '2023', title: 'Dean’s List, RWTH Aachen University', detail: 'M.Sc. graduated with distinction' },
+  { year: '2023', title: '**Dean’s List**, RWTH Aachen University', detail: 'M.Sc. graduated **with distinction**' },
 ];
 
 export const schools: { year: string; title: string; detail?: string; url?: string }[] = [
@@ -144,6 +146,25 @@ export const skills: { group: string; items: string[] }[] = [
   { group: 'Software', items: ['Python', 'PyTorch', 'C++', 'ROS 2', 'Gazebo', 'Docker', 'CI/CD', 'Git', 'Linux'] },
   { group: 'Hardware', items: ['GNSS', 'IMU', 'LiDAR', 'Radar', 'AIS', 'NVIDIA Jetson Orin'] },
   { group: 'Languages', items: ['German (native)', 'English (full professional)', 'Spanish & Latin (elementary)'] },
+];
+
+// What I'm working on right now — shown on the home page. **text** is highlighted.
+export const current: { title: string; text: string; href?: string }[] = [
+  {
+    title: 'Robust navigation in GNSS-sparse harbors',
+    text: 'Fusing **IMU, LiDAR, radar, camera and GNSS** with **factor graphs** and an **iterated error-state EKF** for vessels in constrained port environments.',
+    href: '/projects/robust-harbor-navigation/',
+  },
+  {
+    title: 'Trajectory prediction for inland vessels',
+    text: 'Learned, **physics-inspired** models that predict vessel trajectories from **AIS** data.',
+    href: '/projects/inland-vessel-trajectory-prediction/',
+  },
+  {
+    title: 'A learning blog on estimation & perception',
+    text: 'From **probability theory** and **state estimation** to **multi-object detection, tracking and SLAM** — with interactive explanations.',
+    href: '/blog/',
+  },
 ];
 
 // Research interests — shown on the home page.

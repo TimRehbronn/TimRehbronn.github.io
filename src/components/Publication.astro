@@ -1,17 +1,14 @@
 ---
 import type { CollectionEntry } from 'astro:content';
 import Authors from './Authors.astro';
+import { linkEntries } from '../lib/format';
 
 interface Props { pub: CollectionEntry<'publications'>; showThumb?: boolean }
 const { pub, showThumb = true } = Astro.props;
 const p = pub.data;
 
-const labels: Record<string, string> = {
-  pdf: 'PDF', arxiv: 'arXiv', doi: 'DOI', code: 'Code', project: 'Project page',
-  demo: 'Demo', video: 'Video', slides: 'Slides', poster: 'Poster', data: 'Data', press: 'Press', paper: 'Paper',
-};
 const tile = p.venueShort ?? p.type;
-const links = Object.entries(p.links).filter(([, v]) => v) as [string, string][];
+const links = linkEntries(p.links);
 ---
 
 <article class:list={['pub', { 'no-thumb': !showThumb }]} id={pub.id}>
@@ -33,7 +30,7 @@ const links = Object.entries(p.links).filter(([, v]) => v) as [string, string][]
       {p.note && <span class="note">{p.note}</span>}
     </div>
     <ul class="link-row">
-      {links.map(([k, v]) => <li><a href={v}>{labels[k] ?? k}</a></li>)}
+      {links.map((l) => <li><a href={l.href}>{l.label}</a></li>)}
     </ul>
     {
       (p.abstract || p.bibtex) && (
@@ -85,7 +82,7 @@ const links = Object.entries(p.links).filter(([, v]) => v) as [string, string][]
   .meta, .venue { font-size: 0.93rem; color: var(--fg-soft); }
   .venue { margin-bottom: 0.4rem; }
   .note { margin-left: 0.5rem; font-size: 0.78rem; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 0.05rem 0.45rem; border-radius: 999px; }
-  .meta :global(strong) { color: var(--fg); }
+  .meta :global(strong) { color: var(--highlight); }
   .extras { display: flex; flex-direction: column; gap: 0.25rem; margin-top: 0.5rem; font-size: 0.9rem; }
   summary { cursor: pointer; color: var(--muted); width: fit-content; }
   details p { margin: 0.5rem 0; color: var(--fg-soft); }

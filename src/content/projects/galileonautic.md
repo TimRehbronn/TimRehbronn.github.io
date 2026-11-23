@@ -5,6 +5,7 @@ year: 2025
 status: active
 featured: true
 tags: [navigation, sensor fusion, tracking, field deployment]
+image: /images/publications/icmass2025.svg
 links:
   paper: https://doi.org/10.1088/1742-6596/3123/1/012020
 ---

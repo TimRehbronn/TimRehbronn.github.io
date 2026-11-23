@@ -5,8 +5,9 @@ year: 2023
 status: completed
 featured: false
 tags: [3D object detection, automated driving, deep learning]
+image: /images/publications/icecet2023.svg
 links:
-  paper: https://doi.org/10.1109/ICECET58911.2023.10389489
+  ieee: https://ieeexplore.ieee.org/document/10389489
   arxiv: https://arxiv.org/abs/2401.09049
 ---
 
@@ -20,4 +21,4 @@ Institute for Automotive Engineering (ika) and the Chair for Computer Vision at 
 - grid-map-based fusion
 
 evaluated on nuScenes, DENSE and the Canadian Adverse Driving Conditions dataset. A key finding — a temporal-offset augmentation
-that randomly skips frames during training — is published at [IEEE ICECET 2023](https://doi.org/10.1109/ICECET58911.2023.10389489) ([arXiv](https://arxiv.org/abs/2401.09049)).
+that randomly skips frames during training — is published at [IEEE ICECET 2023](https://ieeexplore.ieee.org/document/10389489) ([arXiv](https://arxiv.org/abs/2401.09049)).

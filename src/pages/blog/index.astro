@@ -7,15 +7,32 @@ const posts = (await getCollection('blog', (p) => import.meta.env.DEV || !p.data
 );
 const years = [...new Set(posts.map((p) => p.data.date.getFullYear()))];
 const fmt = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' });
+
+// Planned topics, from foundations to full systems.
+const roadmap = [
+  { title: 'Probability theory', text: 'random variables, Bayes’ rule, Gaussians and uncertainty' },
+  { title: 'State estimation', text: 'Bayes filters, Kalman filters, EKF, error-state and iterated EKF' },
+  { title: 'Factor graphs', text: 'estimation as optimization, smoothing and sensor fusion' },
+  { title: 'Multi-object detection', text: 'from point clouds and images to object hypotheses' },
+  { title: 'Multi-object tracking', text: 'data association, JPDA and random finite sets (PMBM)' },
+  { title: 'SLAM', text: 'localizing while mapping the environment' },
+];
 ---
 
 <Base title="Blog" description="Interactive explanations and notes.">
   <header class="page-header">
     <h1>Blog</h1>
-    <p>Explanations with interactive figures, research notes and things I learned. <a href="/rss.xml">RSS</a></p>
+    <p>A learning blog on estimation and perception for autonomous systems — explained step by step, with interactive figures. <a href="/rss.xml">RSS</a></p>
   </header>
 
-  {posts.length === 0 && <p class="empty">First posts are on their way.</p>}
+  <section class="section">
+    <h2 class="section-title">Roadmap</h2>
+    <ol class="roadmap">
+      {roadmap.map((r) => <li><strong>{r.title}</strong> <span class="muted">— {r.text}</span></li>)}
+    </ol>
+  </section>
+
+  {posts.length === 0 && <p class="empty">The first posts are on their way.</p>}
 
   {
     years.map((year) => (
@@ -41,10 +58,14 @@ const fmt = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' });
 </Base>
 
 <style>
+  .roadmap { margin: 0; padding-left: 1.4rem; display: grid; gap: 0.45rem; }
+  .roadmap li::marker { color: var(--highlight); font-weight: 700; }
+  .roadmap li { padding-left: 0.3rem; }
+  .roadmap strong { font-weight: 600; }
   .posts { list-style: none; padding: 0; margin: 0; display: grid; gap: 1.1rem; }
-  li { display: grid; grid-template-columns: 4.5rem 1fr; gap: 1rem; }
-  li a { font-weight: 550; font-size: 1.05rem; }
-  li p { margin: 0.15rem 0 0; }
+  .posts li { display: grid; grid-template-columns: 4.5rem 1fr; gap: 1rem; }
+  .posts li a { font-weight: 550; font-size: 1.05rem; }
+  .posts li p { margin: 0.15rem 0 0; }
   time { padding-top: 0.2rem; font-variant-numeric: tabular-nums; }
   .tag { margin-left: 0.5rem; }
 </style>

@@ -1,12 +1,15 @@
-# Videos — add your YouTube videos here.
-# youtubeId is the part after "watch?v=" in the URL.
-# Optional `thumbnail: /images/videos/foo.jpg` avoids loading the preview image from YouTube
-# before the visitor clicks (privacy / GDPR friendly).
-# The entry below is a PLACEHOLDER and is hidden because its id starts with "example-".
+# Videos — either self-hosted (`src` under public/) or YouTube (`youtubeId`, the part after "watch?v=").
+# Self-hosted videos load nothing from third parties. For YouTube, an optional local `thumbnail`
+# avoids loading the preview image from YouTube before the visitor clicks.
 
-- id: example-video
-  title: "Example: Explaining an Idea in 10 Minutes"
-  youtubeId: "REPLACE_ME"
-  date: 2026-01-01
-  description: "Short description of what the video covers."
-  tags: [explainer]
+- id: simple-c-explainer
+  title: "SIMPLE-C in 2.5 Minutes: Multi-LiDAR Calibration with a Warning Vest"
+  src: /videos/simple-c-explainer.mp4
+  poster: /videos/simple-c-explainer.jpg
+  aspect: "4 / 5"
+  date: 2026-11-23
+  description: >-
+    Why calibrating several LiDARs on a docked vessel is hard, and how SIMPLE-C solves it with any simple
+    reflective target: candidate detection with DBSCAN, backtracking and filtering, and a closed-form SVD solution —
+    demonstrated on the research vessel DENEB. Accompanies our paper in the Journal of Intelligent & Robotic Systems.
+  tags: [explainer, calibration]

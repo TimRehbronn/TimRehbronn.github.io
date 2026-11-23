@@ -6,7 +6,8 @@ import ProjectCard from '../components/ProjectCard.astro';
 import NewsList from '../components/NewsList.astro';
 import SocialLinks from '../components/SocialLinks.astro';
 import { SITE, SOCIALS } from '../config';
-import { interests } from '../data/cv';
+import { interests, current } from '../data/cv';
+import { emph } from '../lib/format';
 
 const selected = (await getCollection('publications', (p) => p.data.selected)).sort((a, b) => b.data.year - a.data.year);
 const featured = (await getCollection('projects', (p) => p.data.featured)).sort((a, b) => b.data.year - a.data.year).slice(0, 4);
@@ -34,11 +35,25 @@ const jsonLd = {
       <p class="role">
         {SITE.role} · {SITE.affiliationShort} · {SITE.location}
       </p>
-      <p>I'm a PhD candidate in the <a href="https://www.irt.rwth-aachen.de">Navigation Group at the Institute of Automatic Control (IRT)</a>, RWTH Aachen University, supervised by Prof. Heike Vallery. I design, deploy and field-validate <strong>state estimation and sensor fusion</strong> systems for autonomous platforms — mostly ships.</p>
-      <p>My work spans the whole chain from <strong>sensor calibration</strong> and <strong>GNSS/IMU navigation</strong> to <strong>LiDAR 3D object detection</strong>, <strong>multi-object tracking</strong> and trajectory prediction, running on real vessels. Before my PhD, I studied Electrical Engineering at RWTH Aachen (M.Sc. with distinction) and worked on automated driving at Bosch and the Institute for Automotive Engineering (ika).</p>
+      <p>I'm a researcher and PhD candidate in the <a href="https://www.irt.rwth-aachen.de">Navigation Group at the Institute of Automatic Control (IRT)</a>, RWTH Aachen University, supervised by Prof. Heike Vallery. I design, deploy and field-validate <strong>state estimation and sensor fusion</strong> systems for autonomous platforms — mostly ships.</p>
+      <p>My work spans the whole chain from <strong>sensor calibration</strong> and <strong>GNSS/IMU navigation</strong> to <strong>LiDAR 3D object detection</strong>, <strong>multi-object tracking</strong> and trajectory prediction, running on real vessels. Before my PhD, I studied Electrical Engineering at RWTH Aachen (M.Sc. <strong>with distinction</strong>, Dean’s List) and worked on automated driving at Bosch and the Institute for Automotive Engineering (ika).</p>
       <SocialLinks />
     </div>
     <img class="avatar" src={SITE.avatar} alt={`Portrait of ${SITE.name}`} width="176" height="176" />
+  </section>
+
+  <section class="section">
+    <h2 class="section-title">Currently working on</h2>
+    <ol class="current">
+      {
+        current.map((c) => (
+          <li>
+            <h3>{c.href ? <a href={c.href}>{c.title}</a> : c.title}</h3>
+            <p set:html={emph(c.text)} />
+          </li>
+        ))
+      }
+    </ol>
   </section>
 
   <section class="section">
@@ -93,13 +108,23 @@ const jsonLd = {
   h1 { margin: 0 0 0.25rem; font-size: 2.4rem; }
   .role { color: var(--muted); margin-bottom: 1.25rem; }
   .intro > p:not(.role) { color: var(--fg-soft); max-width: var(--w-text); }
-  .intro strong { color: var(--fg); font-weight: 600; }
+  .intro strong { color: var(--highlight); font-weight: 600; }
   .avatar { width: 11rem; height: 11rem; border-radius: 50%; object-fit: cover; border: 1px solid var(--border); }
   .interests { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(19rem, 100%), 1fr)); gap: 1rem; }
   .interests li { padding: 1rem 1.1rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-soft); }
   .interests li:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
   .interests h3 { margin: 0 0 0.35rem; font-size: 1rem; }
   .interests p { margin: 0; color: var(--fg-soft); font-size: 0.95rem; }
+  .current { list-style: none; padding: 0; margin: 0; display: grid; gap: 1.1rem; counter-reset: now; }
+  .current li { position: relative; padding-left: 2.4rem; counter-increment: now; }
+  .current li::before {
+    content: counter(now, decimal-leading-zero); position: absolute; left: 0; top: 0.1rem;
+    font-size: 0.8rem; font-weight: 700; color: var(--highlight); font-variant-numeric: tabular-nums;
+  }
+  .current h3 { margin: 0 0 0.2rem; font-size: 1.02rem; }
+  .current h3 a { color: var(--fg); }
+  .current h3 a:hover { color: var(--accent); }
+  .current p { margin: 0; color: var(--fg-soft); font-size: 0.97rem; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(16rem, 100%), 1fr)); gap: 1rem; }
   .posts { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.6rem; }
   .posts li { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; flex-wrap: wrap; }

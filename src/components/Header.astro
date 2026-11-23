@@ -36,7 +36,7 @@ const isActive = (href: string) => (href === '/' ? path === '/' : path.startsWit
   nav ul { display: flex; flex-wrap: wrap; gap: 0.15rem 1rem; list-style: none; margin: 0; padding: 0; font-size: 0.93rem; }
   nav a { color: var(--fg-soft); }
   nav a:hover { color: var(--fg); text-decoration: none; }
-  nav a[aria-current='page'] { color: var(--fg); font-weight: 600; }
+  nav a[aria-current='page'] { color: var(--highlight); font-weight: 600; }
 
   @media (max-width: 640px) {
     .bar { padding-top: 0.6rem; padding-bottom: 0.6rem; }

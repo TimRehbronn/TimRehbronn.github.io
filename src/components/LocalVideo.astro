@@ -1,0 +1,14 @@
+---
+// Self-hosted video: nothing is downloaded until the visitor presses play.
+interface Props { src: string; title: string; poster?: string; aspect?: string }
+const { src, title, poster, aspect = '16 / 9' } = Astro.props;
+---
+
+<video controls playsinline preload="none" poster={poster} title={title} style={`aspect-ratio: ${aspect}`}>
+  <source src={src} type="video/mp4" />
+  <a href={src}>Download the video</a>
+</video>
+
+<style>
+  video { display: block; width: 100%; height: auto; border-radius: var(--radius); background: #000; border: 1px solid var(--border); }
+</style>

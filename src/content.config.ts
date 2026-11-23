@@ -4,6 +4,7 @@ import { glob, file } from 'astro/loaders';
 
 const links = z
   .object({
+    ieee: z.string().optional(),
     pdf: z.string().optional(),
     arxiv: z.string().optional(),
     doi: z.string().optional(),
@@ -67,7 +68,10 @@ const videos = defineCollection({
   loader: file('src/data/videos.yaml'),
   schema: z.object({
     title: z.string(),
-    youtubeId: z.string(),
+    youtubeId: z.string().optional(), // either a YouTube video …
+    src: z.string().optional(), // … or a self-hosted file under public/, e.g. /videos/foo.mp4
+    poster: z.string().optional(),
+    aspect: z.string().default('16 / 9'), // CSS aspect-ratio, e.g. '4 / 5' for portrait
     date: z.coerce.date(),
     description: z.string().optional(),
     thumbnail: z.string().optional(), // local thumbnail avoids a request to YouTube before consent

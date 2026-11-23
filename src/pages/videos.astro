@@ -2,6 +2,7 @@
 import { getCollection } from 'astro:content';
 import Base from '../layouts/Base.astro';
 import YouTube from '../components/YouTube.astro';
+import LocalVideo from '../components/LocalVideo.astro';
 
 // Entries whose id starts with "example-" are placeholders and are not shown.
 const videos = (await getCollection('videos', (v) => !v.id.startsWith('example-'))).sort(
@@ -13,7 +14,7 @@ const fmt = new Intl.DateTimeFormat('en', { month: 'short', year: 'numeric' });
 <Base title="Videos" description="Talks, lectures and video explanations.">
   <header class="page-header">
     <h1>Videos</h1>
-    <p>Talks, lectures and visual explanations.</p>
+    <p>Short explainers of my research, talks and visual explanations.</p>
   </header>
 
   {
@@ -22,8 +23,12 @@ const fmt = new Intl.DateTimeFormat('en', { month: 'short', year: 'numeric' });
     ) : (
       <div class="grid">
         {videos.map((v) => (
-          <article>
-            <YouTube id={v.data.youtubeId} title={v.data.title} thumbnail={v.data.thumbnail} />
+          <article id={v.id} class:list={{ portrait: v.data.aspect !== '16 / 9' }}>
+            {v.data.src ? (
+              <LocalVideo src={v.data.src} poster={v.data.poster} title={v.data.title} aspect={v.data.aspect} />
+            ) : (
+              v.data.youtubeId && <YouTube id={v.data.youtubeId} title={v.data.title} thumbnail={v.data.thumbnail} />
+            )}
             <h2>{v.data.title}</h2>
             <p class="muted small">
               <time datetime={v.data.date.toISOString()}>{fmt.format(v.data.date)}</time>
@@ -41,4 +46,6 @@ const fmt = new Intl.DateTimeFormat('en', { month: 'short', year: 'numeric' });
   h2 { font-size: 1.02rem; margin: 0.75rem 0 0.15rem; }
   p { margin: 0 0 0.25rem; }
   .desc { color: var(--fg-soft); font-size: 0.95rem; }
+  article { scroll-margin-top: 5rem; }
+  .portrait { max-width: 24rem; }
 </style>

@@ -1,5 +1,15 @@
 # Short news items shown on the home page (newest first, top 6).
 
+- id: "2026-11-mstnet-final"
+  date: 2026-11-23
+  text: "Finalizing work on our MSTNet paper on label-efficient maritime 3D LiDAR object detection."
+  link: /projects/mstnet/
+
+- id: "2026-11-navigation"
+  date: 2026-11-23
+  text: "Currently working on robust navigation in GNSS-sparse, constrained harbor environments — code, abstract and paper follow later in 2026 (target: IFAC CAMS 2027)."
+  link: /projects/robust-harbor-navigation/
+
 - id: "2026-11-simplec"
   date: 2026-11-11
   text: "SIMPLE-C, our multi-LiDAR calibration tool for feature-sparse maritime environments, is published in the Journal of Intelligent & Robotic Systems."
