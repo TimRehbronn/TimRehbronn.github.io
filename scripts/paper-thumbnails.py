@@ -1,4 +1,5 @@
-"""Generate teaser SVGs (320x200): SIMPLE-C, MSTNet, ICMASS 2025, ICECET 2023, Formula Student.
+"""Generate teaser SVGs (320x200): SIMPLE-C, MSTNet, ICMASS 2025, ICECET 2023, Formula Student,
+harbor navigation and inland vessel trajectory prediction.
 
 Usage: python3 scripts/paper-thumbnails.py public/images/publications
 """
@@ -312,6 +313,110 @@ def formula_student():
     s.append('</svg>')
     return '\n'.join(s)
 
+# ---------------------------------------------------------------- Robust harbor navigation (factor graph)
+def harbor_navigation():
+    s = []
+    s.append('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" width="640" height="400">')
+    s.append('<defs><pattern id="hg" width="16" height="16" patternUnits="userSpaceOnUse"><path d="M16 0H0V16" fill="none" stroke="#16181b" stroke-width=".8"/></pattern></defs>')
+    s.append('<rect width="320" height="200" fill="#060606"/><rect width="320" height="200" fill="url(#hg)"/>')
+    land = '#131417'
+    # narrow basin: quay walls top and bottom
+    s.append(f'<path d="M0 0 H320 V58 H250 L236 70 H120 L106 58 H0 Z" fill="{land}" stroke="#3a3f45" stroke-width="1"/>')
+    s.append(f'<path d="M0 200 V156 H90 L104 146 H214 L226 156 H320 V200 Z" fill="{land}" stroke="#3a3f45" stroke-width="1"/>')
+    # cranes / buildings on the quay (block GNSS)
+    for x, h in ((128, 30), (176, 38), (222, 26)):
+        s.append(f'<rect x="{x}" y="{70-h}" width="14" height="{h}" fill="#1c1e22" stroke="#4a4f56" stroke-width=".8"/>')
+        s.append(f'<path d="M{x+7} {70-h} V{70-h-10} M{x-6} {70-h-10} H{x+26}" stroke="#4a4f56" stroke-width="1"/>')
+    # satellites
+    def sat(x, y):
+        return (f'<g transform="translate({x} {y}) rotate(-20)"><rect x="-3" y="-3" width="6" height="6" fill="{FG}"/>'
+                f'<rect x="-13" y="-2" width="8" height="4" fill="none" stroke="{FG}" stroke-width=".9"/>'
+                f'<rect x="5" y="-2" width="8" height="4" fill="none" stroke="{FG}" stroke-width=".9"/></g>')
+    s.append(sat(34, 18)); s.append(sat(296, 16)); s.append(sat(190, 10))
+    # trajectory poses
+    poses = [(26, 108), (60, 104), (96, 102), (132, 104), (168, 108), (204, 110), (240, 106), (276, 100), (304, 96)]
+    sig = [6, 6.5, 9, 12, 15, 17, 11, 7, 6]  # uncertainty grows inside the GNSS-denied section
+    for (x, y), r in zip(poses, sig):
+        s.append(f'<ellipse cx="{x}" cy="{y}" rx="{r*1.25:.1f}" ry="{r*.8:.1f}" fill="{ORANGE}" fill-opacity=".07" stroke="{ORANGE}" stroke-opacity=".35" stroke-width=".7"/>')
+    # GNSS factors only at the open ends; blocked signals in the middle
+    for (sx, sy), idx in (((34, 18), 0), ((34, 18), 1), ((296, 16), 7), ((296, 16), 8)):
+        x, y = poses[idx]
+        s.append(f'<line x1="{sx}" y1="{sy+4}" x2="{x}" y2="{y-6}" stroke="{FG}" stroke-opacity=".5" stroke-width=".8" stroke-dasharray="1.5 2"/>')
+        s.append(f'<rect x="{x-2.5}" y="{y-20}" width="5" height="5" fill="{FG}"/><line x1="{x}" y1="{y-15}" x2="{x}" y2="{y-4}" stroke="{FG}" stroke-width=".8"/>')
+    for tx, ty in ((168, 46), (190, 40)):
+        s.append(f'<line x1="190" y1="14" x2="{tx}" y2="{ty}" stroke="{MUTED}" stroke-width=".8" stroke-dasharray="1.5 2"/>')
+        s.append(f'<path d="M{tx-3} {ty-3} l6 6 M{tx+3} {ty-3} l-6 6" stroke="{ORANGE}" stroke-width="1.3"/>')
+    # landmark factors (LiDAR / radar / camera) to quay corners
+    landmarks = [(106, 58), (120, 70), (236, 70), (104, 146), (214, 146)]
+    for lx, ly in landmarks:
+        s.append(f'<path d="M{lx} {ly-4} l4 7 h-8 z" fill="none" stroke="{BLUE}" stroke-width="1"/>')
+    for (pi, li) in ((2, 0), (3, 1), (3, 3), (4, 3), (5, 2), (5, 4), (6, 2), (4, 4)):
+        x, y = poses[pi]; lx, ly = landmarks[li]
+        mx, my = (x + lx) / 2, (y + ly) / 2
+        s.append(f'<line x1="{x}" y1="{y}" x2="{lx}" y2="{ly}" stroke="{BLUE}" stroke-opacity=".55" stroke-width=".8"/>')
+        s.append(f'<rect x="{mx-2}" y="{my-2}" width="4" height="4" fill="#060606" stroke="{BLUE}" stroke-width=".8"/>')
+    # odometry / IMU factors between consecutive poses
+    for (x0, y0), (x1, y1) in zip(poses, poses[1:]):
+        s.append(f'<line x1="{x0}" y1="{y0}" x2="{x1}" y2="{y1}" stroke="{ORANGE}" stroke-width="1.4"/>')
+        s.append(f'<rect x="{(x0+x1)/2-2.5:.1f}" y="{(y0+y1)/2-2.5:.1f}" width="5" height="5" fill="#060606" stroke="{ORANGE}" stroke-width="1"/>')
+    for x, y in poses:
+        s.append(f'<circle cx="{x}" cy="{y}" r="4" fill="#060606" stroke="{ORANGE}" stroke-width="1.6"/>')
+    # vessel at the last pose
+    s.append(hull(304, 96, 20, 7, -8, fill=ORANGE))
+    s.append('</svg>')
+    return '\n'.join(s)
+
+# ---------------------------------------------------------------- Inland vessel trajectory prediction
+def inland_prediction():
+    random.seed(8)
+    s = []
+    s.append('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" width="640" height="400">')
+    s.append('<defs><pattern id="ig" width="16" height="16" patternUnits="userSpaceOnUse"><path d="M16 0H0V16" fill="none" stroke="#16181b" stroke-width=".8"/></pattern></defs>')
+    s.append('<rect width="320" height="200" fill="#060606"/><rect width="320" height="200" fill="url(#ig)"/>')
+    # river centerline (meander) and banks
+    def center(x):
+        return 112 + 34 * math.sin((x - 20) / 62) - 8 * math.sin((x - 20) / 23)
+    xs = [i * 4 for i in range(0, 82)]
+    top = [(x, center(x) - 30) for x in xs]; bot = [(x, center(x) + 30) for x in xs]
+    river = 'M' + ' L'.join(f'{x:.1f} {y:.1f}' for x, y in top) + ' L' + ' L'.join(f'{x:.1f} {y:.1f}' for x, y in reversed(bot)) + ' Z'
+    s.append(f'<path d="{river}" fill="#0d1012"/>')
+    for bank in (top, bot):
+        s.append('<path d="M' + ' L'.join(f'{x:.1f} {y:.1f}' for x, y in bank) + '" fill="none" stroke="#3a3f45" stroke-width="1.2"/>')
+    # fairway axis
+    s.append('<path d="M' + ' L'.join(f'{x:.1f} {center(x):.1f}' for x in xs) + f'" fill="none" stroke="{MUTED}" stroke-opacity=".5" stroke-width=".7" stroke-dasharray="3 4"/>')
+    # river kilometre markers
+    for x in (40, 120, 200, 280):
+        y = center(x) + 30
+        s.append(f'<line x1="{x}" y1="{y}" x2="{x}" y2="{y+6}" stroke="{MUTED}" stroke-width="1"/>')
+    # AIS history (past positions)
+    x0 = 128
+    hist = [(x, center(x) + 6 + random.uniform(-1.2, 1.2)) for x in range(20, x0, 9)]
+    for i, (x, y) in enumerate(hist):
+        s.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="2" fill="{BLUE}" opacity="{.3 + .6 * i / len(hist):.2f}"/>')
+    vy = center(x0) + 6
+    # predicted futures: fan of samples + growing uncertainty
+    for k in range(-4, 5):
+        pts = []
+        for j in range(0, 46):
+            x = x0 + j * 3.6
+            spread = (j / 45) ** 1.5 * 22 * k / 4
+            pts.append((x, center(x) + 6 + spread))
+        op = .9 if k == 0 else .22
+        w = 1.8 if k == 0 else 1
+        s.append('<path d="M' + ' L'.join(f'{x:.1f} {y:.1f}' for x, y in pts) + f'" fill="none" stroke="{ORANGE}" stroke-opacity="{op}" stroke-width="{w}"' + (' stroke-dasharray="4 3"' if k == 0 else '') + '/>')
+    for j in (15, 30, 45):
+        x = x0 + j * 3.6; r = 3 + (j / 45) ** 1.5 * 22
+        s.append(f'<ellipse cx="{x:.1f}" cy="{center(x) + 6:.1f}" rx="{r*.55:.1f}" ry="{r:.1f}" fill="none" stroke="{ORANGE}" stroke-opacity=".5" stroke-width=".8"/>')
+    # the vessel (long inland barge) with AIS beacon
+    ang = math.degrees(math.atan2(center(x0 + 1) - center(x0 - 1), 2))
+    s.append(hull(x0, vy, 34, 8, ang, fill=FG))
+    s.append(f'<g fill="none" stroke="{BLUE}" stroke-width="1" stroke-linecap="round"><path d="M{x0-4} {vy-12} a6 6 0 0 1 8 0"/><path d="M{x0-7} {vy-16} a10 10 0 0 1 14 0"/></g>')
+    s.append(f'<text x="{x0-30}" y="{vy-18}" font-family="Menlo, Consolas, monospace" font-size="8" letter-spacing="1" fill="{BLUE}">AIS</text>')
+    s.append('</svg>')
+    return '\n'.join(s)
+
+open(f'{OUT}/harbor-navigation.svg', 'w').write(harbor_navigation())
+open(f'{OUT}/inland-trajectory-prediction.svg', 'w').write(inland_prediction())
 open(f'{OUT}/formula-student.svg', 'w').write(formula_student())
 open(f'{OUT}/simple-c.svg', 'w').write(simplec())
 open(f'{OUT}/mstnet.svg', 'w').write(mstnet())

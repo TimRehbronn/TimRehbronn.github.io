@@ -3,6 +3,7 @@ title: Robust Navigation in GNSS-sparse Constrained Harbor Environments
 summary: Fusing IMU, LiDAR, radar, camera and GNSS with factor graphs and an iterated ES-EKF for reliable vessel navigation where satellite signals are sparse.
 year: 2026
 status: active
+image: /images/projects/harbor-navigation.svg
 featured: true
 tags: [navigation, factor graphs, iterated ES-EKF, sensor fusion]
 ---

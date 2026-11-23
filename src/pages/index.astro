@@ -30,17 +30,16 @@ const jsonLd = {
 
   <section class="hero">
     <div class="intro">
-      <p class="kicker"><span class="dot" aria-hidden="true"></span>{SITE.role} · {SITE.affiliationShort} · {SITE.location}</p>
       <h1>{SITE.name}</h1>
-      <p class="lead">Sensor fusion, navigation and perception for autonomous maritime systems.</p>
-      <p>I'm a researcher and PhD candidate in the <a href="https://www.irt.rwth-aachen.de">Navigation Group at the Institute of Automatic Control (IRT)</a>, RWTH Aachen University, supervised by Prof. Heike Vallery. I design, deploy and field-validate <strong>state estimation and sensor fusion</strong> systems for autonomous platforms — mostly ships.</p>
-      <p>My work spans the whole chain from sensor calibration and GNSS/IMU navigation to LiDAR 3D object detection, multi-object tracking and trajectory prediction — running on real vessels. This has given me a <strong>broad overview of the field</strong>: I identify where existing systems fall short, turn those gaps into concrete solutions, implement them and evaluate them on real-world data. Alongside research, I lead the “Water” expert group of the innocam.NRW competence network and have supervised ten Bachelor’s and Master’s theses — backed by extensive <strong>training in project management and leadership</strong>, from <em>The Engineer as a Manager</em> and <em>Leading Interdisciplinary Teams</em> to Project Management I &amp; II.</p>
+      <p class="lead">State estimation and sensor fusion for autonomous systems.</p>
+      <p>I'm a researcher and PhD candidate in the <a href="https://www.irt.rwth-aachen.de">Navigation Group at the Institute of Automatic Control (IRT)</a>, RWTH Aachen University, supervised by Prof. Heike Vallery. I design, deploy and field-validate <strong>state estimation and sensor fusion</strong> systems for autonomous platforms.</p>
+      <p>My work centers on robust state estimation and multi-sensor fusion for autonomous systems and covers the whole chain around it: from sensor calibration and GNSS/IMU navigation to LiDAR 3D object detection, multi-object tracking and trajectory prediction, validated in field experiments. This has given me a <strong>broad overview of the field</strong>. I identify where existing systems fall short, turn those gaps into concrete solutions, implement them and evaluate them on real-world data.</p>
+      <p>Alongside research, I lead the “Water” expert group of the innocam.NRW competence network and have supervised several Bachelor’s and Master’s theses in state estimation and sensor fusion. <strong>Extensive training in project management and leadership</strong> shapes how I work: I break complex projects down into clear milestones, align stakeholders early and give teams ownership of their results.</p>
       <p>Before my PhD, I studied Electrical Engineering at RWTH Aachen (M.Sc. <strong>with distinction</strong>, Dean’s List) and worked on automated driving at Bosch and the Institute for Automotive Engineering (ika).</p>
       <SocialLinks />
     </div>
     <figure class="portrait">
       <img src={SITE.avatar} alt={`Portrait of ${SITE.name}`} width="220" height="220" />
-      <figcaption class="label"><span>Aachen, DE</span><span>RWTH</span></figcaption>
     </figure>
   </section>
 
@@ -119,8 +118,6 @@ const jsonLd = {
     background-size: 48px 48px;
     mask-image: radial-gradient(ellipse 55% 75% at 50% 25%, #000 25%, transparent 75%);
   }
-  .kicker { display: flex; align-items: center; gap: 0.6rem; margin: 0 0 1.25rem; }
-  .dot { width: 7px; height: 7px; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
   h1 { margin: 0 0 0.75rem; }
   .lead { font-size: 1.2rem; color: var(--fg); letter-spacing: -0.01em; margin-bottom: 1.75rem; max-width: 34rem; }
   .intro > p:not(.kicker):not(.lead) { max-width: var(--w-text); }
@@ -131,7 +128,6 @@ const jsonLd = {
   .portrait::before, .portrait::after { content: ''; position: absolute; width: 12px; height: 12px; border: 2px solid var(--accent); }
   .portrait::before { top: -2px; left: -2px; border-right: 0; border-bottom: 0; }
   .portrait::after { bottom: -2px; right: -2px; border-left: 0; border-top: 0; }
-  .portrait figcaption { margin-top: 0.5rem; display: flex; justify-content: space-between; }
 
   .current { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.75rem; }
   .current > li { display: grid; grid-template-columns: 2.5rem 1fr; gap: 0.5rem; padding: 1.25rem 1.25rem 1.25rem 1rem; }

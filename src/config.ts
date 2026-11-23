@@ -8,9 +8,9 @@ export const SITE = {
   affiliationUrl: 'https://www.irt.rwth-aachen.de',
   location: 'Aachen, Germany',
   description:
-    'Tim Rehbronn — PhD candidate at RWTH Aachen University working on sensor fusion, navigation and perception for autonomous maritime systems.',
+    'Tim Rehbronn — researcher and PhD candidate at RWTH Aachen University working on state estimation and sensor fusion for autonomous systems.',
   email: 'tim@rehbronn.de',
-  avatar: '/images/avatar.jpg',
+  avatar: '/images/portrait-2026.jpg', // new file name = no stale browser cache
   ogImage: '/images/og.png', // social preview image (1200×630)
   cvPdf: '', // optional: put a public CV into public/cv.pdf and set '/cv.pdf'
   // Variants of your name that get highlighted in author lists.
