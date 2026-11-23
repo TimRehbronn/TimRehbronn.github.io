@@ -52,5 +52,16 @@ const ogImage = new URL(image, Astro.site);
       <slot />
     </main>
     <Footer />
+    <script>
+      // Open links to other sites (and files like PDFs) in a new tab.
+      for (const a of document.querySelectorAll<HTMLAnchorElement>('a[href]')) {
+        const url = new URL(a.href, location.href);
+        const external = url.protocol.startsWith('http') && url.origin !== location.origin;
+        if (external) {
+          a.target = '_blank';
+          a.rel = `${a.rel} noopener noreferrer`.trim();
+        }
+      }
+    </script>
   </body>
 </html>

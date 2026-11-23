@@ -25,7 +25,7 @@ export const experience: CvEntry[] = [
       'Implemented, deployed and field-tested a navigation (ES-EKF, GNSS/IMU), LiDAR detection, tracking (JPDA) and grid-mapping pipeline for a real multi-vessel scenario (GALILEOnautic 2+).',
       'Developed SIMPLE-C, a target-based multi-LiDAR extrinsic calibration tool for feature-sparse maritime settings, deployed on real vessels.',
       'Developed MSTNet, a self-supervised pretraining pipeline for label-efficient maritime 3D LiDAR object detection.',
-      'Working on robust navigation in GNSS-sparse harbors fusing IMU, LiDAR, radar, camera and GNSS with factor graphs and an iterated ES-EKF, multi-target tracking with a trajectory PMBM filter, and learned physics-inspired models for AIS-based trajectory prediction of inland vessels.',
+      'Working on robust navigation in GNSS-sparse harbors fusing IMU, LiDAR, radar, camera and GNSS with factor graphs and an iterated ES-EKF, multi-target tracking with a trajectory PMBM filter, and regime-switching grey-box models for AIS-based vessel trajectory prediction in confined waters.',
       'Industry-related projects: GALILEOnautic 2+, KORIS (medical robotics), innocam.NRW.',
     ],
   },
@@ -159,9 +159,9 @@ export const current: { title: string; text: string; tags: string[]; href?: stri
     href: '/projects/robust-harbor-navigation/',
   },
   {
-    title: 'Trajectory prediction for inland vessels',
-    text: 'Learned, physics-inspired models that predict vessel trajectories from AIS data.',
-    tags: ['AIS', 'Deep learning', 'Ship kinematics'],
+    title: 'Vessel trajectory prediction in confined waters',
+    text: 'A regime-switching grey-box model that combines learned maneuver regimes with ship kinematics to predict vessel motion from AIS data in ports, rivers and canals.',
+    tags: ['AIS', 'Grey-box', 'IMM', 'Ship kinematics'],
     href: '/projects/inland-vessel-trajectory-prediction/',
   },
   {
