@@ -9,6 +9,7 @@ export interface CvEntry {
   start: string; // free text, e.g. "2023" or "Oct 2023"
   end?: string; // omit for "present"
   details?: string[];
+  mono?: string; // short monogram shown in a square tile (no third-party logos)
 }
 
 const IRT = 'https://www.irt.rwth-aachen.de';
@@ -19,6 +20,7 @@ export const experience: CvEntry[] = [
     org: 'Institute of Automatic Control (IRT), RWTH Aachen University',
     orgUrl: IRT,
     location: 'Aachen',
+    mono: 'RWTH',
     start: 'Oct 2023',
     details: [
       'Calibration, navigation, detection and tracking for maritime autonomous systems; supervised by Prof. Dr.-Ing. Heike Vallery.',
@@ -32,6 +34,7 @@ export const experience: CvEntry[] = [
   {
     title: 'Intern — Automated Driving / Parking',
     org: 'Robert Bosch GmbH, Cross-Domain Computing Solutions',
+    mono: 'BOSCH',
     location: 'Stuttgart region',
     start: 'Apr 2023',
     end: 'Aug 2023',
@@ -42,6 +45,7 @@ export const experience: CvEntry[] = [
   {
     title: 'Student Research Assistant — Vehicle Intelligence & Automated Driving',
     org: 'Institute for Automotive Engineering (ika), RWTH Aachen University',
+    mono: 'RWTH',
     location: 'Aachen',
     start: 'Apr 2022',
     end: 'Mar 2023',
@@ -52,6 +56,7 @@ export const experience: CvEntry[] = [
   {
     title: 'Student Research Assistant — Neural Networks in Video Coding',
     org: 'Institute for Communications Engineering (IENT), RWTH Aachen University',
+    mono: 'RWTH',
     location: 'Aachen',
     start: 'Oct 2019',
     end: 'Mar 2022',
@@ -64,6 +69,7 @@ export const experience: CvEntry[] = [
     title: 'Head of Electrical Powertrain',
     org: 'Ecurie Aix — Formula Student Team RWTH Aachen e.V.',
     orgUrl: 'https://ecurie-aix.de',
+    mono: 'EAX',
     location: 'Aachen',
     start: 'Jan 2020',
     end: 'Jun 2021',
@@ -79,6 +85,7 @@ export const education: CvEntry[] = [
     title: 'Dr.-Ing. (PhD candidate)',
     org: 'Faculty of Mechanical Engineering, RWTH Aachen University — Institute of Automatic Control (IRT)',
     orgUrl: IRT,
+    mono: 'RWTH',
     location: 'Aachen',
     start: '2023',
     end: '2027 (expected)',
@@ -87,6 +94,7 @@ export const education: CvEntry[] = [
   {
     title: 'M.Sc. Electrical Engineering, Information Technology and Computer Engineering',
     org: 'RWTH Aachen University',
+    mono: 'RWTH',
     location: 'Aachen',
     start: '2020',
     end: '2023',
@@ -98,6 +106,7 @@ export const education: CvEntry[] = [
   {
     title: 'B.Sc. Electrical Engineering, Information Technology and Computer Engineering',
     org: 'RWTH Aachen University',
+    mono: 'RWTH',
     location: 'Aachen',
     start: '2016',
     end: '2020',
@@ -109,6 +118,7 @@ export const service: CvEntry[] = [
   {
     title: 'Lead, Expert Group “Water”',
     org: 'innocam.NRW competence center',
+    mono: 'NRW',
     start: '2023',
     details: ['Organizing and moderating workshops on inland-vessel topics; publishing market reports and advisory papers.'],
   },
@@ -117,6 +127,7 @@ export const service: CvEntry[] = [
     org: 'Institute of Automatic Control (IRT), RWTH Aachen University',
     orgUrl: IRT,
     start: '2023',
+    mono: 'RWTH',
     details: [
       'Supervised 10 interdisciplinary Bachelor’s and Master’s theses.',
       'Teaching support for Control Engineering.',
@@ -124,16 +135,17 @@ export const service: CvEntry[] = [
   },
 ];
 
-export const awards: { year: string; title: string; detail?: string; url?: string }[] = [
-  { year: '2023', title: '**Dean’s List**, RWTH Aachen University', detail: 'M.Sc. graduated **with distinction**' },
+export const awards: { year: string; title: string; detail?: string; url?: string; mono?: string }[] = [
+  { year: '2023', title: '**Dean’s List**, RWTH Aachen University', detail: 'M.Sc. graduated **with distinction**', mono: 'RWTH' },
 ];
 
-export const schools: { year: string; title: string; detail?: string; url?: string }[] = [
+export const schools: { year: string; title: string; detail?: string; url?: string; mono?: string }[] = [
   {
     year: 'Jul 2025',
     title: 'Graduate School NAVIGATE 2025',
     detail: 'Connected Autonomous Vehicles & Intelligent Transportation Systems — TU Delft, supported by the IEEE ITS Society Benelux Chapter',
     url: 'https://www.tudelft.nl/en/me/research/transport-mobility/graduate-school-navigate-2025',
+    mono: 'TUD',
   },
   {
     year: '2023–',

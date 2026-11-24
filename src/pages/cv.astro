@@ -41,13 +41,16 @@ const lists = [
                   {e.start}
                   {e.end !== e.start && <> – {e.end ?? 'present'}</>}
                 </span>
-                <div>
+                <div class="body">
+                  <span class:list={['mono', { blank: !e.mono }]} aria-hidden="true">{e.mono}</span>
+                  <div>
                   <h3>{e.title}</h3>
                   <p class="org">
                     {e.orgUrl ? <a href={e.orgUrl}>{e.org}</a> : e.org}
                     {e.location && <span class="muted">, {e.location}</span>}
                   </p>
                   {e.details && <ul>{e.details.map((d) => <li set:html={emph(d)} />)}</ul>}
+                  </div>
                 </div>
               </li>
             ))}
@@ -66,9 +69,12 @@ const lists = [
             {l.items.map((a) => (
               <li>
                 <span class="when label">{a.year}</span>
-                <div>
-                  <h3>{a.url ? <a href={a.url} set:html={emph(a.title)} /> : <span set:html={emph(a.title)} />}</h3>
-                  {a.detail && <p class="org" set:html={emph(a.detail)} />}
+                <div class="body">
+                  <span class:list={['mono', { blank: !a.mono }]} aria-hidden="true">{a.mono}</span>
+                  <div>
+                    <h3>{a.url ? <a href={a.url} set:html={emph(a.title)} /> : <span set:html={emph(a.title)} />}</h3>
+                    {a.detail && <p class="org" set:html={emph(a.detail)} />}
+                  </div>
                 </div>
               </li>
             ))}
@@ -94,6 +100,14 @@ const lists = [
   .entries > li { display: grid; grid-template-columns: 9rem 1fr; gap: 1.25rem; padding: 1.25rem 0; border-top: 1px solid var(--border); }
   .entries > li:first-child, .skills dt:first-of-type, .skills dt:first-of-type + dd { border-top: 0; padding-top: 0; }
   .when { padding-top: 0.2rem; }
+  .body { display: grid; grid-template-columns: 2.75rem 1fr; gap: 1rem; align-items: start; }
+  .mono {
+    display: grid; place-items: center; width: 2.75rem; height: 2.75rem;
+    border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface);
+    font-family: var(--font-mono); font-size: 0.58rem; font-weight: 600; letter-spacing: 0.06em; color: var(--fg-soft);
+  }
+  .mono.blank { border-style: dashed; }
+  .mono.blank::after { content: ''; width: 5px; height: 5px; background: var(--border-strong); }
   h3 { margin: 0 0 0.2rem; font-size: 1rem; }
   h3 a { text-decoration: none; }
   .org { margin: 0; color: var(--fg-soft); font-size: 0.92rem; }
