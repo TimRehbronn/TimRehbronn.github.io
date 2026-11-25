@@ -1160,11 +1160,11 @@ An INS is precise over short times, works everywhere and needs no external signa
 The next posts build towards that combination step by step:
 
 - **Part 2, GNSS**, explains the other half: how satellites, signals, pseudoranges and Doppler shifts give position and velocity, and where GNSS errors come from.
-- **Part 3, state estimation**, introduces the tools for fusing sensors: the Bayes filter, the Kalman filter and its nonlinear variants EKF and UKF, and the particle filter.
-- **Part 4, sensor fusion 1**, combines INS and GNSS. With *loose coupling* the filter uses GNSS positions and velocities; with *tight coupling* it uses the raw pseudoranges and Doppler shifts and keeps working with fewer than four satellites.
+- **Part 3, state estimation**, introduces the tools for fusing sensors: the Bayes filter, the Kalman filter and its nonlinear variants EKF and UKF, and the particle filter. A central theme is **uncertainty**: how a filter represents it, for example as a covariance matrix, and how it propagates through nonlinear models.
+- **Part 4, sensor fusion 1**, combines INS and GNSS. With *loose coupling* the filter uses GNSS positions and velocities; with *tight coupling* it uses the raw pseudoranges and Doppler shifts and keeps working with fewer than four satellites. We will also check whether the filter is **consistent**, i.e. whether its reported uncertainty matches its actual errors, using statistical tests such as the normalized estimation error squared (NEES) and the normalized innovation squared (NIS).
 - **Parts 5 and 6** add LiDAR and radar odometry, which estimate motion from the surroundings rather than from satellites.
 - **Part 7** treats rotations and poses as what they mathematically are, curved spaces (Lie groups such as SO(3) and SE(3)), and introduces IMU preintegration, sensor calibration and observability.
-- **Part 8, sensor fusion 2**, brings everything together for robust localization with GNSS, IMU, LiDAR and radar: error-state and iterated EKF, filters on manifolds such as the invariant EKF, particle filters and factor graph optimization.
+- **Part 8, sensor fusion 2**, brings everything together for robust localization with GNSS, IMU, LiDAR and radar: error-state and iterated EKF, filters on manifolds such as the invariant EKF, particle filters and factor graph optimization. With many sensors, consistency becomes the central difficulty: an overconfident filter trusts wrong estimates and rejects correct measurements, and much of the progress in these methods comes from keeping the uncertainty honest.
 
 ## References
 
