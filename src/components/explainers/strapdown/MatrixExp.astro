@@ -1,0 +1,99 @@
+---
+import M from '../../blog/M.astro';
+// The matrix exponential of a skew-symmetric matrix, built term by term: the partial sums spiral onto the rotated vector.
+---
+
+<figure class="xp wide" data-xp="mexp">
+  <div class="xp-head"><span class="label fig-title">The matrix exponential, term by term</span></div>
+  <div class="xp-row two">
+    <canvas role="img" aria-label="A chain of arrows: the vector x, then each term of the exponential series added tip to tail, converging to x rotated by the angle alpha"></canvas>
+    <div class="me-side">
+      <p class="small" style="text-align:left">Rotation about the <M t="z" />-axis (pointing out of the screen) by <M t={String.raw`\alpha`} />, so <M t={String.raw`\boldsymbol\alpha = [0, 0, \alpha]^\mathsf T`} /> and</p>
+      <div class="me-mat"><M t={String.raw`[\boldsymbol\alpha\times] =`} /><table class="me-t"><tbody data-o-mat></tbody></table></div>
+      <p class="small" style="text-align:left">Each term of</p>
+      <M t={String.raw`\exp([\boldsymbol\alpha\times])\,\mathbf x = \mathbf x + [\boldsymbol\alpha\times]\mathbf x + \tfrac{1}{2!}[\boldsymbol\alpha\times]^2\mathbf x + \tfrac{1}{3!}[\boldsymbol\alpha\times]^3\mathbf x + \dots`} display />
+      <p class="small muted" style="text-align:left">is the previous term turned by <M t={String.raw`90^\circ`} /> and scaled by <M t={String.raw`\alpha / k`} />. The first-order approximation <M t={String.raw`(\mathbf I + [\boldsymbol\alpha\times])\,\mathbf x`} /> is the tip of the second arrow: it points roughly the right way but is too long.</p>
+    </div>
+  </div>
+  <ul class="xp-legend">
+    <li class="c-fg"><i></i><span><M t={String.raw`\mathbf x`} /> and the exact result <M t={String.raw`\mathbf C_z(\alpha)\,\mathbf x`} /></span></li>
+    <li class="c-accent"><i></i><span>terms <M t={String.raw`\tfrac{1}{k!}[\boldsymbol\alpha\times]^k\mathbf x`} /></span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Rotation angle <M t={String.raw`\alpha`} /></span><output for="al"></output></span><input type="range" name="al" min="0" max="360" step="1" value="120" /></label>
+    <label class="xp-ctl"><span><span>Number of terms</span><output for="nt"></output></span><input type="range" name="nt" min="1" max="14" step="1" value="4" /></label>
+  </div>
+  <p class="xp-readout" aria-live="polite"><span>length of the partial sum <b data-o="len"></b> (exact: 1)</span><span>distance to the exact result <b class="hot" data-o="err"></b></span><span>first order <M t={String.raw`\lVert(\mathbf I + [\boldsymbol\alpha\times])\mathbf x\rVert`} /> = <b data-o="fo"></b></span></p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<style>
+  .me-side { min-width: 0; overflow-x: auto; }
+  .me-side p { margin: 0 0 0.5rem; }
+  .me-mat { margin: 0.2rem 0 0.8rem; display: flex; align-items: center; gap: 0.6rem; }
+  .me-t { border-collapse: collapse; margin: 0; font-variant-numeric: tabular-nums; }
+  .me-t td { border: 0; padding: 0.05rem 0.5rem; text-align: right; color: var(--fg); }
+  .me-t tr td:first-child { border-left: 1px solid var(--border-strong); }
+  .me-t tr td:last-child { border-right: 1px solid var(--border-strong); }
+</style>
+
+<script>
+  import { palette, setupCanvas, label, slider, arrow, outputs } from '../../../lib/explainer';
+
+  const D2R = Math.PI / 180;
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="mexp"]')) {
+    const canvas = fig.querySelector('canvas')!;
+    const out = outputs(fig);
+    const mat = fig.querySelector<HTMLElement>('[data-o-mat]')!;
+    let al = 120, nt = 4;
+    const { ctx, size } = setupCanvas(canvas, 0.9, draw);
+
+    function draw() {
+      const P = palette(), W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const a = al * D2R;
+      // partial sums of the series applied to x = (1, 0): each term is the previous one rotated by +90° and scaled by a/k
+      let term = [1, 0], sum = [1, 0];
+      const chain: number[][] = [[0, 0], [1, 0]];
+      for (let k = 1; k < nt; k++) {
+        term = [(-term[1] * a) / k, (term[0] * a) / k];
+        sum = [sum[0] + term[0], sum[1] + term[1]];
+        chain.push([...sum]);
+      }
+      // scale so that the whole chain fits
+      let ext = 1.3;
+      for (const p of chain) ext = Math.max(ext, Math.abs(p[0]), Math.abs(p[1]));
+      ext = Math.min(ext, 6);
+      const S = (Math.min(W, H) * 0.42) / ext, cx = W / 2, cy = H / 2;
+      const X = (p: number[]) => cx + p[0] * S, Y = (p: number[]) => cy - p[1] * S;
+      // unit circle and axes
+      ctx.strokeStyle = P.border; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, cy + 0.5); ctx.lineTo(W, cy + 0.5); ctx.moveTo(cx + 0.5, 0); ctx.lineTo(cx + 0.5, H); ctx.stroke();
+      ctx.strokeStyle = P.strong; ctx.beginPath(); ctx.arc(cx, cy, S, 0, Math.PI * 2); ctx.stroke();
+      // arc of the exact rotation
+      ctx.strokeStyle = P.soft; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(cx, cy, S * 0.25, 0, -a, true); ctx.stroke();
+      label(ctx, '$\\alpha$', cx + Math.cos(a / 2) * S * 0.34, cy - Math.sin(a / 2) * S * 0.34, P.soft, { size: 13, align: 'center' });
+      // exact result
+      const ex = [Math.cos(a), Math.sin(a)];
+      arrow(ctx, cx, cy, X(ex), Y(ex), P.fg, 1.5, 9);
+      label(ctx, '$\\mathbf{C}_z(\\alpha)\\,\\mathbf{x}$', X(ex) + 8, Y(ex) - 10, P.fg, { size: 12 });
+      // chain of terms
+      for (let i = 1; i < chain.length; i++) {
+        const p0 = chain[i - 1], p1 = chain[i];
+        arrow(ctx, X(p0), Y(p0), X(p1), Y(p1), i === 1 ? P.fg : P.accent, i === 1 ? 2 : 2, 8);
+      }
+      label(ctx, '$\\mathbf{x}$', X([1, 0]) + 4, Y([1, 0]) + 14, P.fg, { size: 12 });
+      ctx.fillStyle = P.accent; ctx.beginPath(); ctx.arc(X(sum), Y(sum), 4.5, 0, Math.PI * 2); ctx.fill();
+      if (ext >= 6) label(ctx, 'view clipped: terms are still growing', 8, H - 10, P.muted, { size: 11 });
+
+      out('len', Math.hypot(sum[0], sum[1]).toFixed(4));
+      out('err', Math.hypot(sum[0] - ex[0], sum[1] - ex[1]).toFixed(4));
+      out('fo', Math.hypot(1, a).toFixed(4));
+      const f = (v: number) => (Math.abs(v) < 5e-4 ? '0' : v.toFixed(2));
+      mat.innerHTML = [[0, f(-a), 0], [f(a), 0, 0], [0, 0, 0]].map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join('')}</tr>`).join('');
+    }
+    slider(fig, 'al', (v) => `${v}° = ${(v * D2R).toFixed(2)} rad`, (v) => { al = v; draw(); });
+    slider(fig, 'nt', (v) => `${v}`, (v) => { nt = v; draw(); });
+  }
+</script>

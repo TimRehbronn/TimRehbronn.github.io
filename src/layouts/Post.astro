@@ -1,5 +1,6 @@
 ---
 import 'katex/dist/katex.min.css';
+import '../styles/explainer.css';
 import Base from './Base.astro';
 import type { CollectionEntry } from 'astro:content';
 import type { MarkdownHeading } from 'astro';
@@ -42,7 +43,7 @@ const toc = headings.filter((h) => h.depth === 2);
 </Base>
 
 <style>
-  .toc { margin: 0 0 2.5rem; padding: 1rem 1.25rem; border: 1px solid var(--border); background: var(--surface); max-width: var(--w-text); }
+  .toc { margin: 0 0 2.5rem; padding: 1rem 1.25rem; border: 1px solid var(--border); background: var(--bg); max-width: var(--w-text); }
   .toc a { text-decoration: none; color: var(--fg-soft); }
   .toc a:hover { color: var(--accent); }
   .toc li::marker { color: var(--accent); font-family: var(--font-mono); font-size: .8em; }

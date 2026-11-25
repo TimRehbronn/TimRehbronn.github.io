@@ -1,0 +1,108 @@
+---
+import M from '../../blog/M.astro';
+// White noise, its integral (random walk) and its double integral, over many realizations.
+---
+
+<figure class="xp wide" data-xp="nw">
+  <div class="xp-head"><span class="label fig-title">White noise and random walk</span></div>
+  <canvas role="img" aria-label="Many random realizations of white noise, a random walk or an integrated random walk, with the theoretical standard deviation as an envelope"></canvas>
+  <ul class="xp-legend">
+    <li class="c-muted"><i></i><span>30 of 300 realizations</span></li>
+    <li class="c-accent"><i></i><span>one realization</span></li>
+    <li class="c-fg dash"><i></i><span>theory: <M t={String.raw`\pm\sigma(t)`} /> and <M t={String.raw`\pm 2\sigma(t)`} /></span></li>
+  </ul>
+  <div class="xp-btns">
+    <button class="btn" type="button" data-mode="0" aria-pressed="false">White noise <M t={String.raw`w_k`} /></button>
+    <button class="btn" type="button" data-mode="1" aria-pressed="true">Random walk <M t={String.raw`\textstyle\sum w_k \Delta t`} /></button>
+    <button class="btn" type="button" data-mode="2" aria-pressed="false">Integrated random walk</button>
+    <button class="btn" type="button" data-act="seed">New realizations</button>
+  </div>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Noise density <M t={String.raw`N = \sigma_w\sqrt{\Delta t}`} /></span><output for="nd"></output></span><input type="range" name="nd" min="0.05" max="1" step="0.05" value="0.3" /></label>
+    <label class="xp-ctl"><span><span>Sample rate <M t={String.raw`1/\Delta t`} /></span><output for="fs"></output></span><input type="range" name="fs" min="1" max="100" step="1" value="10" /></label>
+  </div>
+  <p class="xp-readout" aria-live="polite"><span>per-sample std <M t={String.raw`\sigma_w`} /> = <b data-o="sw"></b></span><span>spread at <M t="t = 60" /> s: measured <b class="hot" data-o="emp"></b>, theory <b data-o="th"></b></span></p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, label, slider, axes, series, rng, outputs } from '../../../lib/explainer';
+
+  const T = 60, RUNS = 300, SHOW = 30;
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="nw"]')) {
+    const canvas = fig.querySelector('canvas')!;
+    const out = outputs(fig);
+    let nd = 0.3, fs = 10, mode = 1, seed = 11;
+    let t = new Float64Array(0), paths: Float64Array[] = [], finals = new Float64Array(RUNS);
+
+    function simulate() {
+      const dt = 1 / fs, n = Math.round(T * fs) + 1, sw = nd / Math.sqrt(dt), r = rng(seed);
+      t = new Float64Array(n); for (let k = 0; k < n; k++) t[k] = k * dt;
+      paths = [];
+      for (let j = 0; j < RUNS; j++) {
+        const keep = j < SHOW ? new Float64Array(n) : null;
+        let x = 0, y = 0, w = 0;
+        for (let k = 0; k < n; k++) {
+          w = sw * r.gauss();
+          const v = mode === 0 ? w : mode === 1 ? x : y;
+          if (keep) keep[k] = v;
+          y += x * dt; x += w * dt;
+        }
+        finals[j] = mode === 0 ? w : mode === 1 ? x : y;
+        if (keep) paths.push(keep);
+      }
+      out('sw', sw.toFixed(3));
+    }
+    const sigma = (tt: number) => {
+      const sw = nd * Math.sqrt(fs);
+      return mode === 0 ? sw : mode === 1 ? nd * Math.sqrt(tt) : nd * Math.sqrt(tt ** 3 / 3);
+    };
+
+    const { ctx, size } = setupCanvas(canvas, (w) => Math.max(300, w * 0.45), draw);
+
+    function draw() {
+      const P = palette(), W = size.w, H = size.h;
+      if (!W || !paths.length) return;
+      ctx.clearRect(0, 0, W, H);
+      const histW = Math.min(110, W * 0.18);
+      const box = { x: 50, y: 8, w: W - 62 - histW, h: H - 40 };
+      const lim = 3.2 * sigma(T);
+      const ylab = mode === 0 ? 'noise $w_k$' : mode === 1 ? 'random walk $x(t)$' : 'integrated random walk $y(t)$';
+      const A = axes(ctx, P, box, [0, T], [-lim, lim], { ylabel: ylab, xlabel: 'time [s]', xfmt: (v) => `${v}`, yfmt: (v) => (Math.abs(lim) < 3 ? v.toFixed(1) : v.toFixed(0)), zeroLine: true });
+      ctx.globalAlpha = 0.35;
+      for (let j = 1; j < paths.length; j++) series(ctx, box, t, paths[j], A.sx, A.sy, P.muted, 1);
+      ctx.globalAlpha = 1;
+      series(ctx, box, t, paths[0], A.sx, A.sy, P.accent, mode === 0 ? 1 : 1.75);
+      // theoretical envelopes
+      const m = 120, ts = new Float64Array(m + 1), e1 = new Float64Array(m + 1), e2 = new Float64Array(m + 1);
+      for (let i = 0; i <= m; i++) { ts[i] = (T * i) / m; e1[i] = sigma(ts[i]); e2[i] = 2 * e1[i]; }
+      for (const [e, sgn] of [[e1, 1], [e1, -1], [e2, 1], [e2, -1]] as const) series(ctx, box, ts, e.map((v) => sgn * v), A.sx, A.sy, P.fg, 1.25, [5, 4]);
+
+      // histogram of the values at t = T, all realizations
+      const hx = box.x + box.w + 10, bins = 24, cnt = new Array(bins).fill(0);
+      for (const v of finals) { const b = Math.floor(((v + lim) / (2 * lim)) * bins); if (b >= 0 && b < bins) cnt[b]++; }
+      const cmax = Math.max(...cnt, 1);
+      for (let b = 0; b < bins; b++) {
+        const y0 = A.sy(-lim + ((b + 1) * 2 * lim) / bins), y1 = A.sy(-lim + (b * 2 * lim) / bins);
+        ctx.fillStyle = P.accent; ctx.globalAlpha = 0.55; ctx.fillRect(hx, y0 + 0.5, (cnt[b] / cmax) * (histW - 14), y1 - y0 - 1); ctx.globalAlpha = 1;
+      }
+      // Gaussian with the theoretical sigma
+      const s = sigma(T), peak = (RUNS * (2 * lim / bins)) / (s * Math.sqrt(2 * Math.PI));
+      ctx.strokeStyle = P.fg; ctx.lineWidth = 1.25; ctx.beginPath();
+      for (let i = 0; i <= 80; i++) { const v = -lim + (2 * lim * i) / 80, d = (peak * Math.exp(-0.5 * (v / s) ** 2)) / cmax; const x = hx + d * (histW - 14), y = A.sy(v); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+      ctx.stroke();
+      label(ctx, `values at ${T} s`, hx, H - 16, P.muted, { size: 10 });
+
+      let m2 = 0; for (const v of finals) m2 += v * v;
+      out('emp', Math.sqrt(m2 / RUNS).toFixed(3)); out('th', s.toFixed(3));
+    }
+
+    const upd = () => { simulate(); draw(); };
+    slider(fig, 'nd', (v) => v.toFixed(2), (v) => { nd = v; upd(); });
+    slider(fig, 'fs', (v) => `${v} Hz`, (v) => { fs = v; upd(); });
+    const mb = fig.querySelectorAll<HTMLButtonElement>('[data-mode]');
+    mb.forEach((b) => b.addEventListener('click', () => { mode = Number(b.dataset.mode); mb.forEach((x) => x.setAttribute('aria-pressed', String(x === b))); upd(); }));
+    fig.querySelector('[data-act="seed"]')!.addEventListener('click', () => { seed++; upd(); });
+  }
+</script>

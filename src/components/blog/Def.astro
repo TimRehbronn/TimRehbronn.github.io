@@ -1,0 +1,7 @@
+---
+// Definition box for a technical term. Usage: <Def term="Specific force">…</Def>
+interface Props { term: string; kind?: string }
+const { term, kind = 'Definition' } = Astro.props;
+---
+
+<aside class="def"><span class="label">{kind} · <b>{term}</b></span><slot /></aside>

@@ -1,0 +1,124 @@
+---
+import M from '../../blog/M.astro';
+// 1-D inertial navigation: integrate a biased, noisy accelerometer twice and watch the position error grow.
+---
+
+<figure class="xp wide" data-xp="dbl">
+  <div class="xp-head"><span class="label fig-title">Dead reckoning in one dimension</span></div>
+  <canvas role="img" aria-label="A car on a straight track and plots of the true and the integrated position over 60 seconds"></canvas>
+  <ul class="xp-legend">
+    <li class="c-fg"><i></i><span>true</span></li>
+    <li class="c-accent"><i></i><span>integrated from the accelerometer</span></li>
+    <li class="c-muted dash"><i></i><span>prediction <M t={String.raw`\tfrac12 b\,t^2 + \delta v_0\,t`} /></span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Accelerometer bias <M t={String.raw`b`} /></span><output for="bias"></output></span><input type="range" name="bias" min="-20" max="20" step="0.5" value="5" /></label>
+    <label class="xp-ctl"><span><span>Noise <M t={String.raw`\sigma`} /> per sample</span><output for="noise"></output></span><input type="range" name="noise" min="0" max="50" step="1" value="0" /></label>
+    <label class="xp-ctl"><span><span>Initial velocity error <M t={String.raw`\delta v_0`} /></span><output for="dv0"></output></span><input type="range" name="dv0" min="-0.5" max="0.5" step="0.05" value="0" /></label>
+  </div>
+  <div class="xp-btns">
+    <button class="btn btn-primary" type="button" data-act="play">Pause</button>
+    <button class="btn" type="button" data-act="reset">Restart</button>
+    <button class="btn" type="button" data-act="seed">New noise</button>
+  </div>
+  <p class="xp-readout" aria-live="polite"><span><M t={String.raw`t`} /> = <b data-o="t"></b></span><span>true position <b data-o="p"></b></span><span>integrated <b data-o="pi"></b></span><span>error <M t={String.raw`\delta p`} /> = <b class="hot" data-o="e"></b></span></p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, animate, rng, axes, series, label, slider, fmtLen, reducedMotion, outputs } from '../../../lib/explainer';
+
+  const G = 9.80665, DT = 0.01, T = 60, N = Math.round(T / DT) + 1;
+  // true acceleration profile: two stop-and-go legs
+  const accel = (t: number) =>
+    t >= 5 && t < 9 ? 1.5 : t >= 25 && t < 29 ? -1.5 : t >= 35 && t < 38 ? 2 : t >= 48 && t < 51 ? -2 : 0;
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="dbl"]')) {
+    const canvas = fig.querySelector('canvas')!;
+    const out = outputs(fig);
+    const playBtn = fig.querySelector<HTMLButtonElement>('[data-act="play"]')!;
+    const t = new Float64Array(N), pTrue = new Float64Array(N), pIns = new Float64Array(N), err = new Float64Array(N), pred = new Float64Array(N);
+    let bias = 0, noise = 0, dv0 = 0, seed = 7, now = reducedMotion() ? T : 0, running = !reducedMotion();
+
+    function simulate() {
+      const r = rng(seed);
+      let v = 0, p = 0, vi = dv0, pi = 0;
+      const b = bias * 1e-3 * G, s = noise * 1e-3 * G;
+      for (let k = 0; k < N; k++) {
+        t[k] = k * DT; pTrue[k] = p; pIns[k] = pi; err[k] = pi - p;
+        pred[k] = 0.5 * b * t[k] ** 2 + dv0 * t[k];
+        const a = accel(t[k]), meas = a + b + s * r.gauss();
+        // trapezoid-free simple Euler on both, so the error is purely due to the sensor
+        p += v * DT + 0.5 * a * DT * DT; v += a * DT;
+        pi += vi * DT + 0.5 * meas * DT * DT; vi += meas * DT;
+      }
+    }
+
+    const { ctx, size } = setupCanvas(canvas, (w) => Math.max(330, w * 0.62), draw);
+
+    function draw() {
+      const P = palette(), W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const k = Math.min(N - 1, Math.round(now / DT));
+      const left = 52, right = 12;
+
+      // track
+      const ty = 34;
+      let xmin = -10, xmax = 230;
+      for (let i = 0; i < N; i += 25) { xmin = Math.min(xmin, pIns[i] - 10); xmax = Math.max(xmax, pIns[i] + 10); }
+      const tx = (x: number) => left + ((x - xmin) / (xmax - xmin)) * (W - left - right);
+      ctx.strokeStyle = P.strong; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(left, ty + 9.5); ctx.lineTo(W - right, ty + 9.5); ctx.stroke();
+      const tstep = xmax - xmin > 600 ? 200 : xmax - xmin > 300 ? 100 : 50;
+      for (let x = Math.ceil(xmin / tstep) * tstep; x <= xmax; x += tstep) { ctx.beginPath(); ctx.moveTo(tx(x) + 0.5, ty + 9); ctx.lineTo(tx(x) + 0.5, ty + 14); ctx.stroke(); label(ctx, `${x} m`, tx(x), ty + 24, P.muted, { align: 'center', size: 10 }); }
+      const car = (x: number, color: string, fill: boolean) => {
+        const X = tx(x);
+        ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 1.5;
+        if (fill) ctx.fillRect(X - 9, ty - 4, 18, 11); else ctx.strokeRect(X - 9, ty - 4, 18, 11);
+      };
+      car(pIns[k], P.accent, false);
+      car(pTrue[k], P.fg, true);
+
+      // position plot
+      const b1 = { x: left, y: 70, w: W - left - right, h: (H - 70 - 60) * 0.5 };
+      const b2 = { x: left, y: b1.y + b1.h + 26, w: b1.w, h: b1.h };
+      const pmax = Math.max(220, ...[pIns[N - 1], pTrue[N - 1]].map((v) => v + 10));
+      const pmin = Math.min(-10, Math.min(...Array.from(pIns.subarray(0, N)).filter((_, i) => i % 50 === 0)) - 10);
+      const A1 = axes(ctx, P, b1, [0, T], [pmin, pmax], { ylabel: 'position $p$ [m]', xfmt: (v) => `${v}s`, yfmt: (v) => v.toFixed(0) });
+      series(ctx, b1, t, pTrue, A1.sx, A1.sy, P.fg, 1.75, [], k + 1);
+      series(ctx, b1, t, pIns, A1.sx, A1.sy, P.accent, 1.75, [], k + 1);
+
+      // error plot
+      let emax = 1;
+      for (let i = 0; i < N; i += 20) emax = Math.max(emax, Math.abs(err[i]), Math.abs(pred[i]));
+      emax *= 1.1;
+      const A2 = axes(ctx, P, b2, [0, T], [-emax, emax], { ylabel: 'error $\\delta p$ = integrated − true [m]', xfmt: (v) => `${v}s`, yfmt: (v) => v.toFixed(Math.abs(emax) < 5 ? 1 : 0), xlabel: 'time', zeroLine: true });
+      series(ctx, b2, t, pred, A2.sx, A2.sy, P.muted, 1.25, [5, 4]);
+      series(ctx, b2, t, err, A2.sx, A2.sy, P.accent, 1.75, [], k + 1);
+      const X = A1.sx(now);
+      ctx.strokeStyle = P.soft; ctx.globalAlpha = 0.35; ctx.beginPath(); ctx.moveTo(X + 0.5, b1.y); ctx.lineTo(X + 0.5, b2.y + b2.h); ctx.stroke(); ctx.globalAlpha = 1;
+
+      out('t', `${now.toFixed(1)} s`); out('p', `${pTrue[k].toFixed(1)} m`); out('pi', `${pIns[k].toFixed(1)} m`); out('e', fmtLen(err[k]));
+    }
+
+    const anim = animate(fig, (dt) => {
+      now += dt * 6; // 6x real time
+      if (now >= T) { now = T; running = false; playBtn.textContent = 'Play'; }
+      draw();
+    }, () => running);
+
+    const restart = () => { now = 0; running = true; playBtn.textContent = 'Pause'; anim.kick(); draw(); };
+    slider(fig, 'bias', (v) => `${v.toFixed(1)} mg`, (v) => { bias = v; simulate(); draw(); });
+    slider(fig, 'noise', (v) => `${v.toFixed(0)} mg`, (v) => { noise = v; simulate(); draw(); });
+    slider(fig, 'dv0', (v) => `${v.toFixed(2)} m/s`, (v) => { dv0 = v; simulate(); draw(); });
+    playBtn.addEventListener('click', () => {
+      if (now >= T) return restart();
+      running = !running; playBtn.textContent = running ? 'Pause' : 'Play'; anim.kick();
+    });
+    fig.querySelector('[data-act="reset"]')!.addEventListener('click', restart);
+    fig.querySelector('[data-act="seed"]')!.addEventListener('click', () => { seed++; simulate(); draw(); });
+    if (!running) playBtn.textContent = 'Play';
+    simulate(); draw();
+  }
+</script>

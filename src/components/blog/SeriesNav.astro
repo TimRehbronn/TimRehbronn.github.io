@@ -1,0 +1,25 @@
+---
+// Series overview inside a post: current part highlighted, published parts linked, planned parts greyed out.
+import { getCollection } from 'astro:content';
+import { SERIES } from '../../data/series';
+
+interface Props { current?: string }
+const { current } = Astro.props;
+const live = new Set((await getCollection('blog', (p) => import.meta.env.DEV || !p.data.draft)).map((p) => p.id));
+---
+
+<nav class="series" aria-label={`Series: ${SERIES.title}`}>
+  <span class="label">Series · {SERIES.title}</span>
+  <ol>
+    {SERIES.parts.map((p) => {
+      const isNow = p.slug === current;
+      const isLive = p.slug && live.has(p.slug);
+      return (
+        <li class:list={{ now: isNow, soon: !isLive }}>
+          {isNow ? <strong>{p.title}</strong> : isLive ? <a href={`/blog/${p.slug}/`}>{p.title}</a> : <span>{p.title}</span>}
+          {!isLive && <span class="soon-tag">Coming soon…</span>}
+        </li>
+      );
+    })}
+  </ol>
+</nav>

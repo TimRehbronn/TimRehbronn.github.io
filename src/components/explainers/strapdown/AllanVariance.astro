@@ -1,0 +1,136 @@
+---
+import M from '../../blog/M.astro';
+// Allan deviation of a simulated gyro: angle random walk, bias instability and rate random walk.
+---
+
+<figure class="xp wide" data-xp="allan">
+  <div class="xp-head"><span class="label fig-title">Allan variance of a simulated gyro</span></div>
+  <canvas class="c-ts" role="img" aria-label="A stretch of the gyro output with the averages over clusters of length tau drawn on top"></canvas>
+  <canvas class="c-ad" role="img" aria-label="Log-log plot of the Allan deviation over the cluster time tau, with slopes for angle random walk, bias instability and rate random walk"></canvas>
+  <ul class="xp-legend">
+    <li class="c-accent"><i></i><span>Allan deviation <M t={String.raw`\sigma(\tau)`} /> of the simulated signal</span></li>
+    <li class="c-muted dash"><i></i><span>theory per error term: slopes <M t={String.raw`-\tfrac12`} />, <M t="0" />, <M t={String.raw`+\tfrac12`} /></span></li>
+    <li class="c-fg"><i></i><span>selected <M t={String.raw`\tau`} /></span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Angle random walk <M t="N" /></span><output for="arw"></output></span><input type="range" name="arw" min="-2" max="0.3" step="0.02" value="-0.7" /></label>
+    <label class="xp-ctl"><span><span>Bias instability <M t="B" /></span><output for="bi"></output></span><input type="range" name="bi" min="-1" max="1.3" step="0.02" value="0.3" /></label>
+    <label class="xp-ctl"><span><span>Rate random walk <M t="K" /></span><output for="rrw"></output></span><input type="range" name="rrw" min="-1" max="1.7" step="0.02" value="0.6" /></label>
+    <label class="xp-ctl"><span><span>Cluster time <M t={String.raw`\tau`} /></span><output for="tau"></output></span><input type="range" name="tau" min="-1" max="3.3" step="0.02" value="1" /></label>
+  </div>
+  <p class="xp-readout" aria-live="polite"><span>read off the curve: <M t={String.raw`\hat N = \sigma(1\,\mathrm s)`} /> = <b class="hot" data-o="nh"></b></span><span><M t={String.raw`\hat B = \min\sigma / 0.664`} /> = <b class="hot" data-o="bh"></b> at <M t={String.raw`\tau`} /> = <span data-o="tmin"></span></span></p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, label, slider, axes, series, rng, outputs } from '../../../lib/explainer';
+
+  const FS = 10, DT = 1 / FS, T = 6 * 3600, N = T * FS;
+  const TAU_CORR = [2, 10, 50, 250, 1250];
+
+  // unit-amplitude error components, generated once
+  const r = rng(42);
+  const white = new Float64Array(N), rrw = new Float64Array(N), gm = new Float64Array(N);
+  {
+    let x = 0; const st = TAU_CORR.map(() => 0), phi = TAU_CORR.map((tc) => Math.exp(-DT / tc)), q = phi.map((p) => Math.sqrt(1 - p * p));
+    for (let k = 0; k < N; k++) {
+      white[k] = r.gauss();
+      rrw[k] = x; x += Math.sqrt(DT) * r.gauss();
+      let s = 0; for (let j = 0; j < st.length; j++) { st[j] = phi[j] * st[j] + q[j] * r.gauss(); s += st[j]; }
+      gm[k] = s;
+    }
+  }
+  const TAUS: number[] = [];
+  for (let l = -1; l <= Math.log10(T / 9); l += 0.08) { const m = Math.max(1, Math.round(10 ** l * FS)); if (!TAUS.length || m / FS > TAUS[TAUS.length - 1]) TAUS.push(m / FS); }
+
+  /** Overlapping Allan deviation, computed from the integrated signal. */
+  function adev(y: Float64Array) {
+    const th = new Float64Array(N + 1);
+    for (let k = 0; k < N; k++) th[k + 1] = th[k] + y[k] * DT;
+    return TAUS.map((tau) => {
+      const m = Math.round(tau * FS); let s = 0;
+      for (let k = 0; k + 2 * m <= N; k++) { const d = th[k + 2 * m] - 2 * th[k + m] + th[k]; s += d * d; }
+      return Math.sqrt(s / (2 * tau * tau * (N - 2 * m + 1)));
+    });
+  }
+  // calibrate the Gauss-Markov sum so that its plateau equals 0.664 (i.e. bias instability B = 1)
+  const gmAd = adev(gm);
+  const plateau = (() => { const v = gmAd.filter((_, i) => TAUS[i] >= 5 && TAUS[i] <= 500).sort((a, b) => a - b); return v[Math.floor(v.length / 2)]; })();
+  const GM_SCALE = 0.664 / plateau;
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="allan"]')) {
+    const cts = fig.querySelector<HTMLCanvasElement>('.c-ts')!, cad = fig.querySelector<HTMLCanvasElement>('.c-ad')!;
+    const out = outputs(fig);
+    let arw = 10 ** -0.7, bi = 10 ** 0.3, rr = 10 ** 0.6, tau = 10;
+    let y = new Float64Array(N), ad: number[] = [];
+
+    function combine() {
+      const a = (60 * arw) / Math.sqrt(DT), b = bi * GM_SCALE, c = rr / 60;  // all in °/h
+      for (let k = 0; k < N; k++) y[k] = a * white[k] + b * gm[k] + c * rrw[k];
+      ad = adev(y);
+      const i1 = TAUS.findIndex((t) => t >= 1);
+      out('nh', `${(ad[i1] / 60).toFixed(3)} °/√h`);
+      let mi = 0; ad.forEach((v, i) => { if (v < ad[mi]) mi = i; });
+      out('bh', `${(ad[mi] / 0.664).toFixed(2)} °/h`); out('tmin', `${TAUS[mi] >= 100 ? TAUS[mi].toFixed(0) : TAUS[mi].toFixed(1)} s`);
+    }
+
+    const A = setupCanvas(cts, (w) => Math.max(170, w * 0.22), drawTs);
+    const B = setupCanvas(cad, (w) => Math.max(280, w * 0.42), drawAd);
+
+    function drawTs() {
+      const P = palette(), { ctx, size } = A, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const clusters = 16, span = Math.min(T, clusters * tau), n = Math.round(span * FS);
+      // averages per cluster
+      const m = Math.max(1, Math.round(tau * FS)), avg: number[] = [];
+      for (let c = 0; c * m + m <= n; c++) { let s = 0; for (let k = c * m; k < (c + 1) * m; k++) s += y[k]; avg.push(s / m); }
+      let lo = Infinity, hi = -Infinity;
+      const cols = Math.floor(W - 60), mins = new Float64Array(cols), maxs = new Float64Array(cols);
+      for (let x = 0; x < cols; x++) {
+        const k0 = Math.floor((x / cols) * n), k1 = Math.max(k0 + 1, Math.floor(((x + 1) / cols) * n));
+        let a = Infinity, b = -Infinity; for (let k = k0; k < k1; k++) { a = Math.min(a, y[k]); b = Math.max(b, y[k]); }
+        mins[x] = a; maxs[x] = b; lo = Math.min(lo, a); hi = Math.max(hi, b);
+      }
+      const box = { x: 50, y: 8, w: cols, h: H - 38 };
+      const Ax = axes(ctx, P, box, [0, span], [lo, hi], { ylabel: 'gyro output [°/h]', xlabel: 'time [s]', xfmt: (v) => `${+v.toFixed(1)}`, yfmt: (v) => v.toFixed(0), yticks: 3 });
+      ctx.strokeStyle = P.muted; ctx.lineWidth = 1;
+      for (let x = 0; x < cols; x++) { ctx.beginPath(); ctx.moveTo(box.x + x + 0.5, Ax.sy(mins[x])); ctx.lineTo(box.x + x + 0.5, Ax.sy(maxs[x]) - 0.5); ctx.stroke(); }
+      ctx.strokeStyle = P.accent; ctx.lineWidth = 2.5;
+      avg.forEach((v, c) => { ctx.beginPath(); ctx.moveTo(Ax.sx(c * tau), Ax.sy(v)); ctx.lineTo(Ax.sx((c + 1) * tau), Ax.sy(v)); ctx.stroke(); });
+      ctx.strokeStyle = P.fg; ctx.lineWidth = 1;
+      for (let c = 1; c < avg.length; c++) { const x = Ax.sx(c * tau); ctx.beginPath(); ctx.moveTo(x, Ax.sy(avg[c - 1])); ctx.lineTo(x, Ax.sy(avg[c])); ctx.stroke(); }
+      label(ctx, `cluster averages $\\bar\\omega_k$ over $\\tau$ = ${tau >= 100 ? tau.toFixed(0) : tau.toFixed(1)} s; white ticks: differences $\\bar\\omega_{k+1} - \\bar\\omega_k$`, box.x + 6, box.y + box.h - 10, P.soft, { size: 11 });
+    }
+
+    function drawAd() {
+      const P = palette(), { ctx, size } = B, W = size.w, H = size.h;
+      if (!W || !ad.length) return;
+      ctx.clearRect(0, 0, W, H);
+      const box = { x: 58, y: 8, w: W - 70, h: H - 42 };
+      const lx0 = Math.log10(TAUS[0]), lx1 = Math.log10(TAUS[TAUS.length - 1]);
+      const A2 = axes(ctx, P, box, [lx0, lx1], [1e-2, 1e3], {
+        logY: true, ylabel: 'Allan deviation $\\sigma(\\tau)$ [°/h]', xlabel: 'cluster time $\\tau$ [s]',
+        xfmt: (v) => (Math.abs(v - Math.round(v)) < 0.01 ? `${10 ** Math.round(v)}` : ''), xticks: 5,
+        yfmt: (v) => `$10^{${Math.round(Math.log10(v))}}$`,
+      });
+      const xs = TAUS.map(Math.log10);
+      const th1 = TAUS.map((t) => (60 * arw) / Math.sqrt(t)), th2 = TAUS.map(() => 0.664 * bi), th3 = TAUS.map((t) => (rr / 60) * Math.sqrt(t / 3));
+      for (const th of [th1, th2, th3]) series(ctx, box, xs, th, A2.sx, A2.sy, P.muted, 1.25, [5, 4]);
+      series(ctx, box, xs, ad, A2.sx, A2.sy, P.accent, 2.25);
+      const x = A2.sx(Math.log10(tau)); ctx.strokeStyle = P.fg; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, box.y); ctx.lineTo(x, box.y + box.h); ctx.stroke();
+      // reading points
+      const y1 = A2.sy((60 * arw) / 1); ctx.fillStyle = P.fg; ctx.beginPath(); ctx.arc(A2.sx(0), y1, 3.5, 0, Math.PI * 2); ctx.fill();
+      label(ctx, '$N$ at $\\tau = 1$ s', A2.sx(0) + 8, y1 - 10, P.soft, { size: 11 });
+      label(ctx, 'slope $-1/2$: ARW', box.x + 8, A2.sy(th1[1]) - 12, P.muted, { size: 11 });
+      label(ctx, 'slope $+1/2$: RRW', box.x + box.w - 8, A2.sy(th3[th3.length - 1]) + 14, P.muted, { size: 11, align: 'right' });
+      label(ctx, 'flat: bias instability $0.664\\,B$', A2.sx((lx0 + lx1) / 2), A2.sy(0.664 * bi) + 14, P.muted, { size: 11, align: 'center' });
+    }
+
+    const upd = () => { combine(); drawTs(); drawAd(); };
+    slider(fig, 'arw', (v) => `${(10 ** v).toFixed(3)} °/√h`, (v) => { arw = 10 ** v; upd(); });
+    slider(fig, 'bi', (v) => `${(10 ** v).toFixed(2)} °/h`, (v) => { bi = 10 ** v; upd(); });
+    slider(fig, 'rrw', (v) => `${(10 ** v).toFixed(2)} °/h/√h`, (v) => { rr = 10 ** v; upd(); });
+    slider(fig, 'tau', (v) => `${(10 ** v).toFixed(10 ** v >= 10 ? 0 : 1)} s`, (v) => { tau = 10 ** v; drawTs(); drawAd(); });
+  }
+</script>

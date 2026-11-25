@@ -1,0 +1,7 @@
+---
+// Collapsible derivation. Usage: <Derivation title="Derivation of …"> markdown … </Derivation>
+interface Props { title?: string; open?: boolean }
+const { title = 'Derivation', open = false } = Astro.props;
+---
+
+<details class="derivation" open={open}><summary>{title}</summary><div><slot /></div></details>

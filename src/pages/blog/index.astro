@@ -1,79 +1,83 @@
 ---
 import { getCollection } from 'astro:content';
 import Base from '../../layouts/Base.astro';
+import { SERIES, LATER } from '../../data/series';
 
 const posts = (await getCollection('blog', (p) => import.meta.env.DEV || !p.data.draft)).sort(
   (a, b) => +b.data.date - +a.data.date,
 );
-const years = [...new Set(posts.map((p) => p.data.date.getFullYear()))];
-const fmt = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' });
-
-// Planned topics, from foundations to full systems.
-const roadmap = [
-  { title: 'Probability theory', text: 'random variables, Bayes’ rule, Gaussians and uncertainty' },
-  { title: 'State estimation', text: 'Bayes filters, Kalman filters, EKF, error-state and iterated EKF' },
-  { title: 'Factor graphs', text: 'estimation as optimization, smoothing and sensor fusion' },
-  { title: 'Multi-object detection', text: 'from point clouds and images to object hypotheses' },
-  { title: 'Multi-object tracking', text: 'data association, JPDA and random finite sets (PMBM)' },
-  { title: 'SLAM', text: 'localizing while mapping the environment' },
-];
+const live = new Set(posts.map((p) => p.id));
+const fmt = new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short', year: 'numeric' });
 ---
 
-<Base title="Blog" description="Interactive explanations and notes.">
+<Base title="Blog" description="Interactive explanations of navigation, state estimation and perception for autonomous systems.">
   <header class="page-header">
     <p class="kicker">Learning blog</p>
     <h1>Blog</h1>
-    <p>A learning blog on estimation and perception for autonomous systems — explained step by step, with interactive figures. <a href="/rss.xml">RSS</a></p>
+    <p>Navigation, state estimation and perception for autonomous systems, explained step by step with interactive figures. <a href="/rss.xml">RSS</a></p>
   </header>
 
   <section class="section">
-    <h2 class="section-title">Roadmap</h2>
-    <ol class="roadmap">
-      {roadmap.map((r, i) => (
-        <li class="panel">
-          <span class="label idx">{String(i + 1).padStart(2, '0')}</span>
-          <h3>{r.title}</h3>
-          <p>{r.text}</p>
-        </li>
-      ))}
+    <h2 class="section-title">Series · {SERIES.title}</h2>
+    <ol class="series-list">
+      {SERIES.parts.map((p, i) => {
+        const isLive = p.slug && live.has(p.slug);
+        return (
+          <li class:list={{ soon: !isLive }}>
+            <span class="label idx">{String(i + 1).padStart(2, '0')}</span>
+            <div>
+              {isLive ? <a class="t" href={`/blog/${p.slug}/`}>{p.title}</a> : <span class="t">{p.title}</span>}
+              {!isLive && <span class="label soon-label">Coming soon…</span>}
+              <p>{p.summary}</p>
+            </div>
+          </li>
+        );
+      })}
     </ol>
   </section>
 
-  {posts.length === 0 && <p class="empty">The first posts are on their way.</p>}
-
   {
-    years.map((year) => (
+    posts.length > 0 && (
       <section class="section">
-        <h2 class="section-title">{year}</h2>
+        <h2 class="section-title">All posts</h2>
         <ul class="posts">
-          {posts
-            .filter((p) => p.data.date.getFullYear() === year)
-            .map((p) => (
-              <li>
-                <time class="label" datetime={p.data.date.toISOString()}>{fmt.format(p.data.date)}</time>
-                <div>
-                  <a href={`/blog/${p.id}/`}>{p.data.title}</a>
-                  {p.data.draft && <span class="tag">draft</span>}
-                  <p class="muted small">{p.data.description}</p>
-                </div>
-              </li>
-            ))}
+          {posts.map((p) => (
+            <li>
+              <time class="label" datetime={p.data.date.toISOString()}>{fmt.format(p.data.date)}</time>
+              <div>
+                <a href={`/blog/${p.id}/`}>{p.data.title}</a>
+                {p.data.draft && <span class="tag">draft</span>}
+                <p class="muted small">{p.data.description}</p>
+              </div>
+            </li>
+          ))}
         </ul>
       </section>
-    ))
+    )
   }
+
+  <section class="section">
+    <h2 class="section-title">Later</h2>
+    <p class="later">After the series: {LATER.join(' · ')}.</p>
+  </section>
 </Base>
 
 <style>
-  .roadmap { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(17rem, 100%), 1fr)); gap: 0.75rem; }
-  .roadmap li { padding: 1.1rem 1.2rem; }
-  .roadmap .idx { color: var(--accent); }
-  .roadmap h3 { margin: 0.4rem 0 0.3rem; font-size: 1rem; }
-  .roadmap p { margin: 0; font-size: 0.9rem; }
-  .posts { list-style: none; padding: 0; margin: 0; display: grid; gap: 1.1rem; }
-  .posts li { display: grid; grid-template-columns: 4.5rem 1fr; gap: 1rem; }
+  .series-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border); max-width: var(--w-text); }
+  .series-list li { display: grid; grid-template-columns: 2.5rem 1fr; gap: 0.75rem; padding: 0.9rem 0; border-bottom: 1px solid var(--border); }
+  .series-list .idx { color: var(--accent); padding-top: 0.2rem; }
+  .series-list .t { font-weight: 600; font-size: 1.02rem; color: var(--fg); }
+  .series-list a.t { text-decoration-color: var(--accent); }
+  .series-list p { margin: 0.2rem 0 0; font-size: 0.9rem; text-align: left; }
+  .series-list li.soon .t, .series-list li.soon p { color: var(--muted); }
+  .series-list li.soon .idx { color: var(--border-strong); }
+  .soon-label { margin-left: 0.6rem; font-size: 0.62rem; }
+  .posts { list-style: none; padding: 0; margin: 0; display: grid; gap: 1.1rem; max-width: var(--w-text); }
+  .posts li { display: grid; grid-template-columns: 7rem 1fr; gap: 1rem; }
   .posts li a { font-weight: 550; font-size: 1.05rem; }
-  .posts li p { margin: 0.15rem 0 0; }
-  time { padding-top: 0.2rem; font-variant-numeric: tabular-nums; }
+  .posts li p { margin: 0.15rem 0 0; text-align: left; }
+  time { padding-top: 0.25rem; font-variant-numeric: tabular-nums; }
   .tag { margin-left: 0.5rem; }
+  .later { color: var(--muted); max-width: var(--w-text); text-align: left; }
+  @media (max-width: 520px) { .posts li { grid-template-columns: 1fr; gap: 0.2rem; } }
 </style>

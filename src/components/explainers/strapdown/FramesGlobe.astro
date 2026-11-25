@@ -1,0 +1,118 @@
+---
+import M from '../../blog/M.astro';
+// Reference frames on the rotating Earth: inertial (i), Earth-fixed (e) and local navigation frame (n),
+// with the Earth rotation rate decomposed into north and down components.
+---
+
+<figure class="xp wide" data-xp="globe">
+  <div class="xp-head"><span class="label fig-title">Frames on a rotating Earth</span><span class="label" style="color:var(--muted)">drag to orbit</span></div>
+  <canvas class="drag" role="img" aria-label="The Earth with inertial axes, Earth-fixed axes and a local north-east-down frame at a chosen latitude, with the Earth rotation vector split into north and vertical components"></canvas>
+  <ul class="xp-legend">
+    <li class="c-muted"><i></i><span>inertial axes <M t={String.raw`x^i, y^i, z^i`} /></span></li>
+    <li class="c-fg"><i></i><span>Earth-fixed axes <M t={String.raw`x^e, y^e`} /> and local N, E, D</span></li>
+    <li class="c-accent"><i></i><span>Earth rate at the vehicle: <M t={String.raw`\omega_{ie}\cos L`} /> north, <M t={String.raw`\omega_{ie}\sin L`} /> up</span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Latitude <M t={String.raw`L`} /></span><output for="lat"></output></span><input type="range" name="lat" min="-90" max="90" step="1" value="51" /></label>
+    <label class="xp-ctl"><span><span>Longitude <M t={String.raw`\lambda`} /></span><output for="lon"></output></span><input type="range" name="lon" min="-180" max="180" step="1" value="6" /></label>
+    <label class="xp-ctl"><span><span>Vehicle speed</span><output for="spd"></output></span><input type="range" name="spd" min="0" max="300" step="5" value="10" /></label>
+    <label class="xp-ctl"><span><span>Vehicle course</span><output for="crs"></output></span><input type="range" name="crs" min="0" max="355" step="5" value="90" /></label>
+  </div>
+  <div class="xp-btns"><button class="btn" type="button" data-act="spin" aria-pressed="true">Earth rotating</button></div>
+  <p class="xp-readout" aria-live="polite"><span><M t={String.raw`\boldsymbol\omega_{ie}^n`} /> = <b class="hot" data-o="wie"></b> °/h</span><span><M t={String.raw`\boldsymbol\omega_{en}^n`} /> = <b data-o="wen"></b> °/h</span><span><M t={String.raw`R_N`} /> = <b data-o="rn"></b>, <M t={String.raw`R_E`} /> = <b data-o="re"></b></span></p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, animate, label, slider, arrow, reducedMotion, outputs } from '../../../lib/explainer';
+  import { camera, type V3 } from '../../../lib/rot';
+
+  const D2R = Math.PI / 180, WIE = 7.292115e-5, A = 6378137, E2 = 6.69437999014e-3;
+  const toDegH = (w: number) => (w * 180 * 3600) / Math.PI;
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="globe"]')) {
+    const canvas = fig.querySelector('canvas')!;
+    const out = outputs(fig);
+    const spinBtn = fig.querySelector<HTMLButtonElement>('[data-act="spin"]')!;
+    let lat = 51, lon = 6, spd = 10, crs = 90, theta = 0.4, az = 0.35, el = 0.3, spin = !reducedMotion();
+
+    const { ctx, size } = setupCanvas(canvas, (w) => (w < 560 ? w * 0.95 : Math.max(380, w * 0.5)), draw);
+
+    function draw() {
+      const P = palette(), W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const R = Math.min(W, H) * 0.32;
+      const cam = camera(az, el, R, W / 2, H / 2);
+      // world vectors are ECI with z along the spin axis; rotate 180° about x so z points up on screen
+      const pr = (v: V3) => cam.project([v[0], -v[1], -v[2]]);
+      const ct = Math.cos(theta), st = Math.sin(theta);
+      const e2i = (v: V3): V3 => [ct * v[0] - st * v[1], st * v[0] + ct * v[1], v[2]];
+
+      // globe disc
+      const c = pr([0, 0, 0]);
+      ctx.fillStyle = P.surface; ctx.strokeStyle = P.strong; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(c.x, c.y, R, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+      // graticule (Earth-fixed, so it turns with theta); front solid, back hidden
+      const poly = (pts: V3[], col: string, w: number) => {
+        ctx.strokeStyle = col; ctx.lineWidth = w;
+        let pen = false; ctx.beginPath();
+        for (const p of pts) { const q = pr(e2i(p)); if (q.z < 0) { pen = false; continue; } pen ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); pen = true; }
+        ctx.stroke();
+      };
+      for (let la = -60; la <= 60; la += 30) { const pts: V3[] = []; for (let lo = 0; lo <= 360; lo += 5) pts.push(ll(la, lo)); poly(pts, la === 0 ? P.strong : P.border, 1); }
+      for (let lo = 0; lo < 360; lo += 30) { const pts: V3[] = []; for (let la = -90; la <= 90; la += 5) pts.push(ll(la, lo)); poly(pts, lo === 0 ? P.strong : P.border, 1); }
+
+      // inertial axes and spin axis
+      const ax = (v: V3, n: string, col: string, w = 1.25) => { const p = pr(v); arrow(ctx, c.x, c.y, p.x, p.y, col, w, 8); label(ctx, n, p.x + 6, p.y - 4, col, { size: 12 }); };
+      ax([1.55, 0, 0], '$x^i$', P.muted); ax([0, 1.55, 0], '$y^i$', P.muted); ax([0, 0, 1.75], '$z^i = z^e$ (spin axis)', P.muted);
+      ax(e2i([1.35, 0, 0]), '$x^e$', P.soft); ax(e2i([0, 1.35, 0]), '$y^e$', P.soft);
+
+      // vehicle position and local NED triad
+      const L = lat * D2R, l = lon * D2R;
+      const pE = ll(lat, lon), p = pr(e2i(pE));
+      const N: V3 = [-Math.sin(L) * Math.cos(l), -Math.sin(L) * Math.sin(l), Math.cos(L)];
+      const Ev: V3 = [-Math.sin(l), Math.cos(l), 0];
+      const D: V3 = [-Math.cos(L) * Math.cos(l), -Math.cos(L) * Math.sin(l), -Math.sin(L)];
+      const at = (v: V3, s: number) => pr(e2i([pE[0] + v[0] * s, pE[1] + v[1] * s, pE[2] + v[2] * s]));
+      const alpha = p.z < 0 ? 0.35 : 1;
+      ctx.globalAlpha = alpha;
+      for (const [v, n] of [[N, 'N'], [Ev, 'E'], [D, 'D']] as [V3, string][]) { const q = at(v, 0.42); arrow(ctx, p.x, p.y, q.x, q.y, P.fg, 1.5, 7); label(ctx, n, q.x + 5, q.y - 3, P.fg, { size: 12, weight: 700 }); }
+      // Earth rate at the vehicle: parallel to the spin axis, split into north and "up" (−D) components
+      const s = 0.7;
+      const wN = at(N, s * Math.cos(L)), wU = at(D, -s * Math.sin(L));
+      const wTot = pr(e2i([pE[0], pE[1], pE[2] + s]));
+      ctx.setLineDash([3, 3]); arrow(ctx, p.x, p.y, wTot.x, wTot.y, P.soft, 1.25, 7); ctx.setLineDash([]);
+      label(ctx, '$\\boldsymbol\\omega_{ie}$', wTot.x + 6, wTot.y - 6, P.soft, { size: 12 });
+      arrow(ctx, p.x, p.y, wN.x, wN.y, P.accent, 2.5, 9);
+      arrow(ctx, p.x, p.y, wU.x, wU.y, P.accent, 2.5, 9);
+      ctx.fillStyle = P.accent; ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+      if (p.z < 0) label(ctx, 'vehicle is on the far side, drag to orbit', 10, H - 12, P.muted, { size: 10 });
+
+      // numbers
+      const sL = Math.sin(L), cL = Math.cos(L), den = 1 - E2 * sL * sL;
+      const RN = (A * (1 - E2)) / den ** 1.5, RE = A / Math.sqrt(den);
+      const vN = spd * Math.cos(crs * D2R), vE = spd * Math.sin(crs * D2R);
+      const wie = [WIE * cL, 0, -WIE * sL], wen = [vE / RE, -vN / RN, (-vE * Math.tan(L)) / RE];
+      const f = (v: number[]) => `[${v.map((x) => (Math.abs(toDegH(x)) < 0.005 ? 0 : toDegH(x)).toFixed(2)).join(', ')}]`;
+      out('wie', f(wie)); out('wen', Math.abs(lat) > 89 ? 'singular at the pole' : f(wen));
+      out('rn', `${(RN / 1000).toFixed(1)} km`); out('re', `${(RE / 1000).toFixed(1)} km`);
+    }
+    function ll(la: number, lo: number): V3 { const a = la * D2R, b = lo * D2R; return [Math.cos(a) * Math.cos(b), Math.cos(a) * Math.sin(b), Math.sin(a)]; }
+
+    const anim = animate(fig, (dt) => { theta += dt * 0.25; draw(); }, () => spin);
+    slider(fig, 'lat', (v) => `${v}°`, (v) => { lat = v; draw(); });
+    slider(fig, 'lon', (v) => `${v}°`, (v) => { lon = v; draw(); });
+    slider(fig, 'spd', (v) => `${v} m/s`, (v) => { spd = v; draw(); });
+    slider(fig, 'crs', (v) => `${v}°`, (v) => { crs = v; draw(); });
+    spinBtn.addEventListener('click', () => { spin = !spin; spinBtn.setAttribute('aria-pressed', String(spin)); spinBtn.textContent = spin ? 'Earth rotating' : 'Earth stopped'; anim.kick(); });
+    if (!spin) { spinBtn.setAttribute('aria-pressed', 'false'); spinBtn.textContent = 'Earth stopped'; }
+
+    let drag: { x: number; y: number; az: number; el: number } | null = null;
+    canvas.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, az, el }; canvas.setPointerCapture(e.pointerId); });
+    canvas.addEventListener('pointermove', (e) => { if (!drag) return; az = drag.az - (e.clientX - drag.x) * 0.01; el = Math.max(-1.4, Math.min(1.4, drag.el + (e.clientY - drag.y) * 0.01)); draw(); });
+    canvas.addEventListener('pointerup', () => (drag = null));
+  }
+</script>

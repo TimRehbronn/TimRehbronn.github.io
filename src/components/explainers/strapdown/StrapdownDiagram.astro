@@ -1,0 +1,73 @@
+---
+import M from '../../blog/M.astro';
+// Static block diagram of the strapdown navigation algorithm. Boxes and labels are HTML (with KaTeX) inside the SVG.
+const boxes = [
+  { x: 10, y: 20, w: 130, h: 54, title: 'Gyroscopes', tex: '\\boldsymbol\\omega_{ib}^b', hot: false },
+  { x: 10, y: 130, w: 130, h: 54, title: 'Accelerometers', tex: '\\mathbf f_{ib}^b', hot: false },
+  { x: 200, y: 20, w: 170, h: 54, title: 'Attitude update', tex: '\\mathbf C_b^n \\leftarrow \\mathbf C_b^n \\exp([\\boldsymbol\\alpha\\times])', hot: true },
+  { x: 200, y: 130, w: 170, h: 54, title: 'Resolve specific force', tex: '\\mathbf f^n = \\mathbf C_b^n \\mathbf f_{ib}^b', hot: true },
+  { x: 480, y: 130, w: 140, h: 54, title: 'Velocity update', tex: '\\mathbf v^n \\leftarrow \\mathbf v^n + \\dot{\\mathbf v}^n \\Delta t', hot: true },
+  { x: 660, y: 130, w: 130, h: 54, title: 'Position update', tex: 'L,\\ \\lambda,\\ h', hot: true },
+  { x: 430, y: 250, w: 360, h: 58, title: 'Earth model', tex: '\\mathbf g^n(L, h),\\ \\boldsymbol\\omega_{ie}^n,\\ \\boldsymbol\\omega_{en}^n,\\ R_N,\\ R_E', hot: false },
+];
+const labels = [
+  { x: 292, y: 92, w: 60, tex: '\\mathbf C_b^n' },
+  { x: 690, y: 22, w: 100, tex: '\\text{attitude } \\mathbf C_b^n', right: true },
+  { x: 622, y: 132, w: 36, tex: '\\mathbf v^n' },
+  { x: 446, y: 200, w: 160, tex: '\\mathbf g^n - (2\\boldsymbol\\omega_{ie}^n + \\boldsymbol\\omega_{en}^n) \\times \\mathbf v^n', small: true },
+  { x: 396, y: 92, w: 50, tex: '\\boldsymbol\\omega_{in}^n' },
+  { x: 731, y: 206, w: 50, tex: 'L,\\ h' },
+  { x: 611, y: 206, w: 40, tex: '\\mathbf v^n' },
+];
+---
+
+<figure class="xp wide sd">
+  <div class="xp-head"><span class="label fig-title">The strapdown algorithm at a glance</span></div>
+  <div class="sd-scroll">
+    <svg viewBox="0 0 800 320" role="img" aria-label="Block diagram: gyroscopes feed the attitude update; accelerometer outputs are resolved into the navigation frame, gravity and Coriolis terms are added, then velocity and position are integrated; an Earth model feeds gravity and frame rotation rates back.">
+      <defs>
+        <marker id="sd-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="sd-head" /></marker>
+      </defs>
+      <g class="sd-line">
+        <path d="M140 47 H198" /><path d="M140 157 H198" /><path d="M285 74 V128" />
+        <path d="M370 157 H415" /><path d="M443 157 H478" /><path d="M620 157 H658" />
+        <path d="M370 47 H790" />
+        <path d="M725 184 V248" /><path d="M605 184 V248" />
+        <path d="M440 250 V172" />
+        <path d="M430 272 H392 V62 H372" />
+      </g>
+      {boxes.map((b) => (
+        <g class:list={['sd-box', { hot: b.hot }]}>
+          <rect x={b.x} y={b.y} width={b.w} height={b.h} />
+          <foreignObject x={b.x} y={b.y} width={b.w} height={b.h}>
+            <div class="sd-html"><span class="sd-title">{b.title}</span><span class="sd-tex"><M t={b.tex} /></span></div>
+          </foreignObject>
+        </g>
+      ))}
+      <circle cx="430" cy="157" r="13" class="sd-sum" />
+      <foreignObject x="417" y="144" width="26" height="26"><div class="sd-html"><M t={String.raw`\Sigma`} /></div></foreignObject>
+      {labels.map((l) => (
+        <foreignObject x={l.x} y={l.y} width={l.w} height="24">
+          <div class:list={['sd-lbl', { right: l.right, small: l.small }]}><M t={l.tex} /></div>
+        </foreignObject>
+      ))}
+    </svg>
+  </div>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<style>
+  .sd .sd-scroll { overflow-x: auto; }
+  .sd svg { width: 100%; min-width: 620px; height: auto; display: block; overflow: visible; }
+  .sd rect { fill: var(--bg); stroke: var(--border-strong); stroke-width: 1; }
+  .sd .hot rect { stroke: var(--accent); }
+  .sd .sd-sum { fill: var(--bg); stroke: var(--accent); }
+  .sd .sd-line path { fill: none; stroke: var(--muted); stroke-width: 1.25; marker-end: url(#sd-arrow); }
+  .sd .sd-head { fill: var(--muted); }
+  .sd .sd-html { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--fg); font-size: 12px; line-height: 1.2; text-align: center; }
+  .sd .sd-title { font-size: 12px; }
+  .sd .sd-tex { color: var(--fg-soft); font-size: 10px; }
+  .sd .sd-lbl { color: var(--muted); font-size: 10px; white-space: nowrap; line-height: 24px; }
+  .sd .sd-lbl.right { text-align: right; }
+  .sd .sd-lbl.small { font-size: 9px; }
+</style>

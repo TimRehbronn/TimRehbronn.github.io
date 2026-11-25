@@ -1,0 +1,105 @@
+---
+import M from '../../blog/M.astro';
+// Inertial vs rotating frame: a puck slides without friction across a rotating disc.
+---
+
+<figure class="xp wide" data-xp="inert">
+  <div class="xp-head"><span class="label fig-title">Inertial and rotating frames</span></div>
+  <div class="xp-row two">
+    <canvas class="c-i" role="img" aria-label="Top view of a rotating disc seen from a non-rotating observer: the puck moves on a straight line"></canvas>
+    <canvas class="c-r" role="img" aria-label="The same motion seen from an observer rotating with the disc: the puck moves on a curve"></canvas>
+  </div>
+  <ul class="xp-legend">
+    <li class="c-accent"><i></i><span>path of the puck</span></li>
+    <li class="c-fg"><i></i><span>Coriolis acceleration <M t={String.raw`-2\,\boldsymbol\Omega \times \mathbf v_{\text{rel}}`} /></span></li>
+    <li class="c-muted"><i></i><span>centrifugal acceleration <M t={String.raw`\Omega^2 r`} /></span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Disc rotation rate <M t={String.raw`\Omega`} /></span><output for="om"></output></span><input type="range" name="om" min="-1.5" max="1.5" step="0.05" value="0.8" /></label>
+    <label class="xp-ctl"><span><span>Launch speed <M t={String.raw`v`} /></span><output for="sp"></output></span><input type="range" name="sp" min="0.2" max="2" step="0.05" value="0.8" /></label>
+    <label class="xp-ctl"><span><span>Launch point (distance from centre)</span><output for="r0"></output></span><input type="range" name="r0" min="0" max="0.8" step="0.05" value="0" /></label>
+  </div>
+  <div class="xp-btns">
+    <button class="btn btn-primary" type="button" data-act="go">Launch again</button>
+  </div>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, animate, label, slider, arrow, reducedMotion } from '../../../lib/explainer';
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="inert"]')) {
+    const ci = fig.querySelector<HTMLCanvasElement>('.c-i')!;
+    const cr = fig.querySelector<HTMLCanvasElement>('.c-r')!;
+    let om = 0.8, sp = 0.8, r0 = 0, t = 0;
+    const R = 1;                                       // disc radius
+    const tEnd = () => { // time until the puck leaves the disc: |p0 + v t| = R, p0 = (r0, 0), v = (0, sp)
+      return Math.sqrt(Math.max(0, R * R - r0 * r0)) / sp;
+    };
+    let running = !reducedMotion();
+    if (!running) t = tEnd();
+
+    // inertial position of the puck, and the same point in disc coordinates
+    const pI = (tt: number) => [r0, sp * tt];
+    const pR = (tt: number) => { const [x, y] = pI(tt), a = -om * tt, c = Math.cos(a), s = Math.sin(a); return [c * x - s * y, s * x + c * y]; };
+
+    const A = setupCanvas(ci, 1, () => draw());
+    const B = setupCanvas(cr, 1, () => draw());
+
+    function disc(ctx: CanvasRenderingContext2D, W: number, H: number, ang: number, title: string, P: ReturnType<typeof palette>) {
+      const cx = W / 2, cy = H / 2 + 8, S = Math.min(W, H - 30) * 0.42;
+      ctx.strokeStyle = P.strong; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(cx, cy, S, 0, Math.PI * 2); ctx.stroke();
+      // spokes painted on the disc, so its rotation is visible
+      for (let k = 0; k < 6; k++) {
+        const a = ang + (k * Math.PI) / 3;
+        ctx.strokeStyle = k === 0 ? P.soft : P.border;
+        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a) * S, cy - Math.sin(a) * S); ctx.stroke();
+      }
+      label(ctx, title, 8, 12, P.soft, { size: 12 });
+      return { cx, cy, S };
+    }
+
+    function draw() {
+      const P = palette();
+      for (const [cv, which] of [[A, 'i'], [B, 'r']] as const) {
+        const { ctx, size } = cv, W = size.w, H = size.h;
+        if (!W) continue;
+        ctx.clearRect(0, 0, W, H);
+        const ang = which === 'i' ? om * t : 0;
+        const { cx, cy, S } = disc(ctx, W, H, ang, which === 'i' ? 'Seen from a non-rotating frame (inertial)' : 'Seen from the rotating disc', P);
+        const pos = which === 'i' ? pI : pR;
+        const X = (p: number[]) => cx + p[0] * S, Y = (p: number[]) => cy - p[1] * S;
+        // path
+        ctx.strokeStyle = P.accent; ctx.lineWidth = 2; ctx.beginPath();
+        const n = 120;
+        for (let i = 0; i <= n; i++) { const p = pos((t * i) / n); i ? ctx.lineTo(X(p), Y(p)) : ctx.moveTo(X(p), Y(p)); }
+        ctx.stroke();
+        const p = pos(t);
+        ctx.fillStyle = P.accent; ctx.beginPath(); ctx.arc(X(p), Y(p), 6, 0, Math.PI * 2); ctx.fill();
+        if (which === 'r' && Math.abs(om) > 0.01) {
+          // velocity relative to the disc, and the apparent accelerations
+          const h = 1e-3, q = pR(t + h), vx = (q[0] - p[0]) / h, vy = (q[1] - p[1]) / h;
+          const cor = [2 * om * vy, -2 * om * vx];      // −2 Ω×v with Ω along +z (out of screen)
+          const cen = [om * om * p[0], om * om * p[1]];
+          const k = 0.12 * S;
+          arrow(ctx, X(p), Y(p), X(p) + cor[0] * k, Y(p) - cor[1] * k, P.fg, 2, 8);
+          arrow(ctx, X(p), Y(p), X(p) + cen[0] * k, Y(p) - cen[1] * k, P.muted, 2, 8);
+        }
+        label(ctx, which === 'i' ? 'straight line: no force, no acceleration' : (Math.abs(om) < 0.01 ? 'disc at rest: both views agree' : 'curved path: apparent forces'), 8, H - 10, P.muted, { size: 11 });
+      }
+    }
+
+    const anim = animate(fig, (dt) => {
+      t += dt * 0.6;
+      if (t >= tEnd()) { t = tEnd(); running = false; }
+      draw();
+    }, () => running);
+    const restart = () => { t = 0; running = true; anim.kick(); draw(); };
+    slider(fig, 'om', (v) => `${v.toFixed(2)} rad/s`, (v) => { om = v; restart(); });
+    slider(fig, 'sp', (v) => `${v.toFixed(2)} m/s`, (v) => { sp = v; restart(); });
+    slider(fig, 'r0', (v) => `${v.toFixed(2)} m`, (v) => { r0 = v; restart(); });
+    fig.querySelector('[data-act="go"]')!.addEventListener('click', restart);
+    if (reducedMotion()) { t = tEnd(); running = false; draw(); }
+  }
+</script>

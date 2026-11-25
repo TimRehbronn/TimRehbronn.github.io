@@ -1,0 +1,98 @@
+---
+import M from '../../blog/M.astro';
+// Error growth of a free-running INS: flat-Earth intuition vs. Schuler feedback, and the unstable vertical channel.
+---
+
+<figure class="xp wide" data-xp="err">
+  <div class="xp-head"><span class="label fig-title">How fast an unaided INS drifts</span></div>
+  <canvas role="img" aria-label="Logarithmic plot of position error against time for a flat-Earth model, the Schuler model and the vertical channel"></canvas>
+  <ul class="xp-legend">
+    <li class="c-fg dash"><i></i><span>horizontal, flat-Earth model</span></li>
+    <li class="c-accent"><i></i><span>horizontal, with Schuler feedback</span></li>
+    <li class="c-muted"><i></i><span>vertical channel (no aiding)</span></li>
+  </ul>
+  <div class="xp-btns">
+    <button class="btn" type="button" data-grade="consumer">Consumer MEMS</button>
+    <button class="btn" type="button" data-grade="industrial">Industrial MEMS</button>
+    <button class="btn" type="button" data-grade="tactical" aria-pressed="true">Tactical</button>
+    <button class="btn" type="button" data-grade="navigation">Navigation</button>
+  </div>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Accelerometer bias <M t={String.raw`b`} /></span><output for="ab"></output></span><input type="range" name="ab" min="1" max="4.5" step="0.01" value="2.48" /></label>
+    <label class="xp-ctl"><span><span>Gyro bias <M t={String.raw`\varepsilon`} /></span><output for="gb"></output></span><input type="range" name="gb" min="-3" max="3" step="0.05" value="0" /></label>
+    <label class="xp-ctl"><span><span>Time span</span><output for="ts"></output></span><input type="range" name="ts" min="0" max="3" step="1" value="3" /></label>
+  </div>
+  <p class="xp-readout" aria-live="polite"></p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, label, slider, axes, series, fmtLen } from '../../../lib/explainer';
+
+  const G = 9.80665, R = 6.371e6, WS = Math.sqrt(G / R), WV = Math.sqrt((2 * G) / R);
+  const SPANS = [60, 600, 3600, 4 * 3600];
+  const cap = (m: number) => (m > 1e7 ? '> 10 000 km' : fmtLen(m));
+  const SPAN_TXT = ['1 min', '10 min', '1 h', '4 h'];
+  // indicative residual biases (order of magnitude): [log10 µg, log10 °/h]
+  const GRADES: Record<string, [number, number]> = {
+    consumer: [4, Math.log10(200)],
+    industrial: [Math.log10(2000), 1],
+    tactical: [Math.log10(300), 0],
+    navigation: [Math.log10(50), -2],
+  };
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="err"]')) {
+    const canvas = fig.querySelector('canvas')!;
+    const readout = fig.querySelector<HTMLElement>('.xp-readout')!;
+    let ab = 2.48, gb = 0, ts = 3;
+
+    const { ctx, size } = setupCanvas(canvas, (w) => (w < 560 ? w * 0.9 : Math.max(320, w * 0.45)), draw);
+
+    function draw() {
+      const P = palette(), W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const b = 10 ** ab * 1e-6 * G;                  // m/s²
+      const e = (10 ** gb * Math.PI) / 180 / 3600;     // rad/s
+      const T = SPANS[ts], n = 400;
+      const t = new Float64Array(n + 1), flat = new Float64Array(n + 1), sch = new Float64Array(n + 1), ver = new Float64Array(n + 1);
+      for (let i = 0; i <= n; i++) {
+        const x = (i / n) * T; t[i] = x / 60;
+        flat[i] = 0.5 * b * x * x + (G * e * x ** 3) / 6;
+        sch[i] = (b / WS ** 2) * (1 - Math.cos(WS * x)) + R * e * (x - Math.sin(WS * x) / WS);
+        ver[i] = (b / WV ** 2) * (Math.cosh(WV * x) - 1);
+      }
+      const box = { x: 58, y: 8, w: W - 70, h: H - 46 };
+      const A = axes(ctx, P, box, [0, T / 60], [1e-2, 1e7], {
+        logY: true, xlabel: 'time [min]', ylabel: 'position error',
+        xfmt: (v) => `${+v.toFixed(1)}`, xticks: 6,
+        yfmt: (v) => { const k = Math.round(Math.log10(v)); return k >= 3 ? `${10 ** (k - 3)} km` : k >= 0 ? `${10 ** k} m` : `${10 ** (k + 2)} cm`; },
+      });
+      if (T >= 3600) {
+        for (let k = 1; k * 84.4 <= T / 60; k++) {
+          const x = A.sx(k * 84.4); ctx.strokeStyle = P.strong; ctx.setLineDash([2, 4]); ctx.beginPath(); ctx.moveTo(x, box.y); ctx.lineTo(x, box.y + box.h); ctx.stroke(); ctx.setLineDash([]);
+          label(ctx, `${k}× $T_s$`, x - 4, box.y + box.h - 10, P.muted, { size: 10, align: 'right' });
+        }
+      }
+      series(ctx, box, t, ver, A.sx, A.sy, P.muted, 1.5);
+      series(ctx, box, t, flat, A.sx, A.sy, P.fg, 1.5, [6, 4]);
+      series(ctx, box, t, sch, A.sx, A.sy, P.accent, 2.25);
+      readout.innerHTML =
+        `<span>after ${SPAN_TXT[ts]}:</span>` +
+        `<span>flat Earth <b>${cap(flat[n])}</b></span>` +
+        `<span>Schuler <b class="hot">${cap(sch[n])}</b></span>` +
+        `<span>vertical <b>${cap(ver[n])}</b></span>`;
+    }
+
+    const abS = slider(fig, 'ab', (v) => { const u = 10 ** v; return u >= 1000 ? `${(u / 1000).toFixed(u >= 1e4 ? 0 : 1)} mg` : `${u.toFixed(0)} µg`; }, (v) => { ab = v; draw(); });
+    const gbS = slider(fig, 'gb', (v) => { const u = 10 ** v; return `${u >= 10 ? u.toFixed(0) : u >= 1 ? u.toFixed(1) : u >= 0.01 ? u.toFixed(2) : u.toFixed(3)} °/h`; }, (v) => { gb = v; draw(); });
+    slider(fig, 'ts', (v) => SPAN_TXT[v], (v) => { ts = v; draw(); });
+    const btns = fig.querySelectorAll<HTMLButtonElement>('[data-grade]');
+    for (const btn of btns) btn.addEventListener('click', () => {
+      const [a, g] = GRADES[btn.dataset.grade!];
+      btns.forEach((x) => x.setAttribute('aria-pressed', String(x === btn)));
+      abS.set(a); gbS.set(g);
+    });
+    for (const inp of fig.querySelectorAll('input[name="ab"], input[name="gb"]')) inp.addEventListener('input', () => btns.forEach((x) => x.setAttribute('aria-pressed', 'false')));
+  }
+</script>

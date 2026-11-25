@@ -1,0 +1,144 @@
+---
+import M from '../../blog/M.astro';
+// What an accelerometer measures: specific force f = a − g, shown with a proof mass on springs in a tilted box.
+---
+
+<figure class="xp wide" data-xp="sf">
+  <div class="xp-head"><span class="label fig-title">What an accelerometer measures</span></div>
+  <canvas role="img" aria-label="Side view of a two-axis accelerometer with a proof mass held by springs, with vectors for acceleration, gravity and specific force"></canvas>
+  <ul class="xp-legend">
+    <li class="c-fg"><i></i><span>acceleration <M t={String.raw`\mathbf a`} /></span></li>
+    <li class="c-muted"><i></i><span>gravity <M t={String.raw`\mathbf g`} /></span></li>
+    <li class="c-accent"><i></i><span>specific force <M t={String.raw`\mathbf f = \mathbf a - \mathbf g`} /> (what the sensor reads)</span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Pitch <M t={String.raw`\theta`} /> (tilt of the box)</span><output for="pitch"></output></span><input type="range" name="pitch" min="-90" max="90" step="1" value="20" /></label>
+    <label class="xp-ctl"><span><span>Horizontal acceleration <M t={String.raw`a_N`} /></span><output for="acc"></output></span><input type="range" name="acc" min="-6" max="6" step="0.1" value="0" /></label>
+    <label class="xp-ctl"><span><span>Pitch error of the computer <M t={String.raw`\delta\theta`} /></span><output for="err"></output></span><input type="range" name="err" min="-5" max="5" step="0.1" value="0" /></label>
+  </div>
+  <div class="xp-btns">
+    <button class="btn" type="button" data-act="fall" aria-pressed="false">Free fall</button>
+    <button class="btn" type="button" data-act="rest">Reset</button>
+  </div>
+  <p class="xp-readout" aria-live="polite"><span><M t={String.raw`\lVert\mathbf f\rVert`} /> = <b data-o="f"></b></span><span>computed <M t={String.raw`\hat a_N`} /> = <b data-o="an"></b> (true <span data-o="at"></span>)</span><span>acceleration error <b class="hot" data-o="e"></b> ≈ <M t={String.raw`\lVert\mathbf f\rVert\,\delta\theta`} /> = <span data-o="ap"></span></span></p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, arrow, label, slider, outputs } from '../../../lib/explainer';
+
+  const G = 9.81;
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="sf"]')) {
+    const canvas = fig.querySelector('canvas')!;
+    const out = outputs(fig);
+    const fallBtn = fig.querySelector<HTMLButtonElement>('[data-act="fall"]')!;
+    let pitch = 0, aN = 0, dth = 0, fall = false;
+
+    const { ctx, size } = setupCanvas(canvas, (w) => (w < 560 ? w * 1.15 : Math.max(300, w * 0.48)), draw);
+
+    function physics() {
+      const th = (pitch * Math.PI) / 180;
+      const a = { n: aN, d: fall ? G : 0 };               // NED: north, down
+      const f = { n: a.n, d: a.d - G };                  // f = a − g, with g = (0, +G) pointing down
+      const c = Math.cos(th), s = Math.sin(th);
+      const fb = { x: c * f.n - s * f.d, z: s * f.n + c * f.d }; // body x forward, z down
+      // navigation computer: rotate with the estimated pitch and add gravity back
+      const te = th + (dth * Math.PI) / 180, ce = Math.cos(te), se = Math.sin(te);
+      const fhat = { n: ce * fb.x + se * fb.z, d: -se * fb.x + ce * fb.z };
+      const ahat = { n: fhat.n, d: fhat.d + G };
+      return { th, a, f, fb, ahat };
+    }
+
+    function draw() {
+      const P = palette(), W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const { th, a, f, fb, ahat } = physics();
+      const narrow = W < 560;
+      const sceneW = narrow ? W : W * 0.62;
+      const cx = sceneW / 2, cy = narrow ? H * 0.36 : H * 0.5;
+      const S = Math.min(sceneW, narrow ? H * 0.7 : H) / 34; // px per (m/s²)
+
+      // ground and local frame
+      ctx.strokeStyle = P.border; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(10, cy + 0.5); ctx.lineTo(sceneW - 10, cy + 0.5); ctx.stroke();
+      label(ctx, 'north →', sceneW - 12, cy - 10, P.muted, { align: 'right', size: 10 });
+      label(ctx, 'down ↓', 14, cy + 16, P.muted, { size: 10 });
+
+      // body axes (screen coordinates: x right = north, y down = down)
+      const bx = { x: Math.cos(th), y: -Math.sin(th) }, bz = { x: Math.sin(th), y: Math.cos(th) };
+      const box = 6.2 * S, half = box / 2;
+      const P2 = (u: number, v: number) => ({ x: cx + bx.x * u + bz.x * v, y: cy + bx.y * u + bz.y * v });
+
+      // case
+      ctx.strokeStyle = P.soft; ctx.lineWidth = 1.5; ctx.beginPath();
+      [[-half, -half], [half, -half], [half, half], [-half, half]].forEach(([u, v], i) => { const p = P2(u, v); i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); });
+      ctx.closePath(); ctx.stroke();
+      // nose marker on body x
+      const nose = P2(half + 10, 0); const nb = P2(half, 0);
+      arrow(ctx, nb.x, nb.y, nose.x, nose.y, P.soft, 1.5, 7);
+      label(ctx, '$x^b$', nose.x + 4, nose.y - 8, P.soft, { size: 12 });
+      const zt = P2(0, half + 12), zb = P2(0, half);
+      arrow(ctx, zb.x, zb.y, zt.x, zt.y, P.soft, 1.5, 7);
+      label(ctx, '$z^b$', zt.x + 6, zt.y + 4, P.soft, { size: 12 });
+
+      // proof mass: displaced against the specific force (springs carry m·f)
+      const k = (half * 0.55) / G;
+      const mu = Math.max(-half * 0.7, Math.min(half * 0.7, -fb.x * k)), mv = Math.max(-half * 0.7, Math.min(half * 0.7, -fb.z * k));
+      const m = P2(mu, mv), r = 0.85 * S;
+      const spring = (a0: { x: number; y: number }, a1: { x: number; y: number }) => {
+        const n = 9, dx = a1.x - a0.x, dy = a1.y - a0.y, len = Math.hypot(dx, dy) || 1, px = -dy / len, py = dx / len;
+        ctx.strokeStyle = P.muted; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(a0.x, a0.y);
+        for (let i = 1; i < n; i++) { const s = i / n, w = (i % 2 ? 1 : -1) * 4; ctx.lineTo(a0.x + dx * s + px * w, a0.y + dy * s + py * w); }
+        ctx.lineTo(a1.x, a1.y); ctx.stroke();
+      };
+      spring(P2(-half, mv), P2(mu - 0.85 * S, mv));
+      spring(P2(half, mv), P2(mu + 0.85 * S, mv));
+      spring(P2(mu, -half), P2(mu, mv - 0.85 * S));
+      spring(P2(mu, half), P2(mu, mv + 0.85 * S));
+      ctx.fillStyle = P.fg; ctx.beginPath(); ctx.arc(m.x, m.y, r, 0, Math.PI * 2); ctx.fill();
+      // rest mark
+      const c0 = P2(0, 0); ctx.strokeStyle = P.strong; ctx.beginPath(); ctx.arc(c0.x, c0.y, 2, 0, Math.PI * 2); ctx.stroke();
+
+      // vectors from the centre (NED → screen: (n, d) → (x, y))
+      const o = { x: cx, y: cy };
+      const vec = (n: number, d: number, col: string, txt: string, w = 2.5) => {
+        if (Math.hypot(n, d) < 0.05) return;
+        const e = { x: o.x + n * S, y: o.y + d * S }; arrow(ctx, o.x, o.y, e.x, e.y, col, w, 10);
+        label(ctx, txt, e.x + (n >= 0 ? 8 : -8), e.y + (d >= 0 ? 10 : -10), col, { align: n >= 0 ? 'left' : 'right', size: 12, weight: 600 });
+      };
+      vec(0, G, P.muted, '$\\b{g}$', 2);
+      vec(a.n, a.d, P.fg, '$\\b{a}$', 2);
+      vec(f.n, f.d, P.accent, '$\\b{f}$', 3);
+
+      // gauges
+      const gx = narrow ? 16 : sceneW + 10, gy = narrow ? H * 0.74 : H * 0.18, gw = narrow ? W - 32 : W - sceneW - 26;
+      const gauge = (y: number, name: string, v: number) => {
+        label(ctx, `${name} = ${v.toFixed(2)} m/s²`, gx, y, P.fg, { size: 13 });
+        const by = y + 14, mid = gx + gw / 2, sc = gw / 2 / 15;
+        ctx.strokeStyle = P.strong; ctx.lineWidth = 1; ctx.strokeRect(gx + 0.5, by + 0.5, gw - 1, 12);
+        ctx.fillStyle = P.accent; const x1 = mid + Math.max(-15, Math.min(15, v)) * sc;
+        ctx.fillRect(Math.min(mid, x1), by + 2, Math.abs(x1 - mid), 9);
+        ctx.strokeStyle = P.soft; ctx.beginPath(); ctx.moveTo(mid + 0.5, by - 2); ctx.lineTo(mid + 0.5, by + 15); ctx.stroke();
+        label(ctx, '−15', gx, by + 26, P.muted, { size: 9 }); label(ctx, '0', mid, by + 26, P.muted, { size: 9, align: 'center' }); label(ctx, '+15', gx + gw, by + 26, P.muted, { size: 9, align: 'right' });
+      };
+      label(ctx, 'Accelerometer output (body axes)', gx, gy - 22, P.muted, { size: 11 });
+      gauge(gy, '$f_x^b$', fb.x);
+      gauge(gy + (narrow ? 48 : 56), '$f_z^b$', fb.z);
+
+      const errN = ahat.n - a.n, errD = ahat.d - a.d;
+      const fn = Math.hypot(f.n, f.d);
+      out('f', `${fn.toFixed(2)} m/s²`); out('an', ahat.n.toFixed(2)); out('at', a.n.toFixed(2));
+      out('e', `${Math.hypot(errN, errD).toFixed(3)} m/s²`); out('ap', ((fn * Math.abs(dth) * Math.PI) / 180).toFixed(3));
+    }
+
+    slider(fig, 'pitch', (v) => `${v.toFixed(0)}°`, (v) => { pitch = v; draw(); });
+    const accS = slider(fig, 'acc', (v) => `${v.toFixed(1)} m/s²`, (v) => { aN = v; draw(); });
+    const errS = slider(fig, 'err', (v) => `${v.toFixed(1)}°`, (v) => { dth = v; draw(); });
+    const pitchS = { set: (v: number) => { const i = fig.querySelector<HTMLInputElement>('input[name="pitch"]')!; i.value = String(v); i.dispatchEvent(new Event('input')); } };
+    fallBtn.addEventListener('click', () => { fall = !fall; fallBtn.setAttribute('aria-pressed', String(fall)); draw(); });
+    fig.querySelector('[data-act="rest"]')!.addEventListener('click', () => {
+      fall = false; fallBtn.setAttribute('aria-pressed', 'false'); accS.set(0); errS.set(0); pitchS.set(0);
+    });
+  }
+</script>

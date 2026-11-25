@@ -1,0 +1,140 @@
+---
+import M from '../../blog/M.astro';
+// The same attitude in four representations, plus interpolation along a quaternion (slerp) vs. along Euler angles.
+---
+
+<figure class="xp wide" data-xp="repr">
+  <div class="xp-head"><span class="label fig-title">One attitude, four representations</span><span class="label" style="color:var(--muted)">drag to orbit</span></div>
+  <div class="xp-row two">
+    <canvas class="drag" role="img" aria-label="A vehicle rotated to the chosen attitude, with its rotation axis and the paths of the nose during interpolation"></canvas>
+    <div class="rp-side">
+      <table class="rp-t"><tbody>
+        <tr><th>Euler angles</th><td><M t={String.raw`(\phi, \theta, \psi)`} /> = <span data-o="eu"></span></td></tr>
+        <tr><th>Rotation vector</th><td><M t={String.raw`\boldsymbol\alpha`} /> = <span data-o="rv"></span><br /><span class="muted">angle <M t={String.raw`\lVert\boldsymbol\alpha\rVert`} /> = <span data-o="ang"></span>, axis <span data-o="ax"></span></span></td></tr>
+        <tr><th>Quaternion</th><td><M t={String.raw`\mathbf q`} /> = <span data-o="q"></span><br /><span class="muted"><M t={String.raw`\lVert\mathbf q\rVert`} /> = <span data-o="qn"></span>; <M t={String.raw`-\mathbf q`} /> is the same rotation</span></td></tr>
+        <tr><th>Rotation matrix</th><td><table class="rp-m"><tbody data-o-mat></tbody></table><span class="muted"><M t={String.raw`\det\mathbf C`} /> = <span data-o="det"></span></span></td></tr>
+      </tbody></table>
+    </div>
+  </div>
+  <ul class="xp-legend">
+    <li class="c-muted dash"><i></i><span>rotation axis <M t={String.raw`\boldsymbol\alpha / \lVert\boldsymbol\alpha\rVert`} /></span></li>
+    <li class="c-accent"><i></i><span>nose path, quaternion slerp</span></li>
+    <li class="c-fg"><i></i><span>nose path, Euler angles interpolated</span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Roll <M t={String.raw`\phi`} /></span><output for="roll"></output></span><input type="range" name="roll" min="-180" max="180" step="1" value="60" /></label>
+    <label class="xp-ctl"><span><span>Pitch <M t={String.raw`\theta`} /></span><output for="pitch"></output></span><input type="range" name="pitch" min="-89" max="89" step="1" value="40" /></label>
+    <label class="xp-ctl"><span><span>Yaw <M t={String.raw`\psi`} /></span><output for="yaw"></output></span><input type="range" name="yaw" min="-180" max="180" step="1" value="120" /></label>
+  </div>
+  <div class="xp-btns">
+    <button class="btn btn-primary" type="button" data-act="anim">Animate from level</button>
+  </div>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<style>
+  .rp-side { min-width: 0; overflow-x: auto; }
+  .rp-t { border-collapse: collapse; margin: 0; font-variant-numeric: tabular-nums; font-size: 0.86rem; }
+  .rp-t th { font-weight: 400; color: var(--muted); text-align: left; vertical-align: top; padding: 0.45rem 0.7rem 0.45rem 0; white-space: nowrap; border-bottom: 1px solid var(--border); }
+  .rp-t td { color: var(--fg); text-align: left; padding: 0.45rem 0; border-bottom: 1px solid var(--border); }
+  .rp-m { border-collapse: collapse; margin: 0 0 0.2rem; }
+  .rp-m td { padding: 0.05rem 0.45rem; text-align: right; border: 0; border-left: 0; }
+  .rp-m tr td:first-child { border-left: 1px solid var(--border-strong); }
+  .rp-m tr td:last-child { border-right: 1px solid var(--border-strong); }
+</style>
+
+<script>
+  import { palette, setupCanvas, animate, label, slider, arrow, outputs } from '../../../lib/explainer';
+  import { euler, camera, mv, matq, qmat, slerp, type M3, type V3, type Q } from '../../../lib/rot';
+
+  const D2R = Math.PI / 180, R2D = 180 / Math.PI;
+  const HULL: V3[] = [
+    [1.3, 0, 0], [0.4, -0.45, -0.15], [0.4, 0.45, -0.15], [-1, -0.45, -0.15], [-1, 0.45, -0.15],
+    [0.4, -0.3, 0.3], [0.4, 0.3, 0.3], [-1, -0.3, 0.3], [-1, 0.3, 0.3],
+  ];
+  const FACES = [[0, 1, 2], [1, 3, 4, 2], [0, 5, 1], [0, 2, 6], [1, 5, 7, 3], [2, 4, 8, 6], [5, 6, 8, 7], [3, 7, 8, 4], [0, 6, 5]];
+  const f3 = (v: number) => (Math.abs(v) < 5e-4 ? 0 : v).toFixed(3);
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="repr"]')) {
+    const canvas = fig.querySelector('canvas')!;
+    const out = outputs(fig);
+    const mat = fig.querySelector<HTMLElement>('[data-o-mat]')!;
+    let roll = 60, pitch = 40, yaw = 120, az = 0.7, el = 0.45;
+    let C: M3 = euler(0, 0, 0), anim = -1;
+    let pathQ: V3[] = [], pathE: V3[] = [];
+
+    const { ctx, size } = setupCanvas(canvas, 0.9, draw);
+
+    function target() { return euler(roll * D2R, pitch * D2R, yaw * D2R); }
+
+    function panel(Cm: M3) {
+      const q = matq(Cm);
+      const qq: Q = q[0] < 0 ? [-q[0], -q[1], -q[2], -q[3]] : q;
+      const ang = 2 * Math.atan2(Math.hypot(qq[1], qq[2], qq[3]), qq[0]);
+      const s = Math.hypot(qq[1], qq[2], qq[3]) || 1;
+      const axis: V3 = [qq[1] / s, qq[2] / s, qq[3] / s];
+      // Euler angles back from the matrix (ZYX)
+      const th = Math.asin(Math.max(-1, Math.min(1, -Cm[6]))), ph = Math.atan2(Cm[7], Cm[8]), ps = Math.atan2(Cm[3], Cm[0]);
+      out('eu', `(${(ph * R2D).toFixed(1)}°, ${(th * R2D).toFixed(1)}°, ${(ps * R2D).toFixed(1)}°)`);
+      out('rv', `[${axis.map((a) => (a * ang).toFixed(3)).join(', ')}]ᵀ rad`);
+      out('ang', `${(ang * R2D).toFixed(1)}°`);
+      out('ax', `[${axis.map(f3).join(', ')}]ᵀ`);
+      out('q', `[${qq.map(f3).join(', ')}]ᵀ`);
+      out('qn', Math.hypot(...qq).toFixed(3));
+      const det = Cm[0] * (Cm[4] * Cm[8] - Cm[5] * Cm[7]) - Cm[1] * (Cm[3] * Cm[8] - Cm[5] * Cm[6]) + Cm[2] * (Cm[3] * Cm[7] - Cm[4] * Cm[6]);
+      out('det', det.toFixed(3));
+      mat.innerHTML = [0, 1, 2].map((i) => `<tr>${[0, 1, 2].map((j) => `<td>${f3(Cm[i * 3 + j])}</td>`).join('')}</tr>`).join('');
+      return axis;
+    }
+
+    function draw() {
+      const P = palette(), W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const cam = camera(az, el, Math.min(W, H) * 0.27, W / 2, H / 2);
+      const pr = (v: V3) => cam.project(v);
+      const o = pr([0, 0, 0]);
+      for (const [v, n] of [[[1.8, 0, 0], 'N'], [[0, 1.8, 0], 'E'], [[0, 0, 1.8], 'D']] as [V3, string][]) { const p = pr(v); arrow(ctx, o.x, o.y, p.x, p.y, P.muted, 1.25, 8); label(ctx, n, p.x + 6, p.y, P.muted, { size: 12 }); }
+      const axis = panel(C);
+      // rotation axis
+      const a1 = pr([axis[0] * 2, axis[1] * 2, axis[2] * 2]), a0 = pr([-axis[0] * 2, -axis[1] * 2, -axis[2] * 2]);
+      ctx.strokeStyle = P.soft; ctx.setLineDash([5, 4]); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(a0.x, a0.y); ctx.lineTo(a1.x, a1.y); ctx.stroke(); ctx.setLineDash([]);
+      label(ctx, '$\\boldsymbol\\alpha$', a1.x + 6, a1.y, P.soft, { size: 13 });
+      // nose paths
+      for (const [path, col] of [[pathE, P.fg], [pathQ, P.accent]] as [V3[], string][]) {
+        if (path.length < 2) continue;
+        ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.beginPath();
+        path.forEach((v, i) => { const p = pr(v); i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }); ctx.stroke();
+      }
+      const pts = HULL.map((v) => pr(mv(C, [v[0] * 1.2, v[1] * 1.2, v[2] * 1.2])));
+      const faces = FACES.map((f) => ({ f, z: f.reduce((s, i) => s + pts[i].z, 0) / f.length })).sort((a, b) => a.z - b.z);
+      for (const { f } of faces) {
+        ctx.beginPath(); f.forEach((i, j) => (j ? ctx.lineTo(pts[i].x, pts[i].y) : ctx.moveTo(pts[i].x, pts[i].y))); ctx.closePath();
+        ctx.fillStyle = P.bg; ctx.globalAlpha = 0.9; ctx.fill(); ctx.globalAlpha = 1; ctx.strokeStyle = P.soft; ctx.lineWidth = 1; ctx.stroke();
+      }
+      const nose = pr(mv(C, [1.56, 0, 0])); ctx.fillStyle = P.accent; ctx.beginPath(); ctx.arc(nose.x, nose.y, 3.5, 0, Math.PI * 2); ctx.fill();
+    }
+
+    const runner = animate(fig, (dt) => {
+      anim = Math.min(1, anim + dt / 2.5);
+      const qT = matq(target());
+      const Cq = qmat(slerp([1, 0, 0, 0], qT, anim));
+      const Ce = euler(roll * D2R * anim, pitch * D2R * anim, yaw * D2R * anim);
+      pathQ.push(mv(Cq, [1.56, 0, 0])); pathE.push(mv(Ce, [1.56, 0, 0]));
+      C = Cq;
+      draw();
+      if (anim >= 1) anim = -1;
+    }, () => anim >= 0);
+
+    const set = () => { anim = -1; pathQ = []; pathE = []; C = target(); draw(); };
+    slider(fig, 'roll', (v) => `${v}°`, (v) => { roll = v; set(); });
+    slider(fig, 'pitch', (v) => `${v}°`, (v) => { pitch = v; set(); });
+    slider(fig, 'yaw', (v) => `${v}°`, (v) => { yaw = v; set(); });
+    fig.querySelector('[data-act="anim"]')!.addEventListener('click', () => { pathQ = []; pathE = []; anim = 0; runner.kick(); });
+
+    let drag: { x: number; y: number; az: number; el: number } | null = null;
+    canvas.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, az, el }; canvas.setPointerCapture(e.pointerId); });
+    canvas.addEventListener('pointermove', (e) => { if (!drag) return; az = drag.az - (e.clientX - drag.x) * 0.01; el = Math.max(-1.4, Math.min(1.4, drag.el + (e.clientY - drag.y) * 0.01)); draw(); });
+    canvas.addEventListener('pointerup', () => (drag = null));
+  }
+</script>

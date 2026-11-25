@@ -1,0 +1,9 @@
+---
+// Inline LaTeX rendered at build time with KaTeX. Usage: <M t="\boldsymbol\omega_{ie}^n" />
+import katex from 'katex';
+interface Props { t: string; display?: boolean }
+const { t, display = false } = Astro.props;
+const html = katex.renderToString(t, { displayMode: display, throwOnError: true, output: 'html' });
+---
+
+<Fragment set:html={html} />

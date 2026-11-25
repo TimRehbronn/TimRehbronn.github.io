@@ -1,0 +1,114 @@
+/* Interactive figures, definitions and asides used in blog posts. Loaded by the Post layout. */
+
+.xp {
+  margin: 2.25rem 0;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-family: var(--font-sans);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+@media (min-width: 1000px) {
+  /* let figures use the full container width next to the narrower text column */
+  .xp.wide { width: calc(var(--w-wide) - 3rem); max-width: none; }
+}
+.xp-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin: 0 0 0.75rem; }
+.xp-head .label { color: var(--accent); }
+.xp canvas { width: 100%; display: block; touch-action: none; }
+.xp canvas.drag { cursor: grab; }
+.xp canvas.drag:active { cursor: grabbing; }
+.xp-row { display: grid; gap: 1rem; }
+@media (min-width: 720px) { .xp-row.two { grid-template-columns: 1fr 1fr; } }
+
+.xp-controls {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr));
+  gap: 0.6rem 1.25rem; margin-top: 0.9rem;
+}
+.xp-ctl { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.xp-ctl > span { display: flex; justify-content: space-between; gap: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.01em; color: var(--muted); }
+.xp-ctl output { color: var(--fg); font-variant-numeric: tabular-nums; text-transform: none; letter-spacing: 0; }
+.xp input[type='range'] { width: 100%; accent-color: var(--accent); margin: 0.2rem 0; }
+.xp-btns { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin-top: 0.9rem; }
+.xp .btn { padding: 0.4rem 0.7rem; font-size: 0.68rem; }
+.xp .btn[aria-pressed='true'] { border-color: var(--accent); color: var(--accent); }
+
+.xp-readout {
+  margin: 0.8rem 0 0; padding-top: 0.7rem; border-top: 1px solid var(--border);
+  font-family: var(--font-mono); font-size: 0.74rem; color: var(--fg-soft);
+  display: flex; flex-wrap: wrap; gap: 0.3rem 1.4rem; text-align: left;
+}
+.xp-readout b { color: var(--fg); font-weight: 500; }
+.xp-readout .hot { color: var(--accent); }
+
+.xp-legend { display: flex; flex-wrap: wrap; gap: 0.3rem 1.1rem; margin: 0.6rem 0 0; padding: 0; list-style: none; font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.01em; color: var(--muted); }
+.xp-legend li { display: inline-flex; align-items: center; gap: 0.4rem; margin: 0; text-align: left; }
+.xp-legend i { display: inline-block; width: 1.2rem; height: 0; border-top: 2px solid currentColor; }
+.xp-legend .c-fg { color: var(--fg); }
+.xp-legend .c-accent { color: var(--accent); }
+.xp-legend .c-muted { color: var(--muted); }
+.xp-legend .dash i { border-top-style: dashed; }
+.xp-legend li span { color: var(--fg-soft); }
+
+.xp figcaption { margin-top: 0.9rem; font-size: 0.86rem; color: var(--muted); line-height: 1.55; }
+.xp figcaption strong { color: var(--fg-soft); }
+
+/* Definition boxes */
+.def {
+  margin: 1.75rem 0; padding: 0.9rem 1.1rem; border-left: 2px solid var(--accent);
+  background: var(--surface); border-radius: 0 var(--radius) var(--radius) 0;
+}
+.def > .label { display: block; margin-bottom: 0.25rem; }
+.def > .label b { color: var(--fg); font-weight: 500; }
+.def p { margin: 0.4rem 0 0; }
+.def p:first-of-type { margin-top: 0; }
+.prose .def .katex-display { margin: 0.6rem 0; }
+
+/* Asides: side notes, "in more depth" */
+.note { margin: 1.75rem 0; padding: 0.9rem 1.1rem; border: 1px dashed var(--border-strong); border-radius: var(--radius); font-size: 0.95rem; }
+.note > .label { display: block; margin-bottom: 0.35rem; }
+.note p:last-child { margin-bottom: 0; }
+
+/* Collapsible derivations */
+.prose details.derivation { margin: 1.5rem 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.prose details.derivation > summary {
+  cursor: pointer; padding: 0.7rem 1rem; list-style: none;
+  font-family: var(--font-mono); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--fg-soft);
+}
+.prose details.derivation > summary::-webkit-details-marker { display: none; }
+.prose details.derivation > summary::before { content: '+ '; color: var(--accent); }
+.prose details.derivation[open] > summary::before { content: '− '; }
+.prose details.derivation > div { padding: 0 1rem 0.6rem; border-top: 1px solid var(--border); }
+
+/* Series banner and symbol tables */
+.series { margin: 0 0 2rem; padding: 0.9rem 1.1rem; border: 1px solid var(--border); background: var(--surface); border-radius: var(--radius); }
+.series ol { margin: 0.4rem 0 0; padding-left: 1.2rem; }
+.series li { margin: 0.15rem 0; text-align: left; }
+.series .now { color: var(--fg); }
+.series li.soon { color: var(--muted); }
+.series li.soon::marker { color: var(--border-strong); }
+.soon-tag { margin-left: 0.6rem; font-size: 0.72rem; letter-spacing: 0.04em; color: var(--muted); opacity: 0.8; white-space: nowrap; }
+.prose table.symbols td:first-child { white-space: nowrap; color: var(--fg); }
+.prose table.symbols td { vertical-align: top; text-align: left; }
+.prose .table-wrap { overflow-x: auto; margin: 1.5rem 0; }
+
+/* ---- Blog post typography and surfaces: Arial on pure black ---- */
+.post {
+  --font-sans: Arial, 'Helvetica Neue', Helvetica, 'Liberation Sans', sans-serif;
+  --font-mono: var(--font-sans);
+  font-family: var(--font-sans);
+}
+.post pre, .post code, .post kbd, .post .astro-code { font-family: 'JetBrains Mono Variable', ui-monospace, 'SF Mono', Menlo, Consolas, monospace; }
+.post h1, .post h2, .post h3 { letter-spacing: -0.01em; }
+.post .astro-code { background-color: var(--bg) !important; }
+.post :not(pre) > code { background: var(--bg); }
+.post .toc, .post .series, .post .def, .post .xp, .post details.derivation { background: var(--bg); }
+.post .def { border-top: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.xp .katex { font-size: 1.08em; }
+.xp-ctl > span > span { min-width: 0; }
+
+/* automatic figure numbering */
+.post .prose { counter-reset: fig; }
+.post .xp { counter-increment: fig; }
+.xp-head .fig-title::before { content: 'Figure ' counter(fig) ' · '; }

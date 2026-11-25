@@ -1,0 +1,95 @@
+---
+import M from '../../blog/M.astro';
+// Deterministic and random errors of a single gyro axis, plus cross-coupling from axis misalignment.
+---
+
+<figure class="xp wide" data-xp="serr">
+  <div class="xp-head"><span class="label fig-title">The error model of an inertial sensor</span></div>
+  <div class="xp-row two">
+    <canvas class="c-e" role="img" aria-label="Output error of a gyro plotted against the true input rate, showing bias, scale factor error, nonlinearity, quantization and noise"></canvas>
+    <canvas class="c-m" role="img" aria-label="Two sensor axes slightly misaligned against the body axes, so that a rotation about one body axis is partly sensed by the other sensor"></canvas>
+  </div>
+  <ul class="xp-legend">
+    <li class="c-accent"><i></i><span>output error <M t={String.raw`\tilde\omega - \omega`} /></span></li>
+    <li class="c-muted"><i></i><span>samples with noise</span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Bias <M t="b" /></span><output for="b"></output></span><input type="range" name="b" min="-1" max="1" step="0.05" value="0.3" /></label>
+    <label class="xp-ctl"><span><span>Scale factor error <M t="s" /></span><output for="s"></output></span><input type="range" name="s" min="-1" max="1" step="0.05" value="0.4" /></label>
+    <label class="xp-ctl"><span><span>Nonlinearity</span><output for="k"></output></span><input type="range" name="k" min="0" max="0.5" step="0.01" value="0.1" /></label>
+    <label class="xp-ctl"><span><span>Quantization step</span><output for="q"></output></span><input type="range" name="q" min="0" max="0.5" step="0.01" value="0" /></label>
+    <label class="xp-ctl"><span><span>Noise <M t={String.raw`\sigma_w`} /></span><output for="n"></output></span><input type="range" name="n" min="0" max="0.5" step="0.01" value="0.1" /></label>
+    <label class="xp-ctl"><span><span>Misalignment <M t={String.raw`\gamma`} /></span><output for="m"></output></span><input type="range" name="m" min="0" max="3" step="0.05" value="1" /></label>
+  </div>
+  <p class="xp-readout" aria-live="polite"><span>at <M t={String.raw`\omega = 100\,^\circ/\mathrm{s}`} />: error <b class="hot" data-o="e100"></b></span><span>cross-coupling into sensor <M t="y" />: <b data-o="cc"></b> % of <M t={String.raw`\omega_x`} /></span></p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, label, slider, arrow, axes, series, rng, outputs } from '../../../lib/explainer';
+
+  const FS = 300, D2R = Math.PI / 180;
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="serr"]')) {
+    const ce = fig.querySelector<HTMLCanvasElement>('.c-e')!, cm = fig.querySelector<HTMLCanvasElement>('.c-m')!;
+    const out = outputs(fig);
+    let b = 0.3, s = 0.4, k = 0.1, q = 0, n = 0.1, m = 1;
+    const E = setupCanvas(ce, 0.8, draw), Mx = setupCanvas(cm, 0.8, draw);
+
+    // output of the sensor for the true rate w [°/s]; s in %, k in % of full scale at full scale
+    const ideal = (w: number) => b + (1 + s / 100) * w + (k / 100) * FS * (w / FS) ** 2;
+    const quant = (v: number) => (q > 0 ? Math.round(v / q) * q : v);
+
+    function draw() {
+      const P = palette();
+      { // error curve
+        const { ctx, size } = E, W = size.w, H = size.h;
+        if (!W) return;
+        ctx.clearRect(0, 0, W, H);
+        const xs = new Float64Array(601), ys = new Float64Array(601);
+        let lim = 0.5;
+        for (let i = 0; i <= 600; i++) { const w = -FS + i; xs[i] = w; ys[i] = quant(ideal(w)) - w; lim = Math.max(lim, Math.abs(ys[i])); }
+        lim = lim * 1.15 + 3 * n;
+        const box = { x: 48, y: 8, w: W - 58, h: H - 40 };
+        const A = axes(ctx, P, box, [-FS, FS], [-lim, lim], { ylabel: 'error $\\tilde\\omega - \\omega$ [°/s]', xlabel: 'true rate $\\omega$ [°/s]', xfmt: (v) => `${v}`, yfmt: (v) => v.toFixed(lim < 2 ? 1 : 0), zeroLine: true, xticks: 6 });
+        const r = rng(5);
+        ctx.fillStyle = P.muted;
+        for (let i = 0; i < 400; i++) { const w = -FS + (2 * FS * i) / 399, y = quant(ideal(w) + n * r.gauss()) - w; ctx.fillRect(A.sx(w) - 1, A.sy(y) - 1, 2, 2); }
+        series(ctx, box, xs, ys, A.sx, A.sy, P.accent, 2);
+        out('e100', `${(quant(ideal(100)) - 100).toFixed(2)} °/s`);
+      }
+      { // misalignment
+        const { ctx, size } = Mx, W = size.w, H = size.h;
+        if (!W) return;
+        ctx.clearRect(0, 0, W, H);
+        const cx = W * 0.38, cy = H * 0.62, L = Math.min(W, H) * 0.5;
+        const g = m * D2R * 8; // drawn 8x exaggerated
+        // body axes
+        arrow(ctx, cx, cy, cx + L, cy, P.muted, 1.25, 8); label(ctx, '$x^b$', cx + L + 6, cy, P.muted, { size: 13 });
+        arrow(ctx, cx, cy, cx, cy - L, P.muted, 1.25, 8); label(ctx, '$y^b$', cx + 6, cy - L - 4, P.muted, { size: 13 });
+        // sensor y axis tilted towards x by gamma
+        const sy = { x: cx + Math.sin(g) * L, y: cy - Math.cos(g) * L };
+        arrow(ctx, cx, cy, cx + L * 0.95, cy, P.accent, 2, 9);
+        arrow(ctx, cx, cy, sy.x, sy.y, P.accent, 2, 9);
+        label(ctx, 'sensor $y$', sy.x + 6, sy.y + 4, P.accent, { size: 12 });
+        // input rotation about x^b, and what the y sensor picks up
+        const w = 0.8 * L;
+        ctx.strokeStyle = P.fg; ctx.lineWidth = 3; ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.moveTo(cx, cy + 14); ctx.lineTo(cx + w, cy + 14); ctx.stroke(); ctx.globalAlpha = 1;
+        label(ctx, 'input $\\omega_x$', cx + w / 2, cy + 30, P.fg, { size: 12, align: 'center' });
+        const proj = w * Math.sin(g);
+        ctx.strokeStyle = P.fg; ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(cx + w, cy); ctx.lineTo(cx + Math.sin(g) * proj, cy - Math.cos(g) * proj); ctx.stroke(); ctx.setLineDash([]);
+        ctx.strokeStyle = P.accent; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.sin(g) * proj, cy - Math.cos(g) * proj); ctx.stroke();
+        ctx.strokeStyle = P.soft; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx, cy, L * 0.35, -Math.PI / 2, -Math.PI / 2 + g); ctx.stroke();
+        label(ctx, '$\\gamma$', cx + Math.sin(g / 2) * L * 0.42, cy - Math.cos(g / 2) * L * 0.42, P.soft, { size: 13 });
+        label(ctx, 'angle drawn 8× exaggerated', 8, H - 10, P.muted, { size: 11 });
+        out('cc', (Math.sin(m * D2R) * 100).toFixed(2));
+      }
+    }
+    slider(fig, 'b', (v) => `${v.toFixed(2)} °/s`, (v) => { b = v; draw(); });
+    slider(fig, 's', (v) => `${v.toFixed(2)} %`, (v) => { s = v; draw(); });
+    slider(fig, 'k', (v) => `${v.toFixed(2)} % FS`, (v) => { k = v; draw(); });
+    slider(fig, 'q', (v) => (v ? `${v.toFixed(2)} °/s` : 'off'), (v) => { q = v; draw(); });
+    slider(fig, 'n', (v) => `${v.toFixed(2)} °/s`, (v) => { n = v; draw(); });
+    slider(fig, 'm', (v) => `${v.toFixed(2)}°`, (v) => { m = v; draw(); });
+  }
+</script>

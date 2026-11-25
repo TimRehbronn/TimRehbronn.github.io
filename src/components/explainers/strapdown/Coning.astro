@@ -1,0 +1,121 @@
+---
+import M from '../../blog/M.astro';
+// Coning motion and attitude integration: single-sample vs two-sample rotation vector algorithms.
+---
+
+<figure class="xp wide" data-xp="cone">
+  <div class="xp-head"><span class="label fig-title">Coning and the attitude update</span></div>
+  <div class="xp-row two">
+    <canvas class="c3d" role="img" aria-label="A body whose axis traces a cone while the body itself barely rotates about that axis"></canvas>
+    <canvas class="cplot" role="img" aria-label="Log-log plot of attitude drift rate against update rate for two integration algorithms"></canvas>
+  </div>
+  <ul class="xp-legend">
+    <li class="c-muted dash"><i></i><span>single-sample: <M t={String.raw`\boldsymbol\alpha = \Delta\boldsymbol\theta`} /></span></li>
+    <li class="c-accent"><i></i><span>two-sample: <M t={String.raw`\boldsymbol\alpha = \Delta\boldsymbol\theta_1 + \Delta\boldsymbol\theta_2 + \tfrac23\,\Delta\boldsymbol\theta_1 \times \Delta\boldsymbol\theta_2`} /></span></li>
+    <li class="c-fg"><i></i><span>selected update rate</span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Cone half-angle <M t={String.raw`\beta`} /></span><output for="beta"></output></span><input type="range" name="beta" min="0.1" max="5" step="0.1" value="1" /></label>
+    <label class="xp-ctl"><span><span>Coning frequency</span><output for="freq"></output></span><input type="range" name="freq" min="1" max="40" step="1" value="10" /></label>
+    <label class="xp-ctl"><span><span>Update rate <M t={String.raw`1/\Delta t`} /></span><output for="rate"></output></span><input type="range" name="rate" min="1.7" max="3.3" step="0.01" value="2" /></label>
+  </div>
+  <p class="xp-readout" aria-live="polite"><span>update rate <b data-o="r"></b></span><span>single-sample drift <b data-o="d1"></b></span><span>two-sample drift <b class="hot" data-o="d2"></b></span><span>for scale: Earth rate <M t={String.raw`\omega_{ie} \approx 15\,^\circ/\mathrm{h}`} /></span></p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, animate, label, slider, arrow, axes, series, outputs } from '../../../lib/explainer';
+  import { camera, cross, qmul, qconj, qexp, qnormalize, qangle, qmat, mv, type Q, type V3 } from '../../../lib/rot';
+
+  const R2D = 180 / Math.PI;
+
+  // exact attitude for classical coning: rotation axis in the x-y plane, spinning at W, half-angle B
+  const qTrue = (t: number, B: number, W: number): Q => [Math.cos(B / 2), Math.sin(B / 2) * Math.cos(W * t), Math.sin(B / 2) * Math.sin(W * t), 0];
+  // exact gyro increments Δθ = ∫ω dt over [t0, t1] for that motion
+  const dTheta = (t0: number, t1: number, B: number, W: number): V3 => [
+    Math.sin(B) * (Math.cos(W * t1) - Math.cos(W * t0)),
+    Math.sin(B) * (Math.sin(W * t1) - Math.sin(W * t0)),
+    -2 * W * Math.sin(B / 2) ** 2 * (t1 - t0),
+  ];
+
+  /** Attitude drift rate in °/h for both algorithms at a given update rate (Hz). */
+  function drift(rate: number, B: number, W: number) {
+    const dt = 1 / rate, T = Math.max(0.5, 20 / (W / (2 * Math.PI))); // integrate over at least 20 coning cycles
+    const steps = Math.round((T * rate) / 2) * 2;
+    let q1: Q = qTrue(0, B, W), q2: Q = q1;
+    for (let k = 0; k < steps; k += 2) {
+      const t = k * dt;
+      const a = dTheta(t, t + dt, B, W), b = dTheta(t + dt, t + 2 * dt, B, W);
+      q1 = qnormalize(qmul(qmul(q1, qexp(a)), qexp(b)));
+      const c = cross(a, b);
+      q2 = qnormalize(qmul(q2, qexp([a[0] + b[0] + (2 / 3) * c[0], a[1] + b[1] + (2 / 3) * c[1], a[2] + b[2] + (2 / 3) * c[2]])));
+    }
+    const Tend = steps * dt, qt = qTrue(Tend, B, W);
+    const e1 = qangle(qmul(qconj(qt), q1)), e2 = qangle(qmul(qconj(qt), q2));
+    return [(e1 / Tend) * R2D * 3600, (e2 / Tend) * R2D * 3600];
+  }
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="cone"]')) {
+    const c3d = fig.querySelector<HTMLCanvasElement>('.c3d')!;
+    const cpl = fig.querySelector<HTMLCanvasElement>('.cplot')!;
+    const out = outputs(fig);
+    let beta = 1, freq = 10, lrate = 2, phase = 0;
+    let curve: { r: number; d1: number; d2: number }[] = [];
+    let cur = [0, 0];
+
+    const A = setupCanvas(c3d, 0.85, draw3d);
+    const B = setupCanvas(cpl, 0.85, drawPlot);
+
+    function compute() {
+      const Bt = beta / R2D, W = 2 * Math.PI * freq;
+      curve = [];
+      for (let l = 1.7; l <= 3.31; l += 0.1) { const r = 10 ** l; const [d1, d2] = drift(r, Bt, W); curve.push({ r, d1, d2 }); }
+      cur = drift(10 ** lrate, Bt, W);
+      out('r', `${Math.round(10 ** lrate)} Hz`); out('d1', fmt(cur[0])); out('d2', fmt(cur[1]));
+    }
+    const fmt = (d: number) => (d >= 100 ? `${d.toFixed(0)} °/h` : d >= 1 ? `${d.toFixed(2)} °/h` : d >= 1e-3 ? `${d.toFixed(4)} °/h` : `${d.toExponential(1)} °/h`);
+
+    function draw3d() {
+      const P = palette(), { ctx, size } = A, Wd = size.w, H = size.h;
+      if (!Wd) return;
+      ctx.clearRect(0, 0, Wd, H);
+      const cam = camera(0.9, 0.35, Math.min(Wd, H) * 0.3, Wd / 2, H * 0.48);
+      const o = cam.project([0, 0, 0]);
+      // exaggerate the cone so it is visible
+      const Bv = (16 + 4 * beta) / R2D;
+      const q = qTrue(phase, Bv, 1), C = qmat(q);
+      // cone traced by the body x-axis (here the spin axis of the motion is nav z, so use body z)
+      ctx.strokeStyle = P.strong; ctx.lineWidth = 1; ctx.setLineDash([3, 4]); ctx.beginPath();
+      for (let i = 0; i <= 64; i++) { const qq = qTrue((i / 64) * 2 * Math.PI, Bv, 1); const p = cam.project(mv(qmat(qq), [0, 0, 1.6])); i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }
+      ctx.stroke(); ctx.setLineDash([]);
+      const ref = cam.project([0, 0, 1.9]); arrow(ctx, o.x, o.y, ref.x, ref.y, P.muted, 1, 7); label(ctx, 'cone axis', ref.x + 6, ref.y, P.muted, { size: 11 });
+      const axes3: [V3, string, string][] = [[[1.1, 0, 0], '$x^b$', P.soft], [[0, 1.1, 0], '$y^b$', P.soft], [[0, 0, 1.6], '$z^b$', P.accent]];
+      for (const [v, n, col] of axes3) { const p = cam.project(mv(C, v)); arrow(ctx, o.x, o.y, p.x, p.y, col, 2, 9); label(ctx, n, p.x + 6, p.y, col, { size: 13 }); }
+      label(ctx, 'cone angle exaggerated, slowed down', 8, H - 10, P.muted, { size: 10 });
+    }
+
+    function drawPlot() {
+      const P = palette(), { ctx, size } = B, Wd = size.w, H = size.h;
+      if (!Wd || !curve.length) return;
+      ctx.clearRect(0, 0, Wd, H);
+      const box = { x: 50, y: 8, w: Wd - 60, h: H - 44 };
+      const lo = 1e-6, hi = 1e5;
+      const xr: [number, number] = [1.7, 3.3];
+      const A2 = axes(ctx, P, box, xr, [lo, hi], { logY: true, ylabel: 'attitude drift [°/h]', xlabel: 'update rate [Hz]', xfmt: (v) => (Math.abs(v - Math.round(v)) < 0.01 ? `${Math.round(10 ** v)}` : ''), xticks: 4, yfmt: (v) => `$10^{${Math.round(Math.log10(v))}}$` });
+      const xs = curve.map((c) => Math.log10(c.r));
+      series(ctx, box, xs, curve.map((c) => Math.max(c.d1, lo)), A2.sx, A2.sy, P.muted, 1.75, [5, 4]);
+      series(ctx, box, xs, curve.map((c) => Math.max(c.d2, lo)), A2.sx, A2.sy, P.accent, 2);
+      const x = A2.sx(lrate);
+      ctx.strokeStyle = P.fg; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x + 0.5, box.y); ctx.lineTo(x + 0.5, box.y + box.h); ctx.stroke();
+      // Earth-rate reference line
+      const ye = A2.sy(15); ctx.strokeStyle = P.soft; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(box.x, ye); ctx.lineTo(box.x + box.w, ye); ctx.stroke(); ctx.setLineDash([]);
+      label(ctx, 'Earth rate', box.x + box.w - 4, ye - 7, P.soft, { size: 10, align: 'right' });
+    }
+
+    animate(fig, (dt) => { phase += dt * 1.2; draw3d(); });
+    const upd = () => { compute(); drawPlot(); };
+    slider(fig, 'beta', (v) => `${v.toFixed(1)}°`, (v) => { beta = v; upd(); });
+    slider(fig, 'freq', (v) => `${v} Hz`, (v) => { freq = v; upd(); });
+    slider(fig, 'rate', (v) => `${Math.round(10 ** v)} Hz`, (v) => { lrate = v; upd(); });
+  }
+</script>

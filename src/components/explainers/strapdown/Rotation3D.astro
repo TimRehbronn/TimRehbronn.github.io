@@ -1,0 +1,142 @@
+---
+import M from '../../blog/M.astro';
+// 3-D attitude playground: Euler angles, the direction cosine matrix and the order of rotations.
+---
+
+<figure class="xp wide" data-xp="r3d">
+  <div class="xp-head"><span class="label fig-title">Attitude in three dimensions</span><span class="label" style="color:var(--muted)">drag to orbit</span></div>
+  <div class="xp-row two">
+    <canvas class="drag" role="img" aria-label="A vehicle-shaped body with its body axes, rotated relative to the north-east-down navigation axes"></canvas>
+    <div class="r3d-side">
+      <p class="label">Direction cosine matrix <span class="sym"><M t={String.raw`\mathbf C_b^n`} /></span></p>
+      <table class="r3d-m" aria-live="polite"><tbody></tbody></table>
+      <p class="r3d-note small muted" data-note="default">Columns are the body axes <M t={String.raw`x^b, y^b, z^b`} /> written in N, E, D coordinates. Rows are the navigation axes written in body coordinates.</p>
+      <p class="r3d-note small muted" data-note="lock" hidden>Gimbal lock: at <M t={String.raw`\theta = \pm 90^\circ`} /> roll and yaw turn about the same axis, so one degree of freedom is lost. Try moving roll and yaw now.</p>
+      <p class="r3d-note small muted" data-note="seq" hidden>Each button starts from level flight and applies two <M t={String.raw`90^\circ`} /> rotations about the current body axes.</p>
+      <p class="label" style="margin-top:1rem">Order matters: two 90° turns about body axes</p>
+      <div class="xp-btns" style="margin-top:0.4rem">
+        <button class="btn" type="button" data-seq="xy">Roll, then pitch</button>
+        <button class="btn" type="button" data-seq="yx">Pitch, then roll</button>
+      </div>
+    </div>
+  </div>
+  <ul class="xp-legend">
+    <li class="c-muted"><i></i><span>navigation axes N, E, D</span></li>
+    <li class="c-accent"><i></i><span>body axes <M t={String.raw`x^b`} /> (nose), <M t={String.raw`y^b`} /> (right), <M t={String.raw`z^b`} /> (down)</span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Roll <M t={String.raw`\phi`} /> (about <M t={String.raw`x^b`} />)</span><output for="roll"></output></span><input type="range" name="roll" min="-180" max="180" step="1" value="20" /></label>
+    <label class="xp-ctl"><span><span>Pitch <M t={String.raw`\theta`} /> (about <M t={String.raw`y^b`} />)</span><output for="pitch"></output></span><input type="range" name="pitch" min="-90" max="90" step="1" value="15" /></label>
+    <label class="xp-ctl"><span><span>Yaw <M t={String.raw`\psi`} /> (about <M t={String.raw`z^b`} />)</span><output for="yaw"></output></span><input type="range" name="yaw" min="-180" max="180" step="1" value="30" /></label>
+  </div>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<style>
+  .r3d-side { min-width: 0; }
+  .r3d-side .label { margin: 0 0 0.4rem; }
+  .r3d-side .sym { text-transform: none; font-family: var(--font-sans); font-size: 0.85rem; color: var(--fg); letter-spacing: 0; }
+  .r3d-m { border-collapse: collapse; font-family: var(--font-mono); font-size: 0.8rem; font-variant-numeric: tabular-nums; margin: 0; }
+  .r3d-m td { padding: 0.25rem 0.6rem; text-align: right; color: var(--fg); border: 0; }
+  .r3d-m tr td:first-child { border-left: 1px solid var(--border-strong); }
+  .r3d-m tr td:last-child { border-right: 1px solid var(--border-strong); }
+  .r3d-note { margin: 0.6rem 0 0; min-height: 3em; text-align: left; }
+</style>
+
+<script>
+  import { palette, setupCanvas, animate, label, slider, arrow } from '../../../lib/explainer';
+  import { euler, camera, mv, mm, rx, ry, slerp, matq, qmat, type M3, type V3, type Q } from '../../../lib/rot';
+
+  const D2R = Math.PI / 180;
+  // a simple vehicle: a hull with a pointed nose along +x, flat top, keel along +z
+  const HULL: V3[] = [
+    [1.3, 0, 0], [0.4, -0.45, -0.15], [0.4, 0.45, -0.15], [-1, -0.45, -0.15], [-1, 0.45, -0.15],
+    [0.4, -0.3, 0.3], [0.4, 0.3, 0.3], [-1, -0.3, 0.3], [-1, 0.3, 0.3],
+  ];
+  const FACES = [[0, 1, 2], [1, 3, 4, 2], [0, 5, 1], [0, 2, 6], [1, 5, 7, 3], [2, 4, 8, 6], [5, 6, 8, 7], [3, 7, 8, 4], [0, 6, 5]];
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="r3d"]')) {
+    const canvas = fig.querySelector('canvas')!;
+    const tbody = fig.querySelector('tbody')!;
+    const notes = fig.querySelectorAll<HTMLElement>('[data-note]');
+    let roll = 0, pitch = 0, yaw = 0, az = 0.65, el = 0.45;
+    let C: M3 = euler(0, 0, 0);
+    // animation of a rotation sequence
+    let seq: { from: Q; to: Q }[] = [], seqT = 0, seqLabel = '';
+
+    const { ctx, size } = setupCanvas(canvas, 0.85, draw);
+
+    function draw() {
+      const P = palette(), W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const cam = camera(az, el, Math.min(W, H) * 0.25, W / 2, H / 2);
+      const pr = (v: V3) => cam.project(v);
+
+      // navigation axes
+      const nav: [V3, string][] = [[[1.8, 0, 0], 'N'], [[0, 1.8, 0], 'E'], [[0, 0, 1.8], 'D']];
+      const o = pr([0, 0, 0]);
+      for (const [v, n] of nav) { const p = pr(v); arrow(ctx, o.x, o.y, p.x, p.y, P.muted, 1.25, 8); label(ctx, n, p.x + 6, p.y, P.muted, { size: 12 }); }
+
+      // hull faces, painter's algorithm
+      const pts = HULL.map((v) => pr(mv(C, [v[0] * 1.25, v[1] * 1.25, v[2] * 1.25])));
+      const faces = FACES.map((f) => ({ f, z: f.reduce((s, i) => s + pts[i].z, 0) / f.length })).sort((a, b) => a.z - b.z);
+      for (const { f } of faces) {
+        ctx.beginPath(); f.forEach((i, j) => (j ? ctx.lineTo(pts[i].x, pts[i].y) : ctx.moveTo(pts[i].x, pts[i].y))); ctx.closePath();
+        ctx.fillStyle = P.surface; ctx.globalAlpha = 0.92; ctx.fill(); ctx.globalAlpha = 1;
+        ctx.strokeStyle = P.soft; ctx.lineWidth = 1; ctx.stroke();
+      }
+      // body axes
+      const bodyAx: [V3, string][] = [[[1.7, 0, 0], '$x^b$'], [[0, 1.3, 0], '$y^b$'], [[0, 0, 1.2], '$z^b$']];
+      for (const [v, n] of bodyAx) { const p = pr(mv(C, v)); arrow(ctx, o.x, o.y, p.x, p.y, P.accent, 2, 9); label(ctx, n, p.x + 6, p.y - 2, P.accent, { size: 13 }); }
+      if (seqLabel) label(ctx, seqLabel, 10, 14, P.fg, { size: 12 });
+    }
+
+    function table() {
+      tbody.innerHTML = [0, 1, 2].map((i) => `<tr>${[0, 1, 2].map((j) => `<td>${C[i * 3 + j].toFixed(3)}</td>`).join('')}</tr>`).join('');
+      const nearLock = Math.abs(Math.abs(pitch) - 90) < 4;
+      const which = seq.length || seqLabel ? 'seq' : nearLock ? 'lock' : 'default';
+      notes.forEach((n) => (n.hidden = n.dataset.note !== which));
+    }
+
+    const fromEuler = () => { seqLabel = ''; seq = []; C = euler(roll * D2R, pitch * D2R, yaw * D2R); table(); draw(); };
+    slider(fig, 'roll', (v) => `${v}°`, (v) => { roll = v; fromEuler(); });
+    slider(fig, 'pitch', (v) => `${v}°`, (v) => { pitch = v; fromEuler(); });
+    slider(fig, 'yaw', (v) => `${v}°`, (v) => { yaw = v; fromEuler(); });
+
+    const anim = animate(fig, (dt) => {
+      seqT += dt / 1.2;
+      const i = Math.min(seq.length - 1, Math.floor(seqT));
+      const s = Math.min(1, seqT - i);
+      const e = s < 0.5 ? 2 * s * s : 1 - (-2 * s + 2) ** 2 / 2;
+      C = qmat(slerp(seq[i].from, seq[i].to, e));
+      draw();
+      if (seqT >= seq.length) { seq = []; table(); }
+    }, () => seq.length > 0);
+
+    for (const btn of fig.querySelectorAll<HTMLButtonElement>('[data-seq]')) {
+      btn.addEventListener('click', () => {
+        const order = btn.dataset.seq!;
+        const R1 = order === 'xy' ? rx(Math.PI / 2) : ry(Math.PI / 2);
+        const R2 = order === 'xy' ? ry(Math.PI / 2) : rx(Math.PI / 2);
+        // body-axis rotations compose on the right: C = I · R1 · R2
+        const C0: M3 = euler(0, 0, 0), C1 = mm(C0, R1), C2 = mm(C1, R2);
+        seq = [{ from: matq(C0), to: matq(C1) }, { from: matq(C1), to: matq(C2) }];
+        seqT = 0; seqLabel = order === 'xy' ? '90° about $x^b$, then 90° about $y^b$' : '90° about $y^b$, then 90° about $x^b$';
+        table(); anim.kick();
+      });
+    }
+
+    // orbit camera by dragging
+    let drag: { x: number; y: number; az: number; el: number } | null = null;
+    canvas.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, az, el }; canvas.setPointerCapture(e.pointerId); });
+    canvas.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      az = drag.az - (e.clientX - drag.x) * 0.01;
+      el = Math.max(-1.4, Math.min(1.4, drag.el + (e.clientY - drag.y) * 0.01));
+      draw();
+    });
+    canvas.addEventListener('pointerup', () => (drag = null));
+    table();
+  }
+</script>
