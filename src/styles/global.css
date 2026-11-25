@@ -71,6 +71,18 @@ h2 { font-size: 1.3rem; }
 h3 { font-size: 1.05rem; letter-spacing: -0.01em; }
 
 p { margin: 0 0 1rem; }
+
+/* Running text in justified alignment (Blocksatz) with hyphenation. Only from tablet width up:
+   on narrow phone columns justified text produces large gaps between words. */
+@media (min-width: 640px) {
+  p, li, dd, details p {
+    text-align: justify;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+    hyphenate-limit-chars: 7 3 3;
+  }
+  h1, h2, h3, h4, .label, .kicker, .tag, .link-row, .socials, .meta, nav, .site-footer, .lead, .title { text-align: left; hyphens: manual; -webkit-hyphens: manual; }
+}
 hr { border: 0; border-top: 1px solid var(--border); margin: 3rem 0; }
 
 code, pre, kbd { font-family: var(--font-mono); font-size: 0.86em; }

@@ -55,7 +55,7 @@ const publications = defineCollection({
     venue: z.string(),
     venueShort: z.string().optional(),
     year: z.number(),
-    type: z.enum(['journal', 'conference', 'workshop', 'preprint', 'thesis', 'other']),
+    type: z.enum(['journal', 'conference', 'workshop', 'preprint', 'manuscript', 'thesis', 'other']),
     selected: z.boolean().default(false),
     thumbnail: z.string().optional(),
     abstract: z.string().optional(),

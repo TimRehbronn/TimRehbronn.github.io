@@ -18,4 +18,4 @@ then fine-tunes it on labeled maritime datasets.
 The goal: reach the same detection accuracy with far fewer labels than training from scratch. The approach is evaluated across label budgets from 5 to 100 %
 and is benchmarked against 11 established 3D detectors.
 
-The manuscript is in internal review, targeting the *Journal of Intelligent & Robotic Systems*. [Code, configurations and results](https://github.com/rwth-irt/mstnet) and the [data](https://doi.org/10.5281/zenodo.22825184) are already public.
+The manuscript is in internal review. [Code, configurations and results](https://github.com/rwth-irt/mstnet) and the [data](https://doi.org/10.5281/zenodo.22825184) are already public.

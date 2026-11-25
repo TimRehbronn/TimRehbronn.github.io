@@ -82,7 +82,7 @@ export const experience: CvEntry[] = [
 
 export const education: CvEntry[] = [
   {
-    title: 'Dr.-Ing. (PhD candidate)',
+    title: 'Dr.-Ing. Candidate',
     org: 'Faculty of Mechanical Engineering, RWTH Aachen University — Institute of Automatic Control (IRT)',
     orgUrl: IRT,
     mono: 'RWTH',

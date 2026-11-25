@@ -49,11 +49,10 @@
 - id: rehbronn2026mstnet
   title: "MSTNet: Label-Efficient Maritime 3D LiDAR Object Detection by Self-Supervised Pretraining"
   authors: [Tim Rehbronn, Laurens Keuker, Chih-Chun Chen, Christopher Schulte, Heike Vallery]
-  venue: "Manuscript in internal review; target venue: Journal of Intelligent & Robotic Systems"
-  venueShort: "Manuscript in preparation"
-  note: "Target: J. Intell. Robot. Syst."
+  venue: "Manuscript in preparation (internal review)"
+  venueShort: "In preparation"
   year: 2026
-  type: preprint
+  type: manuscript
   selected: true
   thumbnail: /images/publications/mstnet.svg
   links:
