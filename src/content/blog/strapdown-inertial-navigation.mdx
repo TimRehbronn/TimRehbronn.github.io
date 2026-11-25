@@ -1,5 +1,5 @@
 ---
-title: 'Strapdown Inertial Navigation, from the Ground Up'
+title: 'Strapdown Inertial Navigation from Scratch'
 description: 'Part 1 of the series Localization and sensor fusion. How gyroscopes and accelerometers become attitude, velocity and position: from a one-dimensional toy to the full navigation equations on a rotating Earth, with interactive figures.'
 date: 2026-11-25
 tags: [navigation, inertial navigation, state estimation, explainer]
@@ -19,6 +19,7 @@ import FramesGlobe from '../../components/explainers/strapdown/FramesGlobe.astro
 import StrapdownDiagram from '../../components/explainers/strapdown/StrapdownDiagram.astro';
 import ErrorLab from '../../components/explainers/strapdown/ErrorLab.astro';
 import InertialFrame from '../../components/explainers/strapdown/InertialFrame.astro';
+import AllFrames from '../../components/explainers/strapdown/AllFrames.astro';
 import FrameVector from '../../components/explainers/strapdown/FrameVector.astro';
 import NoiseWalk from '../../components/explainers/strapdown/NoiseWalk.astro';
 import Representations from '../../components/explainers/strapdown/Representations.astro';
@@ -146,7 +147,11 @@ Strictly speaking, no frame tied to the Earth is inertial: the Earth rotates abo
   Origin at the IMU, $x$ pointing forward (out of the nose or bow), $y$ to the right (starboard), $z$ down through the floor. It is fixed to the vehicle and rotates with it. The sensors measure along these axes; in a perfect installation the IMU axes are the body axes.
 </Def>
 
-A figure further down shows the frames $i$, $e$ and $n$ on the globe. For now it is enough to remember the chain: the body moves relative to the local frame, the local frame moves over the Earth, and the Earth rotates relative to inertial space.
+The four frames form a chain: the body $b$ rotates relative to the local frame $n$, the local frame moves with the vehicle over the Earth $e$, and the Earth rotates relative to inertial space $i$. The figure shows all four at once. Because they live on very different scales, the right panel zooms in on the vehicle.
+
+<AllFrames>
+  Left: the inertial axes $x^i, y^i, z^i$ stay fixed while the Earth and its axes $x^e, y^e$ rotate about the common axis $z^i = z^e$ (rotation sped up). The small square marks the vehicle with its local north-east-down frame. Right: the same local frame $n$ seen up close, with the vehicle and its body frame $b$. **Try:** highlight one frame at a time. Move the vehicle with latitude and longitude: the directions of N, E and D change relative to $i$ and $e$, because "down" always points roughly towards the Earth's centre. Change heading, pitch and roll: only $b$ moves, $n$ stays level and north-pointing.
+</AllFrames>
 
 ### Notation: what the indices mean
 

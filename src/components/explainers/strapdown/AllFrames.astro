@@ -1,0 +1,176 @@
+---
+import M from '../../blog/M.astro';
+// All four frames of inertial navigation at once: i and e on the globe, n at the vehicle, b on the vehicle (zoomed view).
+---
+
+<figure class="xp wide" data-xp="allf">
+  <div class="xp-head"><span class="label fig-title">The four frames: i, e, n and b</span><span class="label" style="color:var(--muted)">drag to orbit</span></div>
+  <div class="xp-row two">
+    <canvas class="c-g drag" role="img" aria-label="The Earth with the inertial frame, the rotating Earth-fixed frame and the local north-east-down frame at the vehicle position"></canvas>
+    <canvas class="c-l drag" role="img" aria-label="Zoomed view around the vehicle: the local north-east-down frame and the body frame of the vehicle"></canvas>
+  </div>
+  <div class="xp-btns">
+    <span class="small muted">Highlight:</span>
+    <button class="btn" type="button" data-hl="all" aria-pressed="true">all</button>
+    <button class="btn" type="button" data-hl="i" aria-pressed="false" style="text-transform:none;letter-spacing:0.02em"><M t="i" />&nbsp;· inertial</button>
+    <button class="btn" type="button" data-hl="e" aria-pressed="false" style="text-transform:none;letter-spacing:0.02em"><M t="e" />&nbsp;· Earth-fixed</button>
+    <button class="btn" type="button" data-hl="n" aria-pressed="false" style="text-transform:none;letter-spacing:0.02em"><M t="n" />&nbsp;· local NED</button>
+    <button class="btn" type="button" data-hl="b" aria-pressed="false" style="text-transform:none;letter-spacing:0.02em"><M t="b" />&nbsp;· body</button>
+    <button class="btn" type="button" data-act="spin" aria-pressed="true">Earth rotating</button>
+  </div>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Latitude <M t="L" /></span><output for="lat"></output></span><input type="range" name="lat" min="-80" max="80" step="1" value="51" /></label>
+    <label class="xp-ctl"><span><span>Longitude <M t={String.raw`\lambda`} /></span><output for="lon"></output></span><input type="range" name="lon" min="-180" max="180" step="1" value="6" /></label>
+    <label class="xp-ctl"><span><span>Heading <M t={String.raw`\psi`} /></span><output for="yaw"></output></span><input type="range" name="yaw" min="-180" max="180" step="1" value="40" /></label>
+    <label class="xp-ctl"><span><span>Pitch <M t={String.raw`\theta`} /></span><output for="pitch"></output></span><input type="range" name="pitch" min="-60" max="60" step="1" value="10" /></label>
+    <label class="xp-ctl"><span><span>Roll <M t={String.raw`\phi`} /></span><output for="roll"></output></span><input type="range" name="roll" min="-60" max="60" step="1" value="15" /></label>
+  </div>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, animate, label, slider, arrow, reducedMotion } from '../../../lib/explainer';
+  import { camera, euler, mv, type V3 } from '../../../lib/rot';
+
+  const D2R = Math.PI / 180;
+  const HULL: V3[] = [
+    [1.3, 0, 0], [0.4, -0.45, -0.15], [0.4, 0.45, -0.15], [-1, -0.45, -0.15], [-1, 0.45, -0.15],
+    [0.4, -0.3, 0.3], [0.4, 0.3, 0.3], [-1, -0.3, 0.3], [-1, 0.3, 0.3],
+  ];
+  const FACES = [[0, 1, 2], [1, 3, 4, 2], [0, 5, 1], [0, 2, 6], [1, 5, 7, 3], [2, 4, 8, 6], [5, 6, 8, 7], [3, 7, 8, 4], [0, 6, 5]];
+  type F = 'i' | 'e' | 'n' | 'b';
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="allf"]')) {
+    const cg = fig.querySelector<HTMLCanvasElement>('.c-g')!, cl = fig.querySelector<HTMLCanvasElement>('.c-l')!;
+    const spinBtn = fig.querySelector<HTMLButtonElement>('[data-act="spin"]')!;
+    let lat = 51, lon = 6, yaw = 40, pitch = 10, roll = 15, theta = 0.5, spin = !reducedMotion();
+    let hl: 'all' | F = 'all';
+    let azG = 0.35, elG = 0.3, azL = 0.9, elL = 0.5;
+
+    const G = setupCanvas(cg, 1, () => draw());
+    const Lc = setupCanvas(cl, 1, () => draw());
+
+    // colour and width per frame, depending on the highlight
+    function style(f: F) {
+      const P = palette();
+      const base: Record<F, string> = { i: P.muted, e: P.soft, n: P.fg, b: P.accent };
+      if (hl === 'all') return { c: base[f], w: f === 'b' ? 2 : 1.5, a: 1 };
+      return hl === f ? { c: P.accent, w: 2.5, a: 1 } : { c: P.strong, w: 1, a: 0.6 };
+    }
+
+    function nedAxes(): [V3, V3, V3] {
+      const L = lat * D2R, l = lon * D2R;
+      return [
+        [-Math.sin(L) * Math.cos(l), -Math.sin(L) * Math.sin(l), Math.cos(L)],
+        [-Math.sin(l), Math.cos(l), 0],
+        [-Math.cos(L) * Math.cos(l), -Math.cos(L) * Math.sin(l), -Math.sin(L)],
+      ];
+    }
+
+    function drawGlobe() {
+      const P = palette(), { ctx, size } = G, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const R = Math.min(W, H) * 0.3;
+      const cam = camera(azG, elG, R, W / 2, H / 2 + 10);
+      const pr = (v: V3) => cam.project([v[0], -v[1], -v[2]]);   // ECI with z up on screen
+      const ct = Math.cos(theta), st = Math.sin(theta);
+      const e2i = (v: V3): V3 => [ct * v[0] - st * v[1], st * v[0] + ct * v[1], v[2]];
+      const ll = (la: number, lo: number): V3 => { const a = la * D2R, b = lo * D2R; return [Math.cos(a) * Math.cos(b), Math.cos(a) * Math.sin(b), Math.sin(a)]; };
+      const c = pr([0, 0, 0]);
+      ctx.fillStyle = P.bg; ctx.strokeStyle = P.strong; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(c.x, c.y, R, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      const poly = (pts: V3[], col: string) => {
+        ctx.strokeStyle = col; ctx.lineWidth = 1; let pen = false; ctx.beginPath();
+        for (const p of pts) { const q = pr(e2i(p)); if (q.z < 0) { pen = false; continue; } pen ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); pen = true; }
+        ctx.stroke();
+      };
+      for (let la = -60; la <= 60; la += 30) { const pts: V3[] = []; for (let lo = 0; lo <= 360; lo += 6) pts.push(ll(la, lo)); poly(pts, P.border); }
+      for (let lo = 0; lo < 360; lo += 30) { const pts: V3[] = []; for (let la = -90; la <= 90; la += 6) pts.push(ll(la, lo)); poly(pts, lo === 0 ? P.strong : P.border); }
+
+      const ax = (v: V3, name: string, f: F) => {
+        const s = style(f), p = pr(v);
+        ctx.globalAlpha = s.a; arrow(ctx, c.x, c.y, p.x, p.y, s.c, s.w, 8); label(ctx, name, p.x + 5, p.y - 5, s.c, { size: 12 }); ctx.globalAlpha = 1;
+      };
+      ax([1.55, 0, 0], '$x^i$', 'i'); ax([0, 1.55, 0], '$y^i$', 'i'); ax([0, 0, 1.6], '$z^i = z^e$', 'i');
+      ax(e2i([1.3, 0, 0]), '$x^e$', 'e'); ax(e2i([0, 1.3, 0]), '$y^e$', 'e');
+
+      // vehicle position and NED triad
+      const pE = ll(lat, lon), p = pr(e2i(pE));
+      const [N, E, D] = nedAxes();
+      const s = style('n'), k = 0.38;
+      ctx.globalAlpha = p.z < 0 ? 0.35 : s.a;
+      for (const [v, n] of [[N, 'N'], [E, 'E'], [D, 'D']] as [V3, string][]) {
+        const q = pr(e2i([pE[0] + v[0] * k, pE[1] + v[1] * k, pE[2] + v[2] * k]));
+        arrow(ctx, p.x, p.y, q.x, q.y, s.c, s.w, 7); label(ctx, n, q.x + 4, q.y - 3, s.c, { size: 11, weight: 700 });
+      }
+      ctx.globalAlpha = 1;
+      // zoom marker
+      const sb = style('b');
+      ctx.strokeStyle = sb.c; ctx.lineWidth = 1; ctx.strokeRect(p.x - 7, p.y - 7, 14, 14);
+      label(ctx, 'vehicle (zoomed on the right)', p.x + 12, p.y + 16, P.muted, { size: 10 });
+      label(ctx, 'The Earth: frames i, e and n', 8, 12, P.soft, { size: 12 });
+    }
+
+    function drawLocal() {
+      const P = palette(), { ctx, size } = Lc, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const cam = camera(azL, elL, Math.min(W, H) * 0.24, W / 2, H / 2 + 6);
+      const pr = (v: V3) => cam.project(v);
+      const o = pr([0, 0, 0]);
+      // local level plane
+      ctx.strokeStyle = P.border; ctx.lineWidth = 1;
+      for (let g = -2; g <= 2; g++) {
+        const a = pr([g, -2, 0]), b = pr([g, 2, 0]), c2 = pr([-2, g, 0]), d = pr([2, g, 0]);
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.moveTo(c2.x, c2.y); ctx.lineTo(d.x, d.y); ctx.stroke();
+      }
+      const sn = style('n');
+      ctx.globalAlpha = sn.a;
+      for (const [v, n] of [[[1.9, 0, 0], '$x^n$ (N)'], [[0, 1.9, 0], '$y^n$ (E)'], [[0, 0, 1.6], '$z^n$ (D)']] as [V3, string][]) {
+        const p = pr(v); arrow(ctx, o.x, o.y, p.x, p.y, sn.c, sn.w, 8); label(ctx, n, p.x + 6, p.y, sn.c, { size: 12 });
+      }
+      ctx.globalAlpha = 1;
+      // vehicle and body axes
+      const C = euler(roll * D2R, pitch * D2R, yaw * D2R);
+      const pts = HULL.map((v) => pr(mv(C, [v[0] * 0.9, v[1] * 0.9, v[2] * 0.9])));
+      const faces = FACES.map((f) => ({ f, z: f.reduce((s, i) => s + pts[i].z, 0) / f.length })).sort((a, b) => a.z - b.z);
+      const sb = style('b');
+      for (const { f } of faces) {
+        ctx.beginPath(); f.forEach((i, j) => (j ? ctx.lineTo(pts[i].x, pts[i].y) : ctx.moveTo(pts[i].x, pts[i].y))); ctx.closePath();
+        ctx.fillStyle = P.bg; ctx.globalAlpha = 0.85; ctx.fill(); ctx.globalAlpha = 1; ctx.strokeStyle = P.strong; ctx.lineWidth = 1; ctx.stroke();
+      }
+      ctx.globalAlpha = sb.a;
+      for (const [v, n] of [[[1.6, 0, 0], '$x^b$'], [[0, 1.2, 0], '$y^b$'], [[0, 0, 1.1], '$z^b$']] as [V3, string][]) {
+        const p = pr(mv(C, v)); arrow(ctx, o.x, o.y, p.x, p.y, sb.c, sb.w + 0.5, 9); label(ctx, n, p.x + 6, p.y - 4, sb.c, { size: 13 });
+      }
+      ctx.globalAlpha = 1;
+      label(ctx, 'Zoom: frames n and b at the vehicle', 8, 12, P.soft, { size: 12 });
+    }
+
+    function draw() { drawGlobe(); drawLocal(); }
+
+    const anim = animate(fig, (dt) => { theta += dt * 0.25; drawGlobe(); }, () => spin);
+    slider(fig, 'lat', (v) => `${v}°`, (v) => { lat = v; draw(); });
+    slider(fig, 'lon', (v) => `${v}°`, (v) => { lon = v; draw(); });
+    slider(fig, 'yaw', (v) => `${v}°`, (v) => { yaw = v; draw(); });
+    slider(fig, 'pitch', (v) => `${v}°`, (v) => { pitch = v; draw(); });
+    slider(fig, 'roll', (v) => `${v}°`, (v) => { roll = v; draw(); });
+    const hb = fig.querySelectorAll<HTMLButtonElement>('[data-hl]');
+    hb.forEach((b) => b.addEventListener('click', () => { hl = b.dataset.hl as typeof hl; hb.forEach((x) => x.setAttribute('aria-pressed', String(x === b))); draw(); }));
+    spinBtn.addEventListener('click', () => { spin = !spin; spinBtn.setAttribute('aria-pressed', String(spin)); spinBtn.textContent = spin ? 'Earth rotating' : 'Earth stopped'; anim.kick(); });
+    if (!spin) { spinBtn.setAttribute('aria-pressed', 'false'); spinBtn.textContent = 'Earth stopped'; }
+
+    for (const [cv, which] of [[cg, 'g'], [cl, 'l']] as const) {
+      let drag: { x: number; y: number; az: number; el: number } | null = null;
+      cv.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, az: which === 'g' ? azG : azL, el: which === 'g' ? elG : elL }; cv.setPointerCapture(e.pointerId); });
+      cv.addEventListener('pointermove', (e) => {
+        if (!drag) return;
+        const az = drag.az - (e.clientX - drag.x) * 0.01, el = Math.max(-1.4, Math.min(1.4, drag.el + (e.clientY - drag.y) * 0.01));
+        if (which === 'g') { azG = az; elG = el; } else { azL = az; elL = el; }
+        draw();
+      });
+      cv.addEventListener('pointerup', () => (drag = null));
+    }
+  }
+</script>
