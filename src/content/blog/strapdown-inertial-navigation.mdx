@@ -1165,6 +1165,10 @@ The next posts build towards that combination step by step:
 - **Parts 5 and 6** add LiDAR and radar odometry, which estimate motion from the surroundings rather than from satellites.
 - **Part 7** treats rotations and poses as what they mathematically are, curved spaces (Lie groups such as SO(3) and SE(3)), and introduces IMU preintegration, sensor calibration and observability.
 - **Part 8, sensor fusion 2**, brings everything together for robust localization with GNSS, IMU, LiDAR and radar: error-state and iterated EKF, filters on manifolds such as the invariant EKF, particle filters and factor graph optimization. With many sensors, consistency becomes the central difficulty: an overconfident filter trusts wrong estimates and rejects correct measurements, and much of the progress in these methods comes from keeping the uncertainty honest.
+- **Part 9, visual odometry**, adds the camera: how images are modelled, how features are matched between frames and how motion follows from epipolar geometry, alone and together with an IMU.
+- **Part 10, sensor fusion 3**, integrates the camera into the multi-sensor system with visual-inertial filters and sliding-window optimization.
+- **Part 11, SLAM**, drops the assumption of a known map: the vehicle localizes itself while building the map, and loop closures make the map globally consistent.
+- **Part 12, multi-target tracking**, turns from the own vehicle to the objects around it and estimates many of them at once, including the question of which measurement belongs to which object.
 
 ## References
 

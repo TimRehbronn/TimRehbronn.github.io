@@ -12,8 +12,12 @@ export const SERIES = {
     { title: 'Radar odometry', summary: 'Ego-motion from Doppler and radar scans, and what makes radar different.' },
     { title: 'Rotations and poses on manifolds', summary: 'Lie groups SO(3) and SE(3), IMU preintegration, calibration and observability.' },
     { title: 'Sensor fusion 2: multi-sensor localization', summary: 'GNSS, IMU, LiDAR and radar with ES-EKF, IEKF, invariant EKF, particle filter and factor graphs, with a focus on uncertainty and consistency.' },
+    { title: 'Visual odometry', summary: 'Motion from a camera: camera models, features, epipolar geometry and visual-inertial odometry.' },
+    { title: 'Sensor fusion 3: adding the camera', summary: 'Camera, IMU, GNSS, LiDAR and radar together: visual-inertial filters, sliding-window optimization and consistency.' },
+    { title: 'SLAM', summary: 'Localizing while building a map: landmarks, loop closure, pose graphs and globally consistent maps.' },
+    { title: 'Multi-target tracking', summary: 'Estimating many objects at once: data association, JPDA, MHT and random finite set filters such as PMBM.' },
   ] satisfies SeriesPart[],
 };
 
 /** Further topics after the series. */
-export const LATER = ['Multi-object detection', 'Multi-object tracking', 'SLAM'];
+export const LATER = ['Multi-object detection'];
