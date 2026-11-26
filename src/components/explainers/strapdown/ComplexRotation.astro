@@ -1,0 +1,90 @@
+---
+import M from '../../blog/M.astro';
+// Rotations in the plane as multiplication with unit complex numbers.
+---
+
+<figure class="xp wide" data-xp="cplx">
+  <div class="xp-head"><span class="label fig-title">Rotating with complex numbers</span><span class="label" style="color:var(--muted)">drag z</span></div>
+  <canvas class="drag" role="img" aria-label="The complex plane with the unit circle, a number z, unit complex numbers w1 and w2 and the rotated products"></canvas>
+  <ul class="xp-legend">
+    <li class="c-fg"><i></i><span>the number <M t="z" /></span></li>
+    <li class="c-accent"><i></i><span>unit numbers <M t="w_1" />, <M t="w_2" /> on the unit circle, and the product <M t="w_2 w_1 z" /></span></li>
+    <li class="c-muted dash"><i></i><span>intermediate result <M t="w_1 z" /></span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Angle of <M t={String.raw`w_1 = e^{i\theta_1}`} /></span><output for="t1"></output></span><input type="range" name="t1" min="-180" max="180" step="1" value="50" /></label>
+    <label class="xp-ctl"><span><span>Angle of <M t={String.raw`w_2 = e^{i\theta_2}`} /></span><output for="t2"></output></span><input type="range" name="t2" min="-180" max="180" step="1" value="30" /></label>
+  </div>
+  <div class="xp-btns">
+    <button class="btn" type="button" data-act="i" style="text-transform:none;letter-spacing:0.02em">multiply by <M t="i" /> twice</button>
+  </div>
+  <p class="xp-readout" aria-live="polite">
+    <span><M t="w_1" /> = <b data-o="w1"></b></span>
+    <span><M t="w_2 w_1" /> = <b data-o="w21"></b>, angle <b class="hot" data-o="ang"></b> = <M t={String.raw`\theta_1 + \theta_2`} /></span>
+    <span><M t={String.raw`\lvert w_2 w_1 z \rvert = \lvert z \rvert`} /> = <b data-o="len"></b></span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, label, slider, arrow, outputs } from '../../../lib/explainer';
+
+  const D2R = Math.PI / 180;
+  const cmul = (a: number[], b: number[]) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]];
+  const cstr = (c: number[]) => `${c[0].toFixed(3)} ${c[1] < 0 ? '−' : '+'} ${Math.abs(c[1]).toFixed(3)}i`;
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="cplx"]')) {
+    const canvas = fig.querySelector('canvas')!;
+    const out = outputs(fig);
+    let t1 = 50, t2 = 30, z = [1.5, 0.45];
+    const { ctx, size } = setupCanvas(canvas, (w) => Math.max(320, Math.min(w * 0.6, 520)), draw);
+    let S = 1, cx = 0, cy = 0;
+
+    function draw() {
+      const P = palette(), W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      cx = W / 2; cy = H / 2; S = Math.min(W, H) / 4.6;
+      const X = (c: number[]) => cx + c[0] * S, Y = (c: number[]) => cy - c[1] * S;
+      // grid, axes, unit circle
+      ctx.strokeStyle = P.border; ctx.lineWidth = 1;
+      for (let g = -3; g <= 3; g++) { ctx.beginPath(); ctx.moveTo(X([g, -3]), 0); ctx.lineTo(X([g, -3]), H); ctx.moveTo(0, Y([0, g])); ctx.lineTo(W, Y([0, g])); ctx.stroke(); }
+      ctx.strokeStyle = P.strong; ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(W, cy); ctx.moveTo(cx, 0); ctx.lineTo(cx, H); ctx.stroke();
+      label(ctx, 'real axis', W - 6, cy - 10, P.muted, { size: 10, align: 'right' });
+      label(ctx, 'imaginary axis', cx + 6, 12, P.muted, { size: 10 });
+      label(ctx, '$1$', X([1, 0]) + 4, cy + 12, P.muted, { size: 12 });
+      label(ctx, '$i$', cx + 6, Y([0, 1]) - 8, P.muted, { size: 12 });
+      ctx.strokeStyle = P.soft; ctx.beginPath(); ctx.arc(cx, cy, S, 0, Math.PI * 2); ctx.stroke();
+      const w1 = [Math.cos(t1 * D2R), Math.sin(t1 * D2R)], w2 = [Math.cos(t2 * D2R), Math.sin(t2 * D2R)];
+      const z1 = cmul(w1, z), z2 = cmul(w2, z1), w21 = cmul(w2, w1);
+      // unit numbers
+      for (const [w, n] of [[w1, '$w_1$'], [w2, '$w_2$']] as [number[], string][]) {
+        ctx.fillStyle = P.accent; ctx.beginPath(); ctx.arc(X(w), Y(w), 5, 0, Math.PI * 2); ctx.fill();
+        label(ctx, n, X(w) + 8, Y(w) - 8, P.accent, { size: 13 });
+      }
+      // angle arcs at the origin for z → w1 z → w2 w1 z
+      const az = Math.atan2(z[1], z[0]), rz = Math.hypot(z[0], z[1]);
+      ctx.strokeStyle = P.accent; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(cx, cy, rz * S * 0.35, -az, -(az + t1 * D2R), t1 > 0); ctx.stroke();
+      ctx.beginPath(); ctx.arc(cx, cy, rz * S * 0.45, -(az + t1 * D2R), -(az + (t1 + t2) * D2R), t2 > 0); ctx.stroke();
+      // vectors
+      arrow(ctx, cx, cy, X(z), Y(z), P.fg, 2, 10); label(ctx, '$z$', X(z) + 8, Y(z) + 4, P.fg, { size: 14 });
+      ctx.setLineDash([5, 4]); arrow(ctx, cx, cy, X(z1), Y(z1), P.muted, 1.5, 9); ctx.setLineDash([]);
+      label(ctx, '$w_1 z$', X(z1) + 8, Y(z1), P.muted, { size: 13 });
+      arrow(ctx, cx, cy, X(z2), Y(z2), P.accent, 2.5, 11); label(ctx, '$w_2 w_1 z$', X(z2) + 8, Y(z2) - 4, P.accent, { size: 13 });
+      out('w1', cstr(w1)); out('w21', cstr(w21));
+      out('ang', `${(((t1 + t2 + 540) % 360) - 180).toFixed(0)}°`);
+      out('len', Math.hypot(z2[0], z2[1]).toFixed(3));
+    }
+
+    const s1 = slider(fig, 't1', (v) => `${v}°`, (v) => { t1 = v; draw(); });
+    const s2 = slider(fig, 't2', (v) => `${v}°`, (v) => { t2 = v; draw(); });
+    fig.querySelector('[data-act="i"]')!.addEventListener('click', () => { s1.set(90); s2.set(90); });
+    // drag z
+    let dragging = false;
+    const setZ = (e: PointerEvent) => { const r = canvas.getBoundingClientRect(); z = [(e.clientX - r.left - cx) / S, -(e.clientY - r.top - cy) / S]; draw(); };
+    canvas.addEventListener('pointerdown', (e) => { dragging = true; canvas.setPointerCapture(e.pointerId); setZ(e); });
+    canvas.addEventListener('pointermove', (e) => { if (dragging) setZ(e); });
+    canvas.addEventListener('pointerup', () => (dragging = false));
+  }
+</script>

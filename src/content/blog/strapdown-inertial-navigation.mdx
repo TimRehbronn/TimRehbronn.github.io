@@ -30,6 +30,8 @@ import HrgGyro from '../../components/explainers/strapdown/HrgGyro.astro';
 import MemsAccel from '../../components/explainers/strapdown/MemsAccel.astro';
 import ServoAccel from '../../components/explainers/strapdown/ServoAccel.astro';
 import VibratingBeamAccel from '../../components/explainers/strapdown/VibratingBeamAccel.astro';
+import ComplexRotation from '../../components/explainers/strapdown/ComplexRotation.astro';
+import QuaternionSandwich from '../../components/explainers/strapdown/QuaternionSandwich.astro';
 import FrameVector from '../../components/explainers/strapdown/FrameVector.astro';
 import NoiseWalk from '../../components/explainers/strapdown/NoiseWalk.astro';
 import Representations from '../../components/explainers/strapdown/Representations.astro';
@@ -466,7 +468,53 @@ The figure shows two facts that shape every attitude algorithm.
 
 The rotation vector is the most intuitive description of a *change* of attitude, and it is what a gyro measures over a short interval: the angular rate times the time. It is less suited for storing an attitude, because it is not unique (a rotation by $\pi$ about $\mathbf u$ equals a rotation by $\pi$ about $-\mathbf u$) and because two rotation vectors cannot simply be added to compose two rotations.
 
+### A detour: rotating with complex numbers
+
+Quaternions look strange at first sight. They become natural once you see that they extend a trick that works perfectly in two dimensions.
+
+<Def term="Complex number">
+  A number $z = a + b\,i$ with a **real part** $a$ and an **imaginary part** $b$, where the **imaginary unit** $i$ is defined by $i^2 = -1$. It is drawn as the point $(a, b)$ in the **complex plane**. Its length is $\lvert z \rvert = \sqrt{a^2 + b^2}$, and its angle to the real axis is called its **argument**.
+</Def>
+
+Complex numbers multiply by the usual rules plus $i^2 = -1$:
+
+$$
+(a + b\,i)(c + d\,i) = (ac - bd) + (ad + bc)\,i .
+$$
+
+Geometrically this product does something simple: **the lengths multiply and the angles add.** A complex number of length one is described by its angle $\theta$ alone, and **Euler's formula** writes it as
+
+$$
+e^{i\theta} = \cos\theta + i \sin\theta .
+$$
+
+Multiplying any $z$ by $e^{i\theta}$ therefore rotates $z$ by $\theta$ without changing its length. A rotation in the plane *is* a multiplication. Multiplying by $i = e^{i\,90°}$ turns by a quarter turn, and the mysterious rule $i^2 = -1$ simply says that two quarter turns make a half turn. Two rotations combine by multiplying their numbers, $e^{i\theta_2} e^{i\theta_1} = e^{i(\theta_1 + \theta_2)}$, and the order does not matter, just as rotations in a plane commute. Written out, $e^{i\theta} z$ is exactly the 2D rotation matrix $\mathbf C(\theta)$ from the planar section applied to $[a, b]^\mathsf T$.
+
+<ComplexRotation>
+  The number $z$ (white, drag it) is rotated first by $w_1$, then by $w_2$; both are unit complex numbers on the unit circle. **Try:** the angle of the result is always $\theta_1 + \theta_2$ and its length always $\lvert z \rvert$. Press *multiply by $i$ twice*: two quarter turns give $-z$, which is $i^2 = -1$ seen as geometry.
+</ComplexRotation>
+
 ### Quaternions
+
+In 1843 William Rowan Hamilton found the corresponding trick for three dimensions. One imaginary unit is not enough; it takes three, $i$, $j$ and $k$, with the rule he famously carved into a Dublin bridge:
+
+$$
+i^2 = j^2 = k^2 = i\,j\,k = -1 .
+$$
+
+From it follow the products of the units, and they depend on the order:
+
+<div class="table-wrap">
+
+| $\times$ | $i$ | $j$ | $k$ |
+| --- | --- | --- | --- |
+| $i$ | $-1$ | $k$ | $-j$ |
+| $j$ | $-k$ | $-1$ | $i$ |
+| $k$ | $j$ | $-i$ | $-1$ |
+
+</div>
+
+(Read: row times column, e.g. $i\,j = k$ but $j\,i = -k$.) A quaternion is a number $q_w + q_x\,i + q_y\,j + q_z\,k$ with one real and three imaginary parts. That its multiplication is not commutative is not a flaw but exactly the property needed: rotations in three dimensions do not commute either.
 
 Most strapdown implementations store the attitude as a **unit quaternion**: four numbers instead of nine, only one constraint (unit length) instead of six, and no singularities.
 
@@ -477,13 +525,57 @@ Most strapdown implementations store the attitude as a **unit quaternion**: four
   $$
 </Def>
 
-The half angle is not a typo. It makes $\mathbf q$ and $-\mathbf q$ describe the same rotation (adding $2\pi$ to $\alpha$ flips the sign of both parts), a property called the **double cover**. Two quaternions are combined with the **quaternion product** $\otimes$,
+Two quaternions are combined with the **quaternion product** $\otimes$, which is nothing but multiplying out $(p_w + p_x i + p_y j + p_z k)(q_w + q_x i + q_y j + q_z k)$ with the rules above and sorting the result:
 
 $$
 \mathbf p \otimes \mathbf q = \begin{bmatrix} p_w q_w - \mathbf p_v^\mathsf T \mathbf q_v \\ p_w \mathbf q_v + q_w \mathbf p_v + \mathbf p_v \times \mathbf q_v \end{bmatrix} ,
 $$
 
 where $\mathbf p_v^\mathsf T \mathbf q_v$ is the dot product and $\mathbf p_v \times \mathbf q_v$ the **cross product**, the vector perpendicular to both whose length is $\lVert\mathbf p_v\rVert\,\lVert\mathbf q_v\rVert$ times the sine of the angle between them. The product corresponds to multiplying rotation matrices: if $\mathbf q_b^n$ represents $\mathbf C_b^n$, then $\mathbf q_b^n \otimes \mathbf q_c^b$ represents $\mathbf C_b^n \mathbf C_c^b$. The cross product makes it non-commutative, just like rotations.
+
+### Why half the angle: the sandwich product
+
+Two questions remain: why does the unit quaternion contain $\alpha/2$ instead of $\alpha$, and how does it actually rotate a vector? Both answers come from the complex numbers.
+
+A vector $\mathbf v$ is written as a **pure quaternion** $[0,\; \mathbf v]$, with zero scalar part. Take a unit vector $\mathbf u$ as such a pure quaternion and multiply it by itself with the product formula: the scalar part is $-\mathbf u^\mathsf T \mathbf u = -1$ and the vector part is $\mathbf u \times \mathbf u = \mathbf 0$. So
+
+$$
+\mathbf u \otimes \mathbf u = -1 :
+$$
+
+**every unit vector behaves like the imaginary unit $i$.** The quaternions $\cos\varphi + \mathbf u \sin\varphi$ therefore form a unit circle in the plane spanned by $1$ and $\mathbf u$, and they multiply exactly like the complex numbers $e^{i\varphi}$. The unit quaternion of a rotation by $\alpha$ about $\mathbf u$ is the point at angle $\alpha/2$ on that circle.
+
+The rotation of a vector uses the **sandwich product**
+
+$$
+\mathbf v' = \mathbf q \otimes \mathbf v \otimes \mathbf q^* ,
+$$
+
+where $\mathbf q^* = [q_w,\; -\mathbf q_v]$ is the **conjugate** of $\mathbf q$ (for a unit quaternion also its inverse). Each of the two multiplications turns the part of $\mathbf v$ perpendicular to $\mathbf u$ by $\alpha/2$, together by $\alpha$, while the part along $\mathbf u$ is left alone. That is why the half angle appears.
+
+<Derivation title="Derivation: why the sandwich rotates by the full angle">
+
+Write $\varphi = \alpha/2$ and split $\mathbf v = \mathbf v_\parallel + \mathbf v_\perp$ into the parts along and perpendicular to $\mathbf u$. With the product formula, for pure quaternions $\mathbf a \otimes \mathbf b = -\mathbf a^\mathsf T \mathbf b + \mathbf a \times \mathbf b$.
+
+*Part along the axis.* $\mathbf u$ and $\mathbf v_\parallel$ are parallel, so $\mathbf u \otimes \mathbf v_\parallel = \mathbf v_\parallel \otimes \mathbf u$: they commute. Then $\mathbf q$ commutes with $\mathbf v_\parallel$ as well, and $\mathbf q \otimes \mathbf v_\parallel \otimes \mathbf q^* = \mathbf q \otimes \mathbf q^* \otimes \mathbf v_\parallel = \mathbf v_\parallel$. The part along the axis does not change, as it should.
+
+*Perpendicular part.* Now $\mathbf u^\mathsf T \mathbf v_\perp = 0$, so $\mathbf u \otimes \mathbf v_\perp = \mathbf u \times \mathbf v_\perp = -\mathbf v_\perp \otimes \mathbf u$: they anticommute. Moving $\mathbf v_\perp$ past $\mathbf q^* = \cos\varphi - \mathbf u \sin\varphi$ flips the sign of the $\mathbf u$ term, so $\mathbf v_\perp \otimes \mathbf q^* = \mathbf q \otimes \mathbf v_\perp$, and
+
+$$
+\mathbf q \otimes \mathbf v_\perp \otimes \mathbf q^* = \mathbf q \otimes \mathbf q \otimes \mathbf v_\perp = (\cos 2\varphi + \mathbf u \sin 2\varphi) \otimes \mathbf v_\perp = \cos\alpha\, \mathbf v_\perp + \sin\alpha\, (\mathbf u \times \mathbf v_\perp) ,
+$$
+
+which is $\mathbf v_\perp$ rotated by $\alpha$ about $\mathbf u$. The step $\mathbf q \otimes \mathbf q = \cos 2\varphi + \mathbf u \sin 2\varphi$ is the complex-number rule "angles add" in the plane of $1$ and $\mathbf u$.
+
+</Derivation>
+
+A single multiplication $\mathbf q \otimes \mathbf v$ is not enough: when $\mathbf v$ has a component along $\mathbf u$, the result has the scalar part $-\sin\varphi\,(\mathbf u^\mathsf T \mathbf v) \neq 0$; it has left the space of vectors. The second multiplication from the other side removes that part again.
+
+The half angle has a famous consequence. Turning by $\alpha = 360°$ brings every vector back, but the quaternion has only gone halfway around its circle and arrived at $\mathbf q = -1$. Only after $720°$ is it back at $\mathbf q = 1$. So $\mathbf q$ and $-\mathbf q$ describe the same rotation; this is the **double cover**. In practice it means two things: a filter should keep $q_w \geq 0$ or otherwise make sure it does not compare $\mathbf q$ with $-\mathbf q$, and interpolation should take the shorter way around.
+
+<QuaternionSandwich>
+  Left: the plane spanned by $1$ and the rotation axis $\mathbf u$, with the unit quaternion $\mathbf q$ at half the rotation angle. Right: the vector $\mathbf v$ rotated with the sandwich product about $\mathbf u$ by the full angle. **Try:** move the angle from $0°$ to $360°$: $\mathbf v'$ makes a full turn and returns, while $\mathbf q$ only reaches $-1$. Continue to $720°$ to bring $\mathbf q$ home. Switch on *$\mathbf q \otimes \mathbf v$ alone*: its vector part is turned by only half the angle and its scalar part is not zero.
+</QuaternionSandwich>
 
 The representations convert into each other. From a unit quaternion to the rotation matrix:
 
