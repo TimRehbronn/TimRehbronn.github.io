@@ -603,7 +603,7 @@ The first bracket is the Taylor series of $\sin\alpha / \alpha$, the second that
 
 </Derivation>
 
-For small $\alpha$ it reduces to $\mathbf I + [\boldsymbol\alpha\times]$, the small-rotation matrix from above. The inverse operation, from a rotation matrix back to its rotation vector, is called the matrix **logarithm**. Exponential and logarithm are the basic tools for working with rotations as a curved space, a topic that returns in part 7 of this series.
+For small $\alpha$ it reduces to $\mathbf I + [\boldsymbol\alpha\times]$, the small-rotation matrix from above. The inverse operation, from a rotation matrix back to its rotation vector, is called the matrix **logarithm**. Exponential and logarithm are the basic tools for working with rotations as a curved space, a topic that returns in part 8 of this series.
 
 ### What the IMU actually outputs
 
@@ -1020,7 +1020,7 @@ We cannot predict how the bias will wander. But we can describe its *statistics*
   The bias wanders like a random walk over times shorter than $\tau_c$, but it is pulled back towards zero and stays within about $\pm\sigma_b$ in the long run.
 </Def>
 
-Why are these models justified? First, they reproduce what we measure: the Allan variance (next section) shows which of these processes dominate a real sensor and how strong they are. Second, they are **linear and driven by white noise**. That is exactly the form a Kalman filter requires. In the filter, the biases simply become additional entries of the state vector: the filter predicts them with the model above, grows their uncertainty by the variance of $w_{b,k}$ at every step, and corrects them whenever an external measurement reveals that the INS has drifted. The coefficients $K$, $\sigma_b$ and $\tau_c$ set how quickly the filter allows the bias estimate to change. Part 4 of this series builds such a filter.
+Why are these models justified? First, they reproduce what we measure: the Allan variance (next section) shows which of these processes dominate a real sensor and how strong they are. Second, they are **linear and driven by white noise**. That is exactly the form a Kalman filter requires. In the filter, the biases simply become additional entries of the state vector: the filter predicts them with the model above, grows their uncertainty by the variance of $w_{b,k}$ at every step, and corrects them whenever an external measurement reveals that the INS has drifted. The coefficients $K$, $\sigma_b$ and $\tau_c$ set how quickly the filter allows the bias estimate to change. Part 5 of this series builds such a filter.
 
 ### The Allan variance
 
@@ -1162,18 +1162,20 @@ Here is what we have built:
 
 An INS is precise over short times, works everywhere and needs no external signal, but it drifts. GNSS is the opposite: it does not drift, but it is noisy, slow and can be blocked or jammed, for example in harbours, urban canyons, tunnels or under bridges. Combining the two is the natural next step.
 
-The next posts build towards that combination step by step:
+The next posts build towards that combination step by step. If you are new to the series, **part 0** gives the big picture first: what state estimation is and why localization needs it.
 
 - **Part 2, GNSS**, explains the other half: how satellites, signals, pseudoranges and Doppler shifts give position and velocity, and where GNSS errors come from.
-- **Part 3, state estimation**, introduces the tools for fusing sensors: the Bayes filter, the Kalman filter and its nonlinear variants EKF and UKF, and the particle filter. A central theme is **uncertainty**: how a filter represents it, for example as a covariance matrix, and how it propagates through nonlinear models.
-- **Part 4, sensor fusion 1**, combines INS and GNSS. With *loose coupling* the filter uses GNSS positions and velocities; with *tight coupling* it uses the raw pseudoranges and Doppler shifts and keeps working with fewer than four satellites. We will also check whether the filter is **consistent**, i.e. whether its reported uncertainty matches its actual errors, using statistical tests such as the normalized estimation error squared (NEES) and the normalized innovation squared (NIS).
-- **Parts 5 and 6** add LiDAR and radar odometry, which estimate motion from the surroundings rather than from satellites.
-- **Part 7** treats rotations and poses as what they mathematically are, curved spaces (Lie groups such as SO(3) and SE(3)), and introduces IMU preintegration, sensor calibration and observability.
-- **Part 8, sensor fusion 2**, brings everything together for robust localization with GNSS, IMU, LiDAR and radar: error-state and iterated EKF, filters on manifolds such as the invariant EKF, particle filters and factor graph optimization. With many sensors, consistency becomes the central difficulty: an overconfident filter trusts wrong estimates and rejects correct measurements, and much of the progress in these methods comes from keeping the uncertainty honest.
-- **Part 9, visual odometry**, adds the camera: how images are modelled, how features are matched between frames and how motion follows from epipolar geometry, alone and together with an IMU.
-- **Part 10, sensor fusion 3**, integrates the camera into the multi-sensor system with visual-inertial filters and sliding-window optimization.
-- **Part 11, SLAM**, drops the assumption of a known map: the vehicle localizes itself while building the map, and loop closures make the map globally consistent.
-- **Part 12, multi-target tracking**, turns from the own vehicle to the objects around it and estimates many of them at once, including the question of which measurement belongs to which object.
+- **Part 3, Bayes filter and Kalman filter**, introduces the tools for fusing sensors: recursive estimation, the Bayes filter and the Kalman filter. A central theme is **uncertainty** and how a filter represents it, for example as a covariance matrix.
+- **Part 4, nonlinear filters**, compares three approximations of the same Bayes filter: the extended Kalman filter (EKF), which linearizes; the unscented Kalman filter (UKF), which propagates a few carefully chosen sample points; and the particle filter, which uses many random samples. It shows how uncertainty propagates through nonlinear models and when each approach fails.
+- **Part 5, sensor fusion 1**, combines INS and GNSS with an error-state Kalman filter (ES-EKF), derived in full. With *loose coupling* the filter uses GNSS positions and velocities; with *tight coupling* it uses the raw pseudoranges and Doppler shifts and keeps working with fewer than four satellites. We will also check whether the filter is **consistent**, i.e. whether its reported uncertainty matches its actual errors, using statistical tests such as the normalized estimation error squared (NEES) and the normalized innovation squared (NIS).
+- **Parts 6 and 7** add LiDAR and radar odometry, which estimate motion from the surroundings rather than from satellites.
+- **Part 8, filters on manifolds**, treats rotations and poses as what they mathematically are, curved spaces (Lie groups such as SO(3), SE(3) and SE₂(3)). It compares the error-state EKF, the manifold EKF and the invariant EKF, which differ in how they define the error of the estimate, and shows why that choice decides over observability and consistency.
+- **Part 9, from EKF to factor graphs**, sorts the vocabulary (recursive and batch estimation, filters and smoothers, fixed-lag and incremental methods) and explains how the iterated EKF, factor graph optimization with IMU preintegration and incremental smoothing work. It closes with the two ways of computing on a factor graph: sum-product, which yields probability densities, and max-product, which yields the single most probable estimate.
+- **Part 10, sensor fusion 2**, brings everything together for robust localization with GNSS, IMU, LiDAR and radar, compares the methods side by side and adds the calibration of the sensors relative to each other in space and time. With many sensors, consistency becomes the central difficulty: an overconfident filter trusts wrong estimates and rejects correct measurements, and much of the progress in these methods comes from keeping the uncertainty honest.
+- **Part 11, visual odometry**, adds the camera: how images are modelled, how features are matched between frames and how motion follows from epipolar geometry, alone and together with an IMU.
+- **Part 12, sensor fusion 3**, integrates the camera into the multi-sensor system with visual-inertial filters and sliding-window optimization.
+- **Part 13, SLAM**, drops the assumption of a known map: the vehicle localizes itself while building the map, and loop closures make the map globally consistent.
+- **Part 14, multi-target tracking**, turns from the own vehicle to the objects around it and estimates many of them at once, including the question of which measurement belongs to which object.
 
 ## References
 

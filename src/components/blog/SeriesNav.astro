@@ -10,7 +10,7 @@ const live = new Set((await getCollection('blog', (p) => import.meta.env.DEV || 
 
 <nav class="series" aria-label={`Series: ${SERIES.title}`}>
   <span class="label">Series · {SERIES.title}</span>
-  <ol>
+  <ol start="0">
     {SERIES.parts.map((p) => {
       const isNow = p.slug === current;
       const isLive = p.slug && live.has(p.slug);

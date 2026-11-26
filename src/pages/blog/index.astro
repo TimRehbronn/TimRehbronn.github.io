@@ -24,7 +24,7 @@ const fmt = new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short', year
         const isLive = p.slug && live.has(p.slug);
         return (
           <li class:list={{ soon: !isLive }}>
-            <span class="label idx">{String(i + 1).padStart(2, '0')}</span>
+            <span class="label idx">{String(i).padStart(2, '0')}</span>
             <div>
               {isLive ? <a class="t" href={`/blog/${p.slug}/`}>{p.title}</a> : <span class="t">{p.title}</span>}
               {!isLive && <span class="label soon-label">Coming soon…</span>}
