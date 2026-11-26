@@ -54,19 +54,44 @@ I try to define every term before it is used and every symbol before it appears 
 Let us first fix some vocabulary.
 
 <Def term="Navigation state">
-  The quantities that describe where a vehicle is and how it moves: its **position**, its **velocity** and its **attitude**. Attitude is the orientation of the vehicle in space, i.e. which way its nose points (heading), how much the nose is raised (pitch) and how much it is tilted sideways (roll).
+  The quantities that describe where a vehicle is and how it moves. (Bold symbols denote vectors, i.e. columns of numbers, and $^\mathsf T$, the transpose, turns a row into a column.)
+  - its **position** $\mathbf p = [x,\; y,\; z]^\mathsf T$, three coordinates in metres relative to a chosen origin,
+  - its **velocity** $\mathbf v = \dot{\mathbf p} = [\dot x,\; \dot y,\; \dot z]^\mathsf T$, the rate of change of the position (the dot denotes the derivative with respect to time $t$),
+  - and its **attitude**, the orientation of the vehicle in space. For now we describe it by three angles, $\boldsymbol\Theta = [\phi,\; \theta,\; \psi]^\mathsf T$: how much the vehicle is tilted sideways (roll $\phi$), how much its nose is raised (pitch $\theta$) and which way its nose points (yaw or heading $\psi$).
+
+  These quantities describe our system: if we know them at one instant and know how the vehicle is pushed and turned afterwards, its further motion is determined. A collection of quantities with this property is called the **state** of a system, and the mathematical object that holds them, here a column of numbers, is the **state vector**. The navigation state at time $t$ is
+  $$
+  \mathbf x(t) = \begin{bmatrix} \mathbf p(t) \\ \mathbf v(t) \\ \boldsymbol\Theta(t) \end{bmatrix} ,
+  $$
+  nine numbers for nine degrees of freedom. The set of all possible states is called the **state space**, and estimating $\mathbf x(t)$ from measurements is what **state estimation** means. Which axes the coordinates refer to, and better ways to describe attitude, follow in the sections on reference frames and on orientation; the precise state of the strapdown algorithm is given in the section on the full strapdown equations.
 </Def>
 
 <Def term="Dead reckoning">
-  Determining the current navigation state by starting from a known state and adding up measured *changes*. A sailor who multiplies speed by time and adds the result to the last known position on the chart is dead reckoning. The method needs no external reference, but every error in a measured change stays in the result forever.
+  Determining the current navigation state by starting from a known state and adding up measured *changes*:
+  $$
+  \mathbf x_k = \mathbf x_{k-1} + \Delta\mathbf x_k ,
+  $$
+  where the index $k$ counts the time steps and $\Delta\mathbf x_k$ is the change measured during step $k$. A sailor who multiplies speed by time and adds the result to the last known position on the chart is dead reckoning. The method needs no external reference, but every error in a measured change stays in the result forever: the error of $\mathbf x_k$ is the error of $\mathbf x_0$ plus the sum of all errors of $\Delta\mathbf x_1, \dots, \Delta\mathbf x_k$.
 </Def>
 
 <Def term="Inertial sensors">
-  Sensors that measure motion relative to *inertial space*, i.e. relative to a reference frame that is not accelerating and not rotating (more on this later). There are two kinds. An **accelerometer** measures linear acceleration along one axis (with an important twist we will get to in the section on specific force). A **gyroscope**, or gyro, measures the rate of rotation about one axis, in radians or degrees per second.
+  Sensors that measure motion relative to *inertial space*, i.e. relative to a reference frame that is not accelerating and not rotating (defined precisely below). There are two kinds, each with one sensitive axis, described by a unit vector $\mathbf e$:
+  - An **accelerometer** measures the component of the acceleration $\mathbf a$ along its axis, $\tilde a = \mathbf e^\mathsf T \mathbf a$, in $\text{m/s}^2$ (with an important twist we will get to in the section on specific force).
+  - A **gyroscope**, or gyro, measures the component of the angular velocity $\boldsymbol\omega$ along its axis, $\tilde\omega = \mathbf e^\mathsf T \boldsymbol\omega$, in rad/s or °/s.
+
+  The tilde $\tilde{\ }$ marks a measured quantity, and $\mathbf e^\mathsf T \mathbf a$ is the dot product, the length of the projection of $\mathbf a$ onto the axis.
 </Def>
 
 <Def term="IMU and INS">
-  An **inertial measurement unit (IMU)** combines three accelerometers and three gyros with mutually orthogonal sensitive axes, so it measures acceleration and rotation in all three dimensions. An **inertial navigation system (INS)** is an IMU plus a computer that runs a navigation algorithm on the measurements and outputs the navigation state.
+  An **inertial measurement unit (IMU)** combines three accelerometers and three gyros with mutually orthogonal sensitive axes. At every sample time $t_k$ it outputs two vectors of three components each,
+  $$
+  \tilde{\mathbf f}_k \in \mathbb R^3 \quad\text{(accelerometers)}, \qquad \tilde{\boldsymbol\omega}_k \in \mathbb R^3 \quad\text{(gyros)} ,
+  $$
+  where $\mathbb R^3$ is the set of vectors with three real components. An **inertial navigation system (INS)** is an IMU plus a computer that turns these measurements into the navigation state with an update rule of the form
+  $$
+  \mathbf x_k = F\big(\mathbf x_{k-1},\; \tilde{\mathbf f}_k,\; \tilde{\boldsymbol\omega}_k\big) .
+  $$
+  Deriving this function $F$ is the subject of this post.
 </Def>
 
 An INS is dead reckoning with inertial sensors. Gyros tell us how the attitude changes, accelerometers tell us how the velocity changes, and the velocity tells us how the position changes. Integrating (adding up) these changes over time yields the navigation state.
@@ -74,15 +99,15 @@ An INS is dead reckoning with inertial sensors. Gyros tell us how the attitude c
 A closely related device is often confused with an INS:
 
 <Def term="AHRS">
-  An **attitude and heading reference system (AHRS)** outputs only the attitude: roll, pitch and heading. It consists of an IMU, a **heading reference** and an estimation algorithm (a *filter*, i.e. software that blends the measurements). Like an INS it integrates the gyros, but it continuously corrects the result with references that do not drift:
-  - for roll and pitch, the accelerometers, which *on average* measure gravity and therefore the direction of "down";
-  - for heading, an external reference. Most often this is a three-axis **magnetometer** (a sensor for the Earth's magnetic field, which points roughly north). It is not the only option: a GNSS receiver with two antennas measures heading directly, the GNSS course over ground gives it while the vehicle moves, and a very good gyro can find north from the Earth's rotation (gyrocompassing, explained later).
+  An **attitude and heading reference system (AHRS)** outputs only the attitude, $\boldsymbol\Theta = [\phi,\; \theta,\; \psi]^\mathsf T$. It consists of an IMU, a **heading reference** and an estimation algorithm (a *filter*, i.e. software that blends the measurements). Like an INS it integrates the gyro rates $\tilde{\boldsymbol\omega}$ over time, but it continuously corrects the result with references that do not drift:
+  - for roll $\phi$ and pitch $\theta$, the accelerometers, which *on average* measure gravity and therefore the direction of "down";
+  - for heading $\psi$, an external reference. Most often this is a three-axis **magnetometer**, a sensor that measures the vector $\tilde{\mathbf m}$ of the Earth's magnetic field, which points roughly north. It is not the only option: a GNSS receiver with two antennas measures heading directly, the GNSS course over ground gives it while the vehicle moves, and a very good gyro can find north from the Earth's rotation (gyrocompassing, explained later).
 
-  An AHRS does not compute velocity or position.
+  An AHRS does not compute velocity $\mathbf v$ or position $\mathbf p$.
 </Def>
 
 <Def term="VRU">
-  A **vertical reference unit (VRU)** is an AHRS without a heading reference: it outputs only roll and pitch (and often heave, the vertical motion of a ship). Without a reference, the heading of an IMU can only be integrated from the gyros and drifts.
+  A **vertical reference unit (VRU)** is an AHRS without a heading reference: it outputs only $[\phi,\; \theta]^\mathsf T$, roll and pitch (and often heave, the vertical motion of a ship). Without a reference, the heading $\psi$ of an IMU can only be integrated from the gyros, $\psi(t) = \psi(0) + \int_0^t \tilde\omega_\psi\, d\tau$ with $\tilde\omega_\psi$ the measured turn rate about the vertical, and drifts.
 </Def>
 
 ### IMU, AHRS, INS and dead reckoning: how they differ
@@ -105,7 +130,11 @@ The terms are nested rather than exclusive. Every INS dead-reckons, but not ever
 There are two ways to build an INS. In the early systems from the 1950s and 1960s, the accelerometers sat on a **gimballed platform**: a mechanical table mounted in a set of rings (gimbals) and driven by motors so that it stayed level and pointed north no matter how the vehicle turned. The accelerometers on that table directly measured north, east and vertical acceleration. These platforms were very precise, but also heavy, expensive and mechanically delicate.
 
 <Def term="Strapdown">
-  In a **strapdown** system the sensors are rigidly attached ("strapped down") to the vehicle and rotate with it. There is no mechanical platform; instead the computer keeps track of the attitude and rotates the measurements mathematically into a north, east and vertical frame. Nearly every INS built today, from a smartphone to an airliner, is a strapdown system.
+  In a **strapdown** system the sensors are rigidly attached ("strapped down") to the vehicle and rotate with it. They therefore measure along the vehicle's own axes (the body axes $b$, defined below): $\tilde{\mathbf f}^b$ and $\tilde{\boldsymbol\omega}^b$. There is no mechanical platform; instead the computer keeps track of the attitude and rotates the measurements mathematically into a north, east and vertical frame $n$,
+  $$
+  \mathbf f^n = \mathbf C_b^n\, \tilde{\mathbf f}^b ,
+  $$
+  with a rotation matrix $\mathbf C_b^n$ that describes the attitude (defined in the section on orientation). In a gimballed system the platform performs this rotation physically. Nearly every INS built today, from a smartphone to an airliner, is a strapdown system.
 </Def>
 
 The set of equations that a strapdown computer solves is called the **mechanization** of the INS. The **strapdown algorithm** is the discrete-time recipe that implements this mechanization: at every sensor sample it updates attitude, then velocity, then position. We will derive it piece by piece.
@@ -115,7 +144,11 @@ The set of equations that a strapdown computer solves is called the **mechanizat
 Before we integrate anything we need to be precise about one question that is easy to skip and expensive to get wrong: *relative to what* do we measure position, velocity and rotation? Every quantity in navigation is defined relative to a **reference frame**, and inertial sensors make the choice of frame unavoidable, because they measure relative to a very particular kind of frame.
 
 <Def term="Reference frame">
-  A **frame** is an origin plus three mutually perpendicular unit vectors (axes), labelled $x$, $y$, $z$. It serves two purposes: it is the reference *against which* motion is measured, and its axes are the directions *along which* a vector is split into three numbers. All frames in this post are **right-handed**: if the fingers of your right hand curl from $x$ to $y$, your thumb points along $z$.
+  A **frame** is an origin $o$ plus three unit vectors (axes) $\mathbf e_1, \mathbf e_2, \mathbf e_3$, labelled $x$, $y$, $z$, that are mutually perpendicular:
+  $$
+  \mathbf e_i^\mathsf T \mathbf e_j = \begin{cases} 1 & i = j \\ 0 & i \neq j \end{cases} .
+  $$
+  It serves two purposes: it is the reference *against which* motion is measured, and its axes are the directions *along which* a vector is split into three numbers, $\mathbf r = r_1 \mathbf e_1 + r_2 \mathbf e_2 + r_3 \mathbf e_3$ with $r_i = \mathbf e_i^\mathsf T \mathbf r$. All frames in this post are **right-handed**: if the fingers of your right hand curl from $x$ to $y$, your thumb points along $z$, i.e. $\mathbf e_3 = \mathbf e_1 \times \mathbf e_2$ (the cross product, defined in the section on quaternions).
 </Def>
 
 ### What is an inertial frame?
@@ -123,7 +156,11 @@ Before we integrate anything we need to be precise about one question that is ea
 Newton's first law says that a body on which no force acts keeps moving in a straight line at constant speed. That sentence silently assumes an observer: it is only true when the motion is described in a suitable frame.
 
 <Def term="Inertial frame">
-  A reference frame in which Newton's laws hold in their simple form: a body without forces moves in a straight line at constant velocity, and every acceleration is caused by a real force. An inertial frame neither accelerates nor rotates. Any frame that moves at constant velocity relative to an inertial frame is inertial as well.
+  A reference frame in which Newton's laws hold in their simple form: a body without forces moves in a straight line at constant velocity, and every acceleration is caused by a real force,
+  $$
+  m\,\ddot{\mathbf r} = \mathbf F ,
+  $$
+  where $m$ is the mass, $\mathbf r$ the position, $\ddot{\mathbf r}$ its second time derivative (the acceleration) and $\mathbf F$ the sum of all real forces. An inertial frame neither accelerates nor rotates. Any frame that moves at constant velocity relative to an inertial frame is inertial as well.
 </Def>
 
 In a frame that rotates or accelerates, bodies seem to accelerate although no force acts on them. The figure shows this with a puck that slides without friction across a rotating disc. Seen from above by a non-rotating observer, the puck moves in a straight line. Seen by an observer who turns with the disc, the same puck curves away as if pushed by an invisible hand. To keep Newton's law usable in the rotating frame, one has to add **apparent forces** (also called fictitious or inertial forces):
@@ -144,19 +181,29 @@ Strictly speaking, no frame tied to the Earth is inertial: the Earth rotates abo
 ### The four frames of inertial navigation
 
 <Def term="Earth-centred inertial frame (ECI), i">
-  Origin at the centre of the Earth, $z$-axis along the Earth's spin axis towards the north pole, $x$ and $y$ in the equatorial plane and fixed relative to the distant stars. It does not rotate. (It accelerates slightly as the Earth orbits the Sun, but the Sun's gravity cancels that effect almost exactly, so for navigation it behaves like an inertial frame.)
+  Origin at the centre of the Earth, $z$-axis along the Earth's spin axis towards the north pole, $x$ and $y$ in the equatorial plane and fixed relative to the distant stars. It does not rotate: its angular velocity relative to inertial space is $\boldsymbol\omega_{ii} = \mathbf 0$. (It accelerates slightly as the Earth orbits the Sun, but the Sun's gravity cancels that effect almost exactly, so for navigation it behaves like an inertial frame.)
 </Def>
 
 <Def term="Earth-centred Earth-fixed frame (ECEF), e">
-  Same origin and $z$-axis as ECI, but $x$ points to the intersection of the equator and the Greenwich meridian, and the frame rotates with the Earth, once per sidereal day about the common $z$-axis. A point on the ground is at rest in this frame. GNSS receivers compute their positions in it.
+  Same origin and $z$-axis as ECI, but $x$ points to the intersection of the equator and the Greenwich meridian, and the frame rotates with the Earth about the common $z$-axis at the constant rate $\omega_{ie} = 7.292115 \times 10^{-5}\,\text{rad/s}$, once per sidereal day:
+  $$
+  \boldsymbol\omega_{ie}^e = [0,\; 0,\; \omega_{ie}]^\mathsf T .
+  $$
+  After the time $t$ its $x$- and $y$-axes are turned by the angle $\omega_{ie} t$ relative to those of ECI. A point on the ground is at rest in this frame. GNSS receivers compute their positions in it.
 </Def>
 
 <Def term="Local navigation frame, n">
-  Origin at the vehicle, $x$ pointing **north**, $y$ pointing **east**, $z$ pointing **down** along the local direction of gravity (a north-east-down or **NED** frame). It moves with the vehicle over the Earth's surface and turns as the local north and down directions change. Navigation results such as "speed over ground 6 m/s, heading 040°" are naturally expressed in this frame.
+  Origin at the vehicle, $x$ pointing **north**, $y$ pointing **east**, $z$ pointing **down** along the local direction of gravity (a north-east-down or **NED** frame). At latitude $L$ and longitude $\lambda$ (defined precisely in the section on the Earth), its three axes written in ECEF coordinates are
+  $$
+  \mathbf e_N = \begin{bmatrix} -\sin L \cos\lambda \\ -\sin L \sin\lambda \\ \cos L \end{bmatrix}, \quad
+  \mathbf e_E = \begin{bmatrix} -\sin\lambda \\ \cos\lambda \\ 0 \end{bmatrix}, \quad
+  \mathbf e_D = \begin{bmatrix} -\cos L \cos\lambda \\ -\cos L \sin\lambda \\ -\sin L \end{bmatrix} .
+  $$
+  It moves with the vehicle over the Earth's surface and turns as $L$ and $\lambda$ change. Navigation results such as "speed over ground 6 m/s, heading 040°" are naturally expressed in this frame.
 </Def>
 
 <Def term="Body frame, b">
-  Origin at the IMU, $x$ pointing forward (out of the nose or bow), $y$ to the right (starboard), $z$ down through the floor. It is fixed to the vehicle and rotates with it. The sensors measure along these axes; in a perfect installation the IMU axes are the body axes.
+  Origin at the IMU, $x$ pointing forward (out of the nose or bow), $y$ to the right (starboard), $z$ down through the floor. It is fixed to the vehicle and rotates with it; its orientation relative to $n$ is the attitude, described by the angles $\phi$, $\theta$, $\psi$ or by the rotation matrix $\mathbf C_b^n$. The sensors measure along these axes; in a perfect installation the IMU axes are the body axes.
 </Def>
 
 The four frames form a chain: the body $b$ rotates relative to the local frame $n$, the local frame moves with the vehicle over the Earth $e$, and the Earth rotates relative to inertial space $i$. The figure shows all four at once. Because they live on very different scales, the right panel zooms in on the vehicle.
@@ -617,7 +664,11 @@ where $\operatorname{atan2}(y, x)$ is the arctangent of $y/x$ that takes the sig
 The gyros measure angular velocity. We now need the equation that turns angular velocity into a change of attitude.
 
 <Def term="Angular velocity vector">
-  A vector $\boldsymbol\omega$ whose direction is the instantaneous axis of rotation (with the right-hand rule) and whose length is the rotation rate in rad/s. A triad of gyros measures its three components in body axes, $\boldsymbol\omega_{ib}^b$.
+  A vector $\boldsymbol\omega$ whose direction is the instantaneous axis of rotation (with the right-hand rule) and whose length $\lVert\boldsymbol\omega\rVert$ is the rotation rate in rad/s. A point at position $\mathbf r$ (measured from a point on the axis) on a rigid body that rotates with $\boldsymbol\omega$ moves with the velocity
+  $$
+  \dot{\mathbf r} = \boldsymbol\omega \times \mathbf r .
+  $$
+  A triad of gyros measures the three components of $\boldsymbol\omega$ in body axes, $\boldsymbol\omega_{ib}^b$.
 </Def>
 
 ### The cross product as a matrix: $[\mathbf a\times]$
@@ -930,6 +981,14 @@ $$
 $$
 
 the sum of Earth rate and transport rate. Velocity is the velocity of the body relative to the Earth, resolved in NED axes: $\mathbf v^n = [v_N,\; v_E,\; v_D]^\mathsf T$.
+
+With these quantities, the navigation state from the beginning of this post can now be written precisely. The strapdown algorithm propagates
+
+$$
+\mathbf x = \big(\mathbf C_b^n,\;\; \mathbf v_{eb}^n,\;\; L,\; \lambda,\; h\big) :
+$$
+
+the attitude as a rotation matrix (or as a unit quaternion $\mathbf q_b^n$), the velocity over ground in NED axes, and the position as geodetic latitude, longitude and ellipsoidal height. It still has nine degrees of freedom, three each for attitude, velocity and position, but it is stored with more numbers: $9 + 3 + 3 = 15$ with a rotation matrix, $4 + 3 + 3 = 10$ with a quaternion. The reason is the attitude. Three numbers cannot describe every attitude without singularities (gimbal lock), so the state is not an ordinary vector in $\mathbb R^9$ but a point on a curved set. How to estimate such states properly is the topic of part 8. In an aided system the state is extended by the sensor biases $\mathbf b_a$ and $\mathbf b_g$ from the section on sensor errors, which is what the Kalman filter of part 5 will do.
 
 ### Attitude
 
