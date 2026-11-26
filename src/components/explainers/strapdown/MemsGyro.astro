@@ -1,0 +1,124 @@
+---
+import M from '../../blog/M.astro';
+// A vibratory MEMS gyro: a proof mass is driven back and forth; rotation creates a Coriolis force across the drive
+// direction, and the tiny sense motion is demodulated into a rate signal.
+---
+
+<figure class="xp wide" data-xp="mems">
+  <div class="xp-head"><span class="label fig-title">How a MEMS gyro senses rotation</span></div>
+  <div class="xp-row two">
+    <canvas class="c-s" role="img" aria-label="Top view of a MEMS gyro: a proof mass oscillates left and right on springs; rotation makes it move up and down as well"></canvas>
+    <canvas class="c-t" role="img" aria-label="Drive motion, sense motion and demodulated output over time"></canvas>
+  </div>
+  <ul class="xp-legend">
+    <li class="c-fg"><i></i><span>drive motion <M t="x(t)" /></span></li>
+    <li class="c-accent"><i></i><span>sense motion <M t="y(t)" /> and Coriolis force</span></li>
+    <li class="c-muted"><i></i><span>demodulated output, proportional to <M t={String.raw`\Omega`} /></span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Rotation rate <M t={String.raw`\Omega`} /></span><output for="om"></output></span><input type="range" name="om" min="-200" max="200" step="1" value="60" /></label>
+    <label class="xp-ctl"><span><span>Drive amplitude <M t="A" /></span><output for="amp"></output></span><input type="range" name="amp" min="1" max="20" step="0.5" value="10" /></label>
+    <label class="xp-ctl"><span><span>Drive frequency <M t="f_d" /></span><output for="fd"></output></span><input type="range" name="fd" min="5" max="50" step="1" value="20" /></label>
+    <label class="xp-ctl"><span><span>Mode separation <M t={String.raw`f_s - f_d`} /></span><output for="df"></output></span><input type="range" name="df" min="1" max="3" step="0.02" value="2.7" /></label>
+  </div>
+  <p class="xp-readout" aria-live="polite">
+    <span>Coriolis acceleration <M t={String.raw`2\Omega A\omega_d`} /> = <b data-o="ac"></b></span>
+    <span>sense amplitude <b class="hot" data-o="y"></b></span>
+    <span>at Earth rate: <b data-o="ye"></b></span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, animate, label, slider, arrow, axes, series, outputs, reducedMotion } from '../../../lib/explainer';
+
+  const D2R = Math.PI / 180, Q = 1e4, WIE = 7.292115e-5;
+  const fmtLen = (m: number) => { const a = Math.abs(m); return a >= 1e-6 ? `${(m * 1e6).toFixed(2)} µm` : a >= 1e-9 ? `${(m * 1e9).toFixed(2)} nm` : a >= 1e-12 ? `${(m * 1e12).toFixed(2)} pm` : `${(m * 1e15).toFixed(1)} fm`; };
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="mems"]')) {
+    const cs = fig.querySelector<HTMLCanvasElement>('.c-s')!, ct = fig.querySelector<HTMLCanvasElement>('.c-t')!;
+    const out = outputs(fig);
+    let om = 60, amp = 10, fd = 20, ldf = 2.7, t = 0;
+    const S = setupCanvas(cs, 1, () => drawScene());
+    const T = setupCanvas(ct, 1, () => drawPlots());
+
+    const senseAmp = (omRad: number) => {
+      const wd = 2 * Math.PI * fd * 1e3, ws = 2 * Math.PI * (fd * 1e3 + 10 ** ldf);
+      const ac = 2 * omRad * amp * 1e-6 * wd;
+      return { ac, y: ac / Math.sqrt((ws * ws - wd * wd) ** 2 + ((ws * wd) / Q) ** 2) };
+    };
+    // the picture: drive shown at 0.6 Hz, sense motion magnified to be visible
+    const W_VIS = 2 * Math.PI * 0.6;
+    const senseVis = () => (om / 200) * 0.55;
+
+    function drawScene() {
+      const P = palette(), { ctx, size } = S, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const cx = W / 2, cy = H / 2 + 4, F = Math.min(W, H) * 0.36;
+      const x = Math.sin(W_VIS * t) * 0.35, y = -senseVis() * Math.cos(W_VIS * t);
+      const mx = cx + x * F, my = cy - y * F, m = F * 0.32;
+      // frame (anchor) and springs
+      ctx.strokeStyle = P.strong; ctx.lineWidth = 1; ctx.strokeRect(cx - F, cy - F, 2 * F, 2 * F);
+      const spring = (x0: number, y0: number, x1: number, y1: number) => {
+        const n = 10, dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy) || 1, px = -dy / L, py = dx / L;
+        ctx.strokeStyle = P.muted; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x0, y0);
+        for (let i = 1; i < n; i++) { const s = i / n, w = (i % 2 ? 1 : -1) * 5; ctx.lineTo(x0 + dx * s + px * w, y0 + dy * s + py * w); }
+        ctx.lineTo(x1, y1); ctx.stroke();
+      };
+      spring(cx - F, my, mx - m, my); spring(mx + m, my, cx + F, my);
+      spring(mx, cy - F, mx, my - m); spring(mx, my + m, mx, cy + F);
+      // trace of the mass (ellipse: width from drive, height from rotation)
+      ctx.strokeStyle = P.accent; ctx.globalAlpha = 0.35; ctx.lineWidth = 1; ctx.beginPath();
+      for (let i = 0; i <= 80; i++) { const ph = (2 * Math.PI * i) / 80; const px = cx + Math.sin(ph) * 0.35 * F, py = cy + senseVis() * Math.cos(ph) * F; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+      ctx.stroke(); ctx.globalAlpha = 1;
+      // mass
+      ctx.fillStyle = P.bg; ctx.strokeStyle = P.fg; ctx.lineWidth = 1.5; ctx.fillRect(mx - m, my - m, 2 * m, 2 * m); ctx.strokeRect(mx - m, my - m, 2 * m, 2 * m);
+      label(ctx, '$m$', mx, my, P.fg, { size: 14, align: 'center' });
+      // drive velocity and Coriolis force (−2 m Ω × v; Ω out of the screen)
+      const vx = Math.cos(W_VIS * t);
+      arrow(ctx, mx, my + m + 12, mx + vx * F * 0.3, my + m + 12, P.fg, 1.5, 7);
+      label(ctx, '$\\mathbf{v}$', mx + vx * F * 0.3 + (vx > 0 ? 6 : -14), my + m + 12, P.fg, { size: 12 });
+      const fc = (om / 200) * vx; // y-component of the Coriolis force, screen-up positive for Ω>0, v<0
+      arrow(ctx, mx + m + 14, my, mx + m + 14, my + fc * F * 0.45, P.accent, 2, 8);
+      label(ctx, '$\\mathbf{F}_c$', mx + m + 20, my + fc * F * 0.45, P.accent, { size: 12 });
+      // axis labels and rotation symbol
+      label(ctx, 'drive $x$', cx + F - 4, cy + F + 14, P.muted, { size: 11, align: 'right' });
+      label(ctx, 'sense $y$', cx - F + 4, cy - F - 10, P.muted, { size: 11 });
+      ctx.strokeStyle = P.soft; ctx.beginPath(); ctx.arc(cx - F + 20, cy + F - 20, 9, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = P.soft; ctx.beginPath(); ctx.arc(cx - F + 20, cy + F - 20, 2.5, 0, Math.PI * 2); ctx.fill();
+      label(ctx, `$\\Omega$ out of the screen`, cx - F + 34, cy + F - 20, P.soft, { size: 11 });
+      label(ctx, 'sense motion magnified about $10^{9}$ times', 8, H - 8, P.muted, { size: 10 });
+    }
+
+    function drawPlots() {
+      const P = palette(), { ctx, size } = T, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const n = 240, ts = new Float64Array(n), xs = new Float64Array(n), ys = new Float64Array(n), dm = new Float64Array(n);
+      const sv = senseVis() / 0.55;
+      let acc = 0;
+      for (let i = 0; i < n; i++) {
+        const tt = (i / (n - 1)) * 4 * Math.PI; ts[i] = tt;
+        xs[i] = Math.sin(tt); ys[i] = -sv * Math.cos(tt);
+        // demodulate: multiply with the drive velocity reference and average (running mean)
+        acc += ys[i] * -Math.cos(tt); dm[i] = (2 * acc) / (i + 1);
+      }
+      const h = (H - 60) / 3, rows: [string, Float64Array, string][] = [['drive $x(t)$', xs, P.fg], ['sense $y(t)$', ys, P.accent], ['demodulated output', dm, P.muted]];
+      rows.forEach(([name, data, col], r) => {
+        const box = { x: 40, y: 8 + r * (h + 18), w: W - 50, h };
+        const A = axes(ctx, P, box, [0, 4 * Math.PI], [-1.15, 1.15], { ylabel: name, yticks: 2, xticks: 4, xfmt: () => '', yfmt: () => '', zeroLine: true });
+        series(ctx, box, ts, data, A.sx, A.sy, col, 2);
+      });
+      label(ctx, 'two drive periods', W - 10, H - 10, P.muted, { size: 10, align: 'right' });
+      const { ac, y } = senseAmp(om * D2R);
+      out('ac', Math.abs(ac) >= 0.01 ? `${ac.toFixed(3)} m/s²` : `${(ac * 1e3).toFixed(3)} mm/s²`); out('y', fmtLen(y)); out('ye', fmtLen(senseAmp(WIE).y));
+    }
+
+    const anim = animate(fig, (dt) => { t += dt; drawScene(); }, () => !reducedMotion());
+    slider(fig, 'om', (v) => `${v} °/s`, (v) => { om = v; drawScene(); drawPlots(); anim.kick(); });
+    slider(fig, 'amp', (v) => `${v.toFixed(1)} µm`, (v) => { amp = v; drawPlots(); });
+    slider(fig, 'fd', (v) => `${v} kHz`, (v) => { fd = v; drawPlots(); });
+    slider(fig, 'df', (v) => `${(10 ** v).toFixed(0)} Hz`, (v) => { ldf = v; drawPlots(); });
+  }
+</script>

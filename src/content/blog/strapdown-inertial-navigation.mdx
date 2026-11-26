@@ -20,6 +20,9 @@ import StrapdownDiagram from '../../components/explainers/strapdown/StrapdownDia
 import ErrorLab from '../../components/explainers/strapdown/ErrorLab.astro';
 import InertialFrame from '../../components/explainers/strapdown/InertialFrame.astro';
 import AllFrames from '../../components/explainers/strapdown/AllFrames.astro';
+import SagnacFOG from '../../components/explainers/strapdown/SagnacFOG.astro';
+import MemsGyro from '../../components/explainers/strapdown/MemsGyro.astro';
+import GyroLandscape from '../../components/explainers/strapdown/GyroLandscape.astro';
 import FrameVector from '../../components/explainers/strapdown/FrameVector.astro';
 import NoiseWalk from '../../components/explainers/strapdown/NoiseWalk.astro';
 import Representations from '../../components/explainers/strapdown/Representations.astro';
@@ -954,6 +957,141 @@ An INS integrates changes, so it needs an initial navigation state. Position and
 
 The horizontal Earth rate is $\omega_{ie}\cos L$, about $9.5\,°/\text{h}$ in Germany. A gyro bias $\varepsilon$ tilts the measured direction of north by roughly $\varepsilon / (\omega_{ie} \cos L)$ radians. With a $0.01\,°/\text{h}$ navigation-grade gyro this is a few hundredths of a degree. With a $1\,°/\text{h}$ tactical gyro it is already about $6°$, and with a MEMS gyro the method fails completely. Low-cost systems therefore obtain their heading from a magnetometer, from GNSS (for example from the direction of motion or two antennas) or by estimating it in a filter while moving. This is one of many reasons why low-cost inertial navigation is inseparable from aiding.
 
+## Inside an IMU: how gyroscopes and accelerometers work
+
+So far an IMU was a black box that outputs angular rates and specific forces. What is inside decides how accurate, how large and how expensive it is. The word **gyroscope** originally meant a spinning top; today it means any sensor of angular rate, whatever its physical principle. A fiber-optic gyro and a MEMS gyro are both gyros, but they measure rotation with completely different physics: one with light, the other with a vibrating mass. This section explains the main principles, from the oldest to the most widespread.
+
+### Mechanical gyros: angular momentum
+
+<Def term="Angular momentum">
+  A rotor with moment of inertia $J$ spinning at the rate $\omega_r$ has the angular momentum $\mathbf H = J\,\omega_r\,\mathbf u$, a vector along its spin axis $\mathbf u$. Without an external torque, $\mathbf H$ keeps its direction in inertial space. A torque $\boldsymbol\tau$ does not tilt the rotor in the direction of the torque but makes it **precess**: $\dot{\mathbf H} = \boldsymbol\tau$.
+</Def>
+
+The first inertial navigation systems used fast spinning rotors. In a gimballed platform they held the platform steady in space; in a strapdown system a **dynamically tuned gyro (DTG)** keeps its rotor aligned with the case by electromagnetic torquers, and the torque needed to do so is proportional to the angular rate. Mechanical gyros can be very accurate, but they have bearings that wear, need time to spin up and are sensitive to shock. Optical and vibratory gyros have largely replaced them.
+
+### Optical gyros: the Sagnac effect
+
+<Def term="Sagnac effect">
+  When light travels around a closed loop in both directions and the loop rotates, the beam that travels *with* the rotation needs longer to get back to its starting point than the beam that travels *against* it: the starting point has moved on. For a loop enclosing the area $A$ and rotating at the rate $\Omega$ about the normal of that area, the time difference is
+  $$
+  \Delta t = \frac{4 A\,\Omega}{c^2} ,
+  $$
+  where $c$ is the speed of light. Georges Sagnac demonstrated it in 1913.
+</Def>
+
+<Derivation title="Derivation of the Sagnac time difference">
+
+Take a circular loop of radius $r$ that rotates at $\Omega$, and send light around it in both directions from a point on the loop. Seen from the inertial frame, the light that travels with the rotation has to cover the full circumference plus the distance $r\Omega t_+$ that the starting point moves meanwhile:
+
+$$
+c\,t_+ = 2\pi r + r\Omega\,t_+ \quad\Rightarrow\quad t_+ = \frac{2\pi r}{c - r\Omega} .
+$$
+
+The light against the rotation needs $t_- = 2\pi r / (c + r\Omega)$. The difference is
+
+$$
+\Delta t = t_+ - t_- = \frac{4\pi r^2\,\Omega}{c^2 - r^2\Omega^2} \approx \frac{4 A\,\Omega}{c^2}, \qquad A = \pi r^2 ,
+$$
+
+because $r\Omega$ is tiny compared with $c$. A careful relativistic treatment gives the same first-order result, and, remarkably, it does not depend on the refractive index of the fiber the light travels in.
+
+</Derivation>
+
+The effect is tiny: for a loop of $10\,\text{cm}$ diameter rotating with the Earth, $\Delta t$ is about $3 \times 10^{-23}\,\text{s}$. Nobody can measure such a time directly. Optical gyros therefore make the effect larger and measure it as a phase or a frequency.
+
+### The fiber-optic gyro (FOG)
+
+A **fiber-optic gyro** sends light through a long optical fiber wound into a coil, in both directions at once. With $N$ turns the enclosed area is multiplied by $N$, and instead of a time difference one measures the **phase difference** $\Delta\phi$ between the two waves when they meet again. A phase is the position within the wave's cycle; one wavelength $\lambda$ corresponds to $2\pi$. With fiber length $L = N\pi D$ and coil diameter $D$, the area $N\pi D^2/4$ gives
+
+$$
+\Delta\phi = \frac{2\pi c\,\Delta t}{\lambda} = \frac{2\pi\,L\,D}{\lambda\,c}\,\Omega .
+$$
+
+The phase grows with the **product of fiber length and coil diameter**. A navigation-grade FOG with $L = 1\,\text{km}$, $D = 10\,\text{cm}$ and $\lambda = 1550\,\text{nm}$ sees about $10^{-4}\,\text{rad}$ at the Earth rate, and to resolve $0.001\,°/\text{h}$ it must detect phase differences of a few nanoradians.
+
+The phase is measured with an **interferometer**: the two waves are superimposed on a photodetector, and the detected intensity depends on how well their crests line up,
+
+$$
+I = \frac{I_0}{2}\,(1 + \cos\Delta\phi) ,
+$$
+
+with $I_0$ the intensity for perfectly aligned waves. At rest the curve is at its maximum, where it is flat: a small $\Delta\phi$ changes the intensity only by about $\Delta\phi^2/4$, and the sign, i.e. the direction of rotation, is lost. The solution is **bias modulation**: a phase modulator at one end of the coil adds $+\pi/2$ and $-\pi/2$ alternately. The operating point then jumps between the two steepest points of the curve, and the difference between the two intensities is $I_0 \sin\Delta\phi \approx I_0\,\Delta\phi$: linear in the rotation rate and with the correct sign. In a **closed-loop FOG**, a second phase signal is fed back that cancels the Sagnac phase exactly; this feedback signal is then the output, which makes the scale factor very linear and stable.
+
+A FOG has no moving parts, does not wear and works over a huge range of rates, which makes it popular on ships, in survey systems and for north finding. Its accuracy is limited by effects that make the two directions slightly unequal:
+- **Shupe effect**: a temperature change that reaches different parts of the coil at different times changes the fiber's refractive index asymmetrically. Special winding patterns (quadrupolar winding) place the two halves of the fiber symmetrically to cancel it.
+- **Backscatter and polarization errors**: a broadband light source (a superluminescent diode with short coherence length, i.e. waves that only interfere over a short distance) and polarization-maintaining fiber suppress them.
+- **Magnetic fields** (Faraday effect) require shielding.
+
+<SagnacFOG>
+  Left: two light pulses leave the source together and travel around a rotating coil in opposite directions. The pulse against the rotation (white) is back first; the pulse with the rotation (orange) has to chase the moving start point. Right: the detector intensity as a function of the phase difference. **Try:** turn off the bias modulation: at the top of the curve a small phase barely changes the intensity. Then change fiber length and coil diameter and watch the phase difference at the Earth rate in the readout: a larger coil means a larger signal.
+</SagnacFOG>
+
+### The ring laser gyro (RLG)
+
+A **ring laser gyro** uses the Sagnac effect inside a laser. Mirrors guide two laser beams around a closed path of perimeter $P$, typically a triangle or a square in a glass block. Because a laser oscillates only at frequencies for which a whole number of wavelengths fits into the path, the different path lengths for the two directions turn into a **frequency difference**
+
+$$
+\Delta f = \frac{4A}{\lambda\,P}\,\Omega ,
+$$
+
+which is measured by letting the beams interfere: the interference pattern moves across a detector, and every passing fringe corresponds to a fixed angle increment. An RLG therefore outputs angle increments directly. At very low rates the two beams couple through light scattered at the mirrors and lock to a common frequency (**lock-in**). To avoid this dead band, most RLGs are mechanically **dithered**: the block is shaken in a small oscillation so that it never dwells at a low rate. RLGs are the classic navigation-grade gyros of airliners and military aircraft.
+
+### MEMS gyros: a vibrating mass and the Coriolis force
+
+<Def term="MEMS">
+  **Microelectromechanical systems**: mechanical structures of micrometre size, such as masses, springs and comb electrodes, etched from silicon wafers with the methods of chip manufacturing, often on the same chip as their electronics. Thousands of sensors are made at once on one wafer, which makes them very cheap.
+</Def>
+
+A MEMS gyro cannot hold a spinning rotor. Instead it uses the Coriolis acceleration from the section on inertial frames. A small proof mass $m$ is driven to oscillate along one axis, the **drive axis** $x$, at its resonance frequency $f_d$ of typically $10$ to $50\,\text{kHz}$ with an amplitude $A$ of a few micrometres:
+
+$$
+x(t) = A \sin(\omega_d t), \qquad \dot x(t) = A\,\omega_d \cos(\omega_d t), \qquad \omega_d = 2\pi f_d .
+$$
+
+If the chip rotates at $\Omega$ about the $z$-axis, the moving mass experiences the Coriolis force $\mathbf F_c = -2m\,\boldsymbol\Omega \times \dot{\mathbf x}$, which points along the perpendicular **sense axis** $y$ and oscillates at the drive frequency with the amplitude $2 m\,\Omega A \omega_d$. The mass is also suspended along $y$, with resonance frequency $f_s$ and quality factor $Q$ (a measure of how little the oscillation is damped). Its sense motion has the amplitude
+
+$$
+y_0 = \frac{2\,\Omega A\,\omega_d}{\sqrt{(\omega_s^2 - \omega_d^2)^2 + (\omega_s\omega_d / Q)^2}} ,
+$$
+
+which is measured capacitively and **demodulated**: multiplied with the known drive signal and averaged, so that only the part that oscillates in step with the drive velocity remains. The result is proportional to $\Omega$.
+
+The numbers are astonishing. With $A = 10\,\mu\text{m}$, $f_d = 20\,\text{kHz}$ and the two resonances $500\,\text{Hz}$ apart, a rotation of $1\,°/\text{s}$ moves the mass by about $0.05\,\text{nm}$, and the Earth rate by about $0.2\,\text{pm}$, roughly a thousandth of the diameter of an atom. Bringing the sense resonance close to the drive resonance (**mode matching**) amplifies the signal up to a factor $Q$, but makes the sensor more sensitive to temperature and manufacturing tolerances.
+
+<MemsGyro>
+  Left: the proof mass (square) is driven left and right; rotation about the axis out of the screen adds a Coriolis force (orange) across the drive direction, and the mass moves on an ellipse whose height is proportional to the rotation rate. Right: drive motion, sense motion and the demodulated output over two drive periods. **Try:** reverse the rotation: the sense motion flips its phase, and so does the output. Then reduce the mode separation and watch the sense amplitude in the readout grow.
+</MemsGyro>
+
+Real MEMS gyros use two or four masses that vibrate in opposite directions (**tuning fork** designs). Their Coriolis forces are opposite as well, while a linear acceleration or vibration pushes all masses the same way; taking the difference keeps the rotation and cancels the acceleration. The main error sources of MEMS gyros are temperature effects, sensitivity to acceleration and vibration, and **quadrature error**: manufacturing imperfections couple the drive motion directly into the sense axis, a signal much larger than the Coriolis signal but shifted by a quarter period, which the demodulation has to reject.
+
+### The hemispherical resonator gyro (HRG)
+
+The **hemispherical resonator gyro** is also a vibratory Coriolis gyro, but at the other end of the scale. A quartz hemisphere of a few centimetres, shaped like a wine glass, vibrates in a standing wave pattern. When the glass rotates, the pattern rotates too, but only by a fixed fraction of about $0.3$ of the rotation angle (the **Bryan effect**, discovered by George Bryan in 1890 with a ringing wine glass). Because the quartz shell has an extremely high quality factor and no wear, the HRG reaches navigation grade in a small volume and is used in spacecraft, ships and aircraft.
+
+### Accelerometers
+
+Accelerometers are simpler: almost all of them measure the force that holds a proof mass in place, as in the specific-force figure above.
+- **MEMS accelerometers** measure the displacement of a silicon proof mass capacitively with comb-shaped electrodes.
+- **Force-rebalance (servo) accelerometers** keep a pendulous proof mass, often on a quartz flexure, at its null position with an electromagnetic coil. The current needed for this is proportional to the specific force. They are the standard in navigation-grade systems, with biases of $10$ to $100\,\mu g$.
+- **Vibrating beam accelerometers** measure how the resonance frequency of a quartz beam changes when the proof mass pulls on it.
+
+In an IMU the gyros usually decide the performance class and most of the price. The accelerometers are chosen to match: a navigation-grade gyro is useless with a consumer accelerometer, because a tilt error and an accelerometer bias are equivalent, as we saw earlier.
+
+### Size, accuracy and price
+
+There is a clear relationship between size, accuracy and price, and much of it is physics:
+- **Optical gyros** get their signal from the enclosed area. The FOG phase grows with $L \cdot D$ and the RLG frequency with the ratio $A/P$, which grows with the size of the path. A larger coil or cavity means a larger signal relative to the noise.
+- **Vibratory gyros** get their signal from momentum: the Coriolis force grows with mass, drive amplitude and drive frequency. Thermal motion of the proof mass (Brownian noise) sets a floor that falls with larger mass and higher quality factor. A MEMS mass of a few micrograms is therefore at a disadvantage against a heavy quartz resonator.
+- **Mechanical gyros** get their stability from angular momentum $J\omega_r$, i.e. from a heavy, fast rotor.
+
+The price follows the manufacturing. MEMS sensors are made by the thousand on one wafer and cost cents to a few euros as chips. A navigation-grade FOG needs kilometres of special fiber wound with great care, precision optics and long temperature calibrations; an RLG needs mirrors polished to a few atomic layers. Small production volumes, extensive testing and **export controls** add to the price: gyros and IMUs above certain performance thresholds are dual-use goods whose export requires licences. As a rough rule, every order of magnitude of better bias stability costs about an order of magnitude more.
+
+The rule has exceptions. Technology can beat size: the HRG is small and among the best gyros. And MEMS gyros improve every year; the best of them now reach tactical grade, which ten years ago required a fiber coil.
+
+<GyroLandscape>
+  Indicative regions of gyro technologies by the price of a complete IMU and by gyro bias instability. Select a technology to see its principle, size and typical use. The dashed lines mark the Earth rate and the bias needed to find north by gyrocompassing within one degree at $51°$ latitude: only the technologies below that line can find north on their own. All numbers are orders of magnitude; real products and prices vary widely.
+</GyroLandscape>
+
 ## Inertial sensor errors in detail
 
 Until now a sensor had two errors: a constant bias and white noise. Real sensors have more, and understanding them is the key to choosing an IMU and to designing the filter that later corrects it. It helps to split them into two groups. **Deterministic errors** follow a fixed rule (for example, the output is $0.3\,\%$ too large); they can be measured once in a calibration and removed. **Stochastic errors** are random; they can only be described statistically, and the navigation filter has to estimate them while it runs.
@@ -1187,6 +1325,10 @@ The next posts build towards that combination step by step. If you are new to th
 - J. Solà, "Quaternion Kinematics for the Error-State Kalman Filter," arXiv:1711.02508, 2017.
 - J. A. Farrell, *Aided Navigation: GPS with High Rate Sensors*, McGraw-Hill, 2008.
 - M. Schuler, "Die Störung von Pendel- und Kreiselapparaten durch die Beschleunigung des Fahrzeuges," *Physikalische Zeitschrift*, 24, 1923.
+- G. Sagnac, "L'éther lumineux démontré par l'effet du vent relatif d'éther dans un interféromètre en rotation uniforme," *Comptes Rendus de l'Académie des Sciences*, 157, 1913.
+- H. C. Lefèvre, *The Fiber-Optic Gyroscope*, 2nd ed., Artech House, 2014.
+- G. H. Bryan, "On the Beats in the Vibrations of a Revolving Cylinder or Bell," *Proceedings of the Cambridge Philosophical Society*, 7, 1890.
+- V. M. N. Passaro, A. Cuccovillo, L. Vaiani, M. De Carlo and C. E. Campanella, "Gyroscope Technology and Applications: A Review in the Industrial Perspective," *Sensors*, 17(10), 2017.
 - IEEE Std 952-1997, *IEEE Standard Specification Format Guide and Test Procedure for Single-Axis Interferometric Fiber Optic Gyros*, 1998 (Annex C: Allan variance).
 - N. El-Sheimy, H. Hou and X. Niu, "Analysis and Modeling of Inertial Sensors Using Allan Variance," *IEEE Transactions on Instrumentation and Measurement*, 57(1), 2008.
 - D. W. Allan, "Statistics of Atomic Frequency Standards," *Proceedings of the IEEE*, 54(2), 1966.

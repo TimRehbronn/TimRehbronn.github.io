@@ -1,0 +1,115 @@
+---
+import M from '../../blog/M.astro';
+// Indicative landscape of gyro technologies: price vs. bias instability, with typical size.
+---
+
+<figure class="xp wide" data-xp="gland">
+  <div class="xp-head"><span class="label fig-title">Gyro technologies: accuracy, size and price</span></div>
+  <canvas role="img" aria-label="Logarithmic chart of IMU price against gyro bias instability, with one region per gyro technology"></canvas>
+  <div class="xp-btns gl-btns"></div>
+  <table class="gl-t" aria-live="polite"><tbody>
+    <tr><th>Principle</th><td data-o="pr"></td></tr>
+    <tr><th>Typical size</th><td data-o="sz"></td></tr>
+    <tr><th>Bias instability</th><td data-o="bi"></td></tr>
+    <tr><th>Angle random walk</th><td data-o="arw"></td></tr>
+    <tr><th>Price (IMU)</th><td data-o="pc"></td></tr>
+    <tr><th>Typical use</th><td data-o="use"></td></tr>
+  </tbody></table>
+  <ul class="xp-legend">
+    <li class="c-accent"><i></i><span>selected technology</span></li>
+    <li class="c-muted dash"><i></i><span>Earth rate <M t={String.raw`15\,^\circ/\mathrm h`} /> and the bias needed for <M t={String.raw`1^\circ`} /> heading by gyrocompassing at <M t={String.raw`51^\circ`} /> latitude</span></li>
+  </ul>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<style>
+  .gl-t { border-collapse: collapse; margin: 0.6rem 0 0; font-size: 0.86rem; }
+  .gl-t th { font-weight: 400; color: var(--muted); text-align: left; padding: 0.3rem 1rem 0.3rem 0; white-space: nowrap; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .gl-t td { color: var(--fg); text-align: left; padding: 0.3rem 0; border-bottom: 1px solid var(--border); }
+</style>
+
+<script>
+  import { palette, setupCanvas, label, outputs } from '../../../lib/explainer';
+
+  // Indicative orders of magnitude for complete IMUs (price) and their gyros (bias instability, ARW).
+  type Tech = { id: string; name: string; price: [number, number]; bi: [number, number]; pr: string; sz: string; arw: string; use: string };
+  const TECH: Tech[] = [
+    { id: 'cmems', name: 'Consumer MEMS', price: [1, 20], bi: [3, 30], pr: 'vibrating micro-machined silicon mass, Coriolis force', sz: 'chip of a few mm², below 1 g', arw: '0.1 to 0.5 °/√h', use: 'phones, wearables, game controllers' },
+    { id: 'imems', name: 'Industrial MEMS', price: [100, 3000], bi: [1, 10], pr: 'MEMS with better design, temperature calibration', sz: 'matchbox, 10 to 50 g', arw: '0.05 to 0.3 °/√h', use: 'drones, robots, automotive, AHRS' },
+    { id: 'tmems', name: 'Tactical MEMS', price: [3000, 20000], bi: [0.1, 2], pr: 'high-end MEMS, mode-matched or large masses', sz: 'hockey puck, 50 to 300 g', arw: '0.02 to 0.1 °/√h', use: 'UAVs, survey, guided systems' },
+    { id: 'dtg', name: 'Mechanical (DTG)', price: [10000, 100000], bi: [0.01, 1], pr: 'spinning rotor, angular momentum (dynamically tuned gyro)', sz: 'several cm per gyro', arw: '0.001 to 0.05 °/√h', use: 'legacy aircraft and missiles, being replaced' },
+    { id: 'tfog', name: 'Tactical FOG', price: [10000, 60000], bi: [0.05, 1], pr: 'Sagnac effect in a fiber coil of 100 m to 1 km', sz: 'coil 3 to 8 cm, IMU 0.5 to 2 kg', arw: '0.005 to 0.05 °/√h', use: 'vehicles, ships, survey, stabilization' },
+    { id: 'nfog', name: 'Navigation FOG', price: [60000, 300000], bi: [0.0005, 0.01], pr: 'Sagnac effect in a fiber coil of 1 to 5 km', sz: 'coil 10 to 20 cm, INS 5 to 20 kg', arw: '0.0005 to 0.003 °/√h', use: 'ships, submarines, aircraft, north finding' },
+    { id: 'rlg', name: 'Ring laser (RLG)', price: [50000, 250000], bi: [0.001, 0.01], pr: 'Sagnac effect in a laser cavity, frequency difference', sz: 'path 15 to 40 cm, INS 5 to 20 kg', arw: '0.001 to 0.005 °/√h', use: 'airliners, military aircraft' },
+    { id: 'hrg', name: 'Hemispherical resonator (HRG)', price: [50000, 300000], bi: [0.0005, 0.01], pr: 'vibrating quartz shell ("wine glass"), Coriolis force', sz: 'resonator 2 to 3 cm, INS 2 to 10 kg', arw: '0.0002 to 0.002 °/√h', use: 'spacecraft, ships, aircraft, long missions' },
+  ];
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="gland"]')) {
+    const canvas = fig.querySelector('canvas')!;
+    const out = outputs(fig);
+    const btnBox = fig.querySelector<HTMLElement>('.gl-btns')!;
+    let sel = 'nfog';
+    const { ctx, size } = setupCanvas(canvas, (w) => Math.max(320, w * 0.5), draw);
+
+    TECH.forEach((t) => {
+      const b = document.createElement('button');
+      b.className = 'btn'; b.type = 'button'; b.textContent = t.name; b.dataset.id = t.id;
+      b.addEventListener('click', () => { sel = t.id; update(); });
+      btnBox.appendChild(b);
+    });
+
+    function update() {
+      btnBox.querySelectorAll<HTMLButtonElement>('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.id === sel)));
+      const t = TECH.find((x) => x.id === sel)!;
+      const f = (v: number) => `${v}`;
+      out('pr', t.pr); out('sz', t.sz); out('bi', `${f(t.bi[0])} to ${f(t.bi[1])} °/h`); out('arw', t.arw);
+      out('pc', `${t.price[0].toLocaleString('en')} to ${t.price[1].toLocaleString('en')} €`); out('use', t.use);
+      draw();
+    }
+
+    function draw() {
+      const P = palette(), W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const box = { x: 62, y: 10, w: W - 74, h: H - 48 };
+      const lx = (v: number) => box.x + ((Math.log10(v) - 0) / 6) * box.w;         // 1 € … 1 M€
+      const ly = (v: number) => box.y + ((2 - Math.log10(v)) / 6) * box.h;          // 100 °/h … 1e-4 °/h (better = up)
+      ctx.lineWidth = 1;
+      for (let e = 0; e <= 6; e++) {
+        const x = Math.round(lx(10 ** e)) + 0.5; ctx.strokeStyle = P.border; ctx.beginPath(); ctx.moveTo(x, box.y); ctx.lineTo(x, box.y + box.h); ctx.stroke();
+        label(ctx, e < 3 ? `${10 ** e} €` : e < 6 ? `${10 ** (e - 3)}k €` : '1M €', x, box.y + box.h + 14, P.muted, { size: 10, align: 'center' });
+      }
+      for (let e = -4; e <= 2; e++) {
+        const y = Math.round(ly(10 ** e)) + 0.5; ctx.strokeStyle = P.border; ctx.beginPath(); ctx.moveTo(box.x, y); ctx.lineTo(box.x + box.w, y); ctx.stroke();
+        label(ctx, `$10^{${e}}$`, box.x - 8, y, P.muted, { size: 10, align: 'right' });
+      }
+      ctx.strokeStyle = P.strong; ctx.strokeRect(box.x + 0.5, box.y + 0.5, box.w - 1, box.h - 1);
+      label(ctx, 'gyro bias instability [°/h], better ↑', box.x + 6, box.y + 10, P.soft, { size: 10 });
+      label(ctx, 'price of the IMU →', box.x + box.w, box.y + box.h + 30, P.muted, { size: 10, align: 'right' });
+      // reference lines
+      for (const [v, txt] of [[15, 'Earth rate'], [0.17, '1° heading by gyrocompassing']] as [number, string][]) {
+        const y = ly(v); ctx.strokeStyle = P.soft; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(box.x, y); ctx.lineTo(box.x + box.w, y); ctx.stroke(); ctx.setLineDash([]);
+        label(ctx, txt, box.x + box.w - 6, y - 8, P.soft, { size: 10, align: 'right' });
+      }
+      // regions (selected on top); labels: selected first, others only where they do not collide
+      const placed: { x0: number; x1: number; y0: number; y1: number }[] = [];
+      const labelFits = (cx: number, cy: number, txt: string) => {
+        ctx.font = `11px Arial`; const w = ctx.measureText(txt).width + 8, b = { x0: cx - w / 2, x1: cx + w / 2, y0: cy - 9, y1: cy + 9 };
+        if (placed.some((p) => !(b.x1 < p.x0 || b.x0 > p.x1 || b.y1 < p.y0 || b.y0 > p.y1))) return false;
+        placed.push(b); return true;
+      };
+      { const t = TECH.find((x) => x.id === sel)!; labelFits((lx(t.price[0]) + lx(t.price[1])) / 2, (ly(t.bi[1]) + ly(t.bi[0])) / 2, t.name); }
+      for (const t of [...TECH.filter((x) => x.id !== sel), ...TECH.filter((x) => x.id === sel)]) {
+        const x0 = lx(t.price[0]), x1 = lx(t.price[1]), y0 = ly(t.bi[1]), y1 = ly(t.bi[0]);
+        const on = t.id === sel;
+        ctx.fillStyle = on ? P.accent : P.muted; ctx.globalAlpha = on ? 0.3 : 0.12;
+        ctx.beginPath(); ctx.ellipse((x0 + x1) / 2, (y0 + y1) / 2, Math.max(8, (x1 - x0) / 2), Math.max(8, (y1 - y0) / 2), 0, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1; ctx.strokeStyle = on ? P.accent : P.strong; ctx.lineWidth = on ? 2 : 1; ctx.stroke();
+        const lcx = (x0 + x1) / 2, lcy = (y0 + y1) / 2;
+        if (on || labelFits(lcx, lcy, t.name)) label(ctx, t.name, lcx, lcy, on ? P.fg : P.muted, { size: 11, align: 'center', weight: on ? 700 : 400 });
+      }
+      label(ctx, 'indicative orders of magnitude', box.x + box.w - 6, box.y + box.h - 10, P.muted, { size: 10, align: 'right' });
+    }
+    update();
+  }
+</script>
