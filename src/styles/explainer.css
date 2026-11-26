@@ -112,3 +112,34 @@
 .post .prose { counter-reset: fig; }
 .post .xp { counter-increment: fig; }
 .xp-head .fig-title::before { content: 'Figure ' counter(fig) ' · '; }
+
+/* ---- Section timeline on the right edge of blog posts ---- */
+.post .prose h2 { scroll-margin-top: 4.5rem; }
+.timeline { display: none; }
+@media (min-width: 1080px) {
+  .timeline {
+    display: block; position: fixed; top: 50%; transform: translateY(-50%); right: 1rem; z-index: 4;
+    max-height: 82vh; overflow-y: auto; scrollbar-width: none;
+  }
+  .timeline ol { list-style: none; margin: 0; padding: 0; position: relative; }
+  .timeline ol::before { content: ''; position: absolute; left: 5px; top: 10px; bottom: 10px; width: 1px; background: var(--border-strong); }
+  .timeline li { margin: 0; padding: 0; text-align: left; }
+  .timeline a {
+    display: flex; align-items: center; gap: 0.6rem; padding: 0.3rem 0; text-decoration: none;
+    color: var(--muted); font-size: 0.72rem; line-height: 1.25; transition: color 0.2s, font-size 0.2s;
+  }
+  .timeline a:hover { color: var(--fg); }
+  .timeline .dot { flex: none; width: 11px; height: 11px; display: grid; place-items: center; position: relative; }
+  .timeline .dot::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--border-strong); transition: all 0.2s; }
+  .timeline a.past .dot::before { background: var(--accent); opacity: 0.55; }
+  .timeline a.active { color: var(--accent); font-size: 0.88rem; font-weight: 600; }
+  .timeline a.active .dot::before { width: 11px; height: 11px; background: var(--accent); box-shadow: 0 0 8px var(--accent); opacity: 1; }
+  .timeline .t { display: none; }
+}
+@media (min-width: 1440px) {
+  .timeline { width: min(15rem, calc((100vw - var(--w-wide)) / 2 - 2rem)); }
+  .timeline .t { display: block; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .timeline a, .timeline .dot::before { transition: none; }
+}

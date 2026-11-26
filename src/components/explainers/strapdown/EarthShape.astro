@@ -1,0 +1,146 @@
+---
+import M from '../../blog/M.astro';
+// The shape of the Earth: WGS 84 ellipsoid vs. sphere vs. geoid, geodetic vs. geocentric latitude,
+// and the three kinds of height (ellipsoidal h, geoid undulation N, orthometric H) with the deflection of the vertical.
+---
+
+<figure class="xp wide" data-xp="eshape">
+  <div class="xp-head"><span class="label fig-title">Ellipsoid, geoid and height</span></div>
+  <div class="xp-row two">
+    <canvas class="c-g" role="img" aria-label="Cross-section of the Earth through the poles: a sphere, the flattened ellipsoid and the wavy geoid, with the ellipsoid normal and the line to the Earth's centre at a chosen point"></canvas>
+    <canvas class="c-z" role="img" aria-label="Zoom at the point: ellipsoid, geoid and the vehicle above them, with the ellipsoidal height, the geoid undulation and the orthometric height"></canvas>
+  </div>
+  <ul class="xp-legend">
+    <li class="c-accent"><i></i><span>WGS 84 ellipsoid and its normal (defines <M t="L" />)</span></li>
+    <li class="c-muted dash"><i></i><span>sphere and the line to the centre (defines <M t={String.raw`\psi`} />)</span></li>
+    <li class="c-fg"><i></i><span>geoid (mean sea level) and plumb line</span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Geodetic latitude <M t="L" /></span><output for="lat"></output></span><input type="range" name="lat" min="0" max="90" step="1" value="51" /></label>
+    <label class="xp-ctl"><span><span>Flattening, drawn exaggerated</span><output for="ex"></output></span><input type="range" name="ex" min="1" max="60" step="1" value="40" /></label>
+    <label class="xp-ctl"><span><span>Ellipsoidal height <M t="h" /></span><output for="h"></output></span><input type="range" name="h" min="-50" max="400" step="1" value="210" /></label>
+    <label class="xp-ctl"><span><span>Geoid undulation <M t="N" /></span><output for="n"></output></span><input type="range" name="n" min="-100" max="90" step="1" value="47" /></label>
+    <label class="xp-ctl"><span><span>Deflection of the vertical</span><output for="dv"></output></span><input type="range" name="dv" min="-60" max="60" step="1" value="10" /></label>
+  </div>
+  <p class="xp-readout" aria-live="polite">
+    <span>geocentric latitude <M t={String.raw`\psi`} /> = <b data-o="psi"></b></span>
+    <span><M t={String.raw`L - \psi`} /> = <b class="hot" data-o="dl"></b></span>
+    <span>orthometric height <M t="H = h - N" /> = <b data-o="H"></b></span>
+    <span>ECEF (<M t={String.raw`\lambda = 0`} />): <M t="x" /> = <b data-o="x"></b>, <M t="z" /> = <b data-o="z"></b></span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, label, slider, arrow, outputs } from '../../../lib/explainer';
+
+  const D2R = Math.PI / 180, A = 6378137, F = 1 / 298.257223563, E2 = F * (2 - F);
+  // illustrative geoid shape for the cross-section (not a real geoid model)
+  const geoidShape = (t: number) => 0.6 * Math.sin(3 * t + 0.4) + 0.4 * Math.cos(5 * t + 1.2);
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="eshape"]')) {
+    const cg = fig.querySelector<HTMLCanvasElement>('.c-g')!, cz = fig.querySelector<HTMLCanvasElement>('.c-z')!;
+    const out = outputs(fig);
+    let lat = 51, ex = 40, h = 210, n = 47, dv = 10;
+    const G = setupCanvas(cg, 1, () => draw()), Z = setupCanvas(cz, 1, () => draw());
+
+    function drawGlobe() {
+      const P = palette(), { ctx, size } = G, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const cx = W * 0.42, cy = H / 2 + 4, a = Math.min(W * 0.5, H * 0.42);
+      const f = Math.min(0.6, F * ex), b = a * (1 - f);
+      const X = (x: number) => cx + x, Y = (z: number) => cy - z;
+      // sphere of the same volume-ish radius
+      const r = Math.cbrt(a * a * b);
+      ctx.strokeStyle = P.muted; ctx.setLineDash([4, 4]); ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+      // geoid (illustrative bumps along the ellipsoid normal)
+      ctx.strokeStyle = P.fg; ctx.lineWidth = 1.25; ctx.beginPath();
+      for (let i = 0; i <= 360; i++) {
+        const be = (i / 360) * 2 * Math.PI, x = a * Math.cos(be), z = b * Math.sin(be);
+        const nx = b * Math.cos(be), nz = a * Math.sin(be), nl = Math.hypot(nx, nz), d = geoidShape(be) * a * 0.035;
+        const px = X(x + (nx / nl) * d), pz = Y(z + (nz / nl) * d);
+        i ? ctx.lineTo(px, pz) : ctx.moveTo(px, pz);
+      }
+      ctx.stroke();
+      // ellipsoid
+      ctx.strokeStyle = P.accent; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(cx, cy, a, b, 0, 0, Math.PI * 2); ctx.stroke();
+      // axes
+      ctx.strokeStyle = P.border; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cx - a - 10, cy); ctx.lineTo(cx + a + 30, cy); ctx.moveTo(cx, cy + b + 10); ctx.lineTo(cx, cy - b - 18); ctx.stroke();
+      label(ctx, 'equator', cx + a + 28, cy - 9, P.muted, { size: 10, align: 'right' });
+      label(ctx, 'spin axis', cx + 6, cy - b - 12, P.muted, { size: 10 });
+      // point at geodetic latitude L (on this exaggerated ellipse)
+      const L = lat * D2R, beta = Math.atan2(b * Math.sin(L), a * Math.cos(L));
+      const px = a * Math.cos(beta), pz = b * Math.sin(beta);
+      // normal (geodetic) and radial (geocentric) lines
+      const nLen = a * 0.55;
+      ctx.strokeStyle = P.accent; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(X(px + Math.cos(L) * nLen * 0.3), Y(pz + Math.sin(L) * nLen * 0.3)); ctx.lineTo(X(px - Math.cos(L) * nLen * 1.6), Y(pz - Math.sin(L) * nLen * 1.6)); ctx.stroke();
+      ctx.strokeStyle = P.muted; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(X(px * 1.12), Y(pz * 1.12)); ctx.stroke(); ctx.setLineDash([]);
+      // where the normal crosses the equatorial plane
+      const xq = px - pz / Math.tan(Math.max(L, 1e-6));
+      if (lat > 2) {
+        ctx.strokeStyle = P.accent; ctx.beginPath(); ctx.arc(X(xq), cy, 26, -L, 0); ctx.stroke();
+        label(ctx, '$L$', X(xq) + 32, cy - 10, P.accent, { size: 13 });
+        const psi = Math.atan2(pz, px);
+        ctx.strokeStyle = P.muted; ctx.beginPath(); ctx.arc(cx, cy, 44, -psi, 0); ctx.stroke();
+        label(ctx, '$\\psi$', cx + 50, cy - 18, P.muted, { size: 13 });
+      }
+      ctx.fillStyle = P.fg; ctx.beginPath(); ctx.arc(X(px), Y(pz), 4.5, 0, Math.PI * 2); ctx.fill();
+      label(ctx, 'normal to the ellipsoid', X(px + Math.cos(L) * nLen * 0.3) + 6, Y(pz + Math.sin(L) * nLen * 0.3) - 6, P.accent, { size: 10 });
+      label(ctx, `flattening drawn ${ex}× exaggerated, geoid illustrative`, 8, H - 8, P.muted, { size: 10 });
+    }
+
+    function drawZoom() {
+      const P = palette(), { ctx, size } = Z, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const top = 30, bot = H - 40, maxv = Math.max(60, Math.abs(h), Math.abs(n)) * 1.25, minv = Math.min(0, h, n) - 0.15 * maxv;
+      const Yv = (v: number) => bot - ((v - minv) / (maxv - minv)) * (bot - top);
+      const x0 = 30, x1 = W - 20;
+      // ellipsoid and geoid lines
+      ctx.strokeStyle = P.accent; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x0, Yv(0)); ctx.lineTo(x1, Yv(0)); ctx.stroke();
+      label(ctx, 'ellipsoid ($h = 0$)', x1, Yv(0) + 14, P.accent, { size: 11, align: 'right' });
+      ctx.strokeStyle = P.fg; ctx.lineWidth = 1.5; ctx.beginPath();
+      for (let i = 0; i <= 100; i++) { const x = x0 + ((x1 - x0) * i) / 100, v = n + 2.5 * Math.sin(i / 9); i ? ctx.lineTo(x, Yv(v)) : ctx.moveTo(x, Yv(v)); }
+      ctx.stroke();
+      label(ctx, 'geoid ≈ mean sea level', x1, Yv(n) - 12, P.fg, { size: 11, align: 'right' });
+      // the vehicle and the three heights
+      const vx = x0 + (x1 - x0) * 0.42;
+      ctx.fillStyle = P.accent; ctx.beginPath(); ctx.arc(vx, Yv(h), 6, 0, Math.PI * 2); ctx.fill();
+      label(ctx, 'GNSS antenna', vx + 10, Yv(h) - 12, P.soft, { size: 11 });
+      const bar = (x: number, v0: number, v1: number, col: string, txt: string) => {
+        if (Math.abs(v1 - v0) < 1e-6) return;
+        arrow(ctx, x, Yv(v0), x, Yv(v1), col, 2, 8);
+        label(ctx, txt, x + 6, (Yv(v0) + Yv(v1)) / 2, col, { size: 13 });
+      };
+      bar(vx - 70, 0, h, P.accent, '$h$');
+      bar(vx + 70, 0, n, P.muted, '$N$');
+      bar(vx + 120, n, h, P.fg, '$H$');
+      // ellipsoid normal vs plumb line (deflection drawn exaggerated)
+      const ang = dv * (Math.PI / 180) / 3600 * 3000;
+      const len = Math.min(110, (bot - top) * 0.5), bx = x0 + 40, by = top + len + 4;
+      ctx.strokeStyle = P.accent; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(bx, by - len); ctx.lineTo(bx, by); ctx.stroke();
+      ctx.strokeStyle = P.fg; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(bx + Math.sin(ang) * len, by - Math.cos(ang) * len); ctx.lineTo(bx, by); ctx.stroke(); ctx.setLineDash([]);
+      label(ctx, 'normal', bx - 4, by - len - 8, P.accent, { size: 10, align: 'right' });
+      label(ctx, 'plumb line', bx + Math.sin(ang) * len + 4, by - Math.cos(ang) * len - 8, P.fg, { size: 10 });
+      label(ctx, 'deflection drawn 3000× exaggerated', 8, H - 8, P.muted, { size: 10 });
+
+      // real numbers (WGS 84)
+      const Lr = lat * D2R, s = Math.sin(Lr), RE = A / Math.sqrt(1 - E2 * s * s);
+      const psi = Math.atan((1 - E2) * Math.tan(Lr)) / D2R;
+      out('psi', `${(lat >= 90 ? 90 : psi).toFixed(4)}°`);
+      const dl = lat >= 90 ? 0 : lat - psi;
+      out('dl', `${dl.toFixed(4)}° ≈ ${(dl * 111.2).toFixed(1)} km on the ground`);
+      out('H', `${(h - n).toFixed(0)} m`);
+      out('x', `${(((RE + h) * Math.cos(Lr)) / 1000).toFixed(3)} km`);
+      out('z', `${(((RE * (1 - E2) + h) * s) / 1000).toFixed(3)} km`);
+    }
+
+    function draw() { drawGlobe(); drawZoom(); }
+    slider(fig, 'lat', (v) => `${v}°`, (v) => { lat = v; draw(); });
+    slider(fig, 'ex', (v) => `×${v}`, (v) => { ex = v; draw(); });
+    slider(fig, 'h', (v) => `${v} m`, (v) => { h = v; draw(); });
+    slider(fig, 'n', (v) => `${v} m`, (v) => { n = v; draw(); });
+    slider(fig, 'dv', (v) => `${v}″`, (v) => { dv = v; draw(); });
+  }
+</script>

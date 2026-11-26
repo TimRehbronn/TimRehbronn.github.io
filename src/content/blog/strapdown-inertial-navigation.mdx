@@ -23,6 +23,7 @@ import AllFrames from '../../components/explainers/strapdown/AllFrames.astro';
 import SagnacFOG from '../../components/explainers/strapdown/SagnacFOG.astro';
 import MemsGyro from '../../components/explainers/strapdown/MemsGyro.astro';
 import GyroLandscape from '../../components/explainers/strapdown/GyroLandscape.astro';
+import EarthShape from '../../components/explainers/strapdown/EarthShape.astro';
 import FrameVector from '../../components/explainers/strapdown/FrameVector.astro';
 import NoiseWalk from '../../components/explainers/strapdown/NoiseWalk.astro';
 import Representations from '../../components/explainers/strapdown/Representations.astro';
@@ -707,11 +708,65 @@ A gyro measures rotation relative to inertial space, so a perfect gyro lying sti
 
 To handle both effects we use the two Earth-centred frames defined at the beginning: the inertial frame $i$, which does not rotate, and the Earth-fixed frame $e$, which rotates relative to $i$ at $\boldsymbol\omega_{ie}$ about the spin axis.
 
-A position on Earth is usually given in **geodetic coordinates**: latitude $L$, longitude $\lambda$ and height $h$ above a reference ellipsoid. The ellipsoid used by GPS is **WGS 84**, an ellipse rotated about the spin axis, with equatorial radius $R_0 = 6\,378\,137\,\text{m}$ and flattening $1/298.257223563$; its first eccentricity squared is $e^2 \approx 6.694380 \times 10^{-3}$. The latitude is the angle between the equatorial plane and the *normal* to the ellipsoid, which is the direction of "down" in the NED frame.
+A position on Earth is usually given by latitude $L$, longitude $\lambda$ and height $h$ relative to a reference ellipsoid, the WGS 84 ellipsoid used by GPS. The next subsection defines these coordinates precisely, together with the geoid and the different kinds of height.
 
 <FramesGlobe>
   The inertial axes (grey) stay fixed while the Earth and its axes $x^e, y^e$ rotate (speed exaggerated). At the chosen latitude and longitude, the vehicle carries its north-east-down frame. The dashed arrow is the Earth rate, parallel to the spin axis; the two orange arrows are its components along north and up. **Try:** move to the equator, where the whole Earth rate points north, and to a pole, where it is purely vertical. The readout below lists both rotation rates of the NED frame in °/h; increase the vehicle speed to see the transport rate grow.
 </FramesGlobe>
+
+### Ellipsoid, geoid and the meaning of height
+
+"Position" on the Earth needs a reference surface, and the Earth offers more than one. Mixing them up is one of the most common sources of errors of tens of metres in practice, so it is worth defining them carefully.
+
+<Def term="Reference ellipsoid">
+  A smooth mathematical surface that approximates the Earth: an ellipse rotated about the spin axis. It is described by its equatorial radius $R_0$ (the semi-major axis) and its **flattening** $f = (R_0 - R_P)/R_0$, where $R_P$ is the polar radius. For **WGS 84** (World Geodetic System 1984), the reference of GPS, $R_0 = 6\,378\,137\,\text{m}$, $f = 1/298.257223563$ and therefore $R_P \approx 6\,356\,752\,\text{m}$: the poles are about $21\,\text{km}$ closer to the centre than the equator. The first eccentricity squared is $e^2 = f(2 - f) \approx 6.694380 \times 10^{-3}$.
+</Def>
+
+WGS 84 is more than an ellipsoid. It is a complete **geodetic datum**: it also fixes the ECEF frame, with the origin at the Earth's centre of mass and the axes as defined above, and it is kept consistent with the International Terrestrial Reference Frame (ITRF) to a few centimetres. Because the continents drift, Europe uses **ETRS89**, a frame fixed to the Eurasian plate. It coincided with the global frame in 1989 and has since moved away from it by about $2.5\,\text{cm}$ per year, by now almost one metre. For navigation at the metre level this hardly matters; for survey-grade GNSS it does.
+
+On the ellipsoid, a point is described by **geodetic coordinates**: latitude $L$, longitude $\lambda$ and the **ellipsoidal height** $h$ along the ellipsoid normal. Because the ellipsoid is flattened, its normal does not point to the Earth's centre, and two latitudes must be kept apart:
+
+<Def term="Geodetic and geocentric latitude">
+  The **geodetic latitude** $L$ is the angle between the equatorial plane and the *normal* to the ellipsoid. It is the latitude on maps and in GNSS receivers, and the normal is the "down" of the NED frame. The **geocentric latitude** $\psi$ is the angle between the equatorial plane and the line from the Earth's *centre* to the point. On the ellipsoid surface they are related by
+  $$
+  \tan\psi = (1 - e^2)\tan L .
+  $$
+  The difference is largest at $45°$ latitude with $0.19°$, which corresponds to about $21\,\text{km}$ on the ground.
+</Def>
+
+Geodetic coordinates convert into ECEF coordinates with the help of the **transverse radius of curvature** $R_E = R_0 / \sqrt{1 - e^2 \sin^2 L}$, whose geometric meaning follows in the subsection on the transport rate:
+
+$$
+x^e = (R_E + h)\cos L \cos\lambda, \qquad
+y^e = (R_E + h)\cos L \sin\lambda, \qquad
+z^e = \big(R_E (1 - e^2) + h\big)\sin L .
+$$
+
+The reverse conversion has no closed form in general and is solved iteratively, or with one of several accurate approximations.
+
+The ellipsoid is smooth, but the Earth's gravity is not: mountains, ocean trenches and density variations inside the Earth bend the surfaces of constant gravitational potential.
+
+<Def term="Geoid">
+  The surface of constant gravity potential that best matches the mean sea level. Water at rest would follow it, and gravity is everywhere perpendicular to it. Relative to the WGS 84 ellipsoid it rises and falls by the **geoid undulation** $N$, between about $-106\,\text{m}$ (south of India) and $+85\,\text{m}$ (around New Guinea). In Germany $N$ is between about $36$ and $50\,\text{m}$. Global models such as EGM2008 and national models (in Germany GCG2016) provide $N$ for any position.
+</Def>
+
+This gives three heights, related by
+
+$$
+H \approx h - N ,
+$$
+
+- the **ellipsoidal height** $h$, measured along the ellipsoid normal. It is what GNSS receivers compute and what the strapdown equations in this post use;
+- the **geoid undulation** $N$, the height of the geoid above the ellipsoid;
+- the **orthometric height** $H$, the height above the geoid, i.e. "above sea level" as on maps and road signs. National height systems such as the German DHHN2016 (heights above NHN) use a closely related definition that differs by at most centimetres to decimetres.
+
+A practical warning: in Germany, confusing $h$ with $H$ puts the vehicle about $40$ to $50\,\text{m}$ too high or too low. This happens easily when GNSS heights are combined with barometric altitude or with map data.
+
+Finally, gravity is perpendicular to the geoid, not to the ellipsoid. The angle between the true plumb line and the ellipsoid normal is the **deflection of the vertical**. It is typically a few arcseconds and can reach about one arcminute in the mountains. An INS that levels itself with its accelerometers aligns with the plumb line, so the deflection appears as a small tilt error; navigation-grade systems for precise applications therefore use gravity models that include it.
+
+<EarthShape>
+  Left: a cross-section through the poles with a sphere (dashed), the WGS 84 ellipsoid (orange) and an illustrative geoid (white), flattening and geoid drawn strongly exaggerated. At the chosen point, the ellipsoid normal defines the geodetic latitude $L$, the line to the centre the geocentric latitude $\psi$. Right: a zoom at the point with the three heights and the two "down" directions. **Try:** move the latitude and watch $L - \psi$ in the readout peak at $45°$. Set $N$ to the German value of about $47\,\text{m}$ and see how far the ellipsoidal height $h$ from GNSS is from the height above sea level $H$.
+</EarthShape>
 
 ### The Earth rate in the navigation frame
 
@@ -1332,4 +1387,6 @@ The next posts build towards that combination step by step. If you are new to th
 - IEEE Std 952-1997, *IEEE Standard Specification Format Guide and Test Procedure for Single-Axis Interferometric Fiber Optic Gyros*, 1998 (Annex C: Allan variance).
 - N. El-Sheimy, H. Hou and X. Niu, "Analysis and Modeling of Inertial Sensors Using Allan Variance," *IEEE Transactions on Instrumentation and Measurement*, 57(1), 2008.
 - D. W. Allan, "Statistics of Atomic Frequency Standards," *Proceedings of the IEEE*, 54(2), 1966.
+- N. K. Pavlis, S. A. Holmes, S. C. Kenyon and J. K. Factor, "The Development and Evaluation of the Earth Gravitational Model 2008 (EGM2008)," *Journal of Geophysical Research: Solid Earth*, 117(B4), 2012.
+- B. Hofmann-Wellenhof and H. Moritz, *Physical Geodesy*, 2nd ed., Springer, 2006.
 - National Imagery and Mapping Agency, *Department of Defense World Geodetic System 1984*, Technical Report TR8350.2, 3rd ed., 2000.
