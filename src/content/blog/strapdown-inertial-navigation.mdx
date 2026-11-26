@@ -24,6 +24,9 @@ import SagnacFOG from '../../components/explainers/strapdown/SagnacFOG.astro';
 import MemsGyro from '../../components/explainers/strapdown/MemsGyro.astro';
 import GyroLandscape from '../../components/explainers/strapdown/GyroLandscape.astro';
 import EarthShape from '../../components/explainers/strapdown/EarthShape.astro';
+import MechanicalGyro from '../../components/explainers/strapdown/MechanicalGyro.astro';
+import RingLaser from '../../components/explainers/strapdown/RingLaser.astro';
+import HrgGyro from '../../components/explainers/strapdown/HrgGyro.astro';
 import FrameVector from '../../components/explainers/strapdown/FrameVector.astro';
 import NoiseWalk from '../../components/explainers/strapdown/NoiseWalk.astro';
 import Representations from '../../components/explainers/strapdown/Representations.astro';
@@ -1024,6 +1027,12 @@ So far an IMU was a black box that outputs angular rates and specific forces. Wh
 
 The first inertial navigation systems used fast spinning rotors. In a gimballed platform they held the platform steady in space; in a strapdown system a **dynamically tuned gyro (DTG)** keeps its rotor aligned with the case by electromagnetic torquers, and the torque needed to do so is proportional to the angular rate. Mechanical gyros can be very accurate, but they have bearings that wear, need time to spin up and are sensitive to shock. Optical and vibratory gyros have largely replaced them.
 
+The precession equation explains the strange behaviour of a spinning top. A torque does not tip the rotor over; it changes $\mathbf H$ in the direction of the torque, so the axis moves *sideways*. For a torque perpendicular to the axis, the axis turns at the **precession rate** $\Omega_p = \tau / H$. The faster the rotor spins, the larger $H$ and the slower and steadier the axis: this "stiffness" is what made spinning rotors useful as a reference.
+
+<MechanicalGyro>
+  A rotor of $50\,\text{g}$ on a pivot, with its weight acting as the torque. **Try:** at full speed the axis circles slowly around the vertical instead of falling. Reduce the spin: the precession gets faster, because $\Omega_p = \tau/H$ grows as $H$ shrinks. Set the spin to almost zero and the rotor simply falls.
+</MechanicalGyro>
+
 ### Optical gyros: the Sagnac effect
 
 <Def term="Sagnac effect">
@@ -1091,6 +1100,10 @@ $$
 
 which is measured by letting the beams interfere: the interference pattern moves across a detector, and every passing fringe corresponds to a fixed angle increment. An RLG therefore outputs angle increments directly. At very low rates the two beams couple through light scattered at the mirrors and lock to a common frequency (**lock-in**). To avoid this dead band, most RLGs are mechanically **dithered**: the block is shaken in a small oscillation so that it never dwells at a low rate. RLGs are the classic navigation-grade gyros of airliners and military aircraft.
 
+<RingLaser>
+  Left: a triangular laser cavity with two beams running in opposite directions and the fringe pattern at the detector, where every passing fringe is counted as one angle increment. Right: the measured rate against the true rate. **Try:** the default rate of $0.05\,°/\text{s}$ lies inside the lock-in dead band: no fringes move, the gyro reports zero. Increase the rate until the output appears. Then switch the dither on: the periodic shaking moves the gyro through the dead band so quickly that the averaged output becomes almost linear.
+</RingLaser>
+
 ### MEMS gyros: a vibrating mass and the Coriolis force
 
 <Def term="MEMS">
@@ -1121,7 +1134,11 @@ Real MEMS gyros use two or four masses that vibrate in opposite directions (**tu
 
 ### The hemispherical resonator gyro (HRG)
 
-The **hemispherical resonator gyro** is also a vibratory Coriolis gyro, but at the other end of the scale. A quartz hemisphere of a few centimetres, shaped like a wine glass, vibrates in a standing wave pattern. When the glass rotates, the pattern rotates too, but only by a fixed fraction of about $0.3$ of the rotation angle (the **Bryan effect**, discovered by George Bryan in 1890 with a ringing wine glass). Because the quartz shell has an extremely high quality factor and no wear, the HRG reaches navigation grade in a small volume and is used in spacecraft, ships and aircraft.
+The **hemispherical resonator gyro** is also a vibratory Coriolis gyro, but at the other end of the scale. A quartz hemisphere of a few centimetres, shaped like a wine glass, vibrates in a standing wave pattern. When the glass rotates, the pattern does not stay fixed in space, nor does it rotate fully with the glass: it lags behind the glass by a fixed fraction $k$ of the rotation angle. This is the **Bryan effect**, discovered by George Bryan in 1890 with a ringing wine glass. For a hemispherical shell $k \approx 0.3$ (for a thin ring $k = 0.4$). Electrodes on the case measure the position of the pattern relative to the case, $-k\Phi$, and dividing by $-k$ gives the rotation angle $\Phi$ directly. The HRG therefore measures angle rather than rate, which makes it a **rate-integrating** (whole-angle) gyro. Because the quartz shell has an extremely high quality factor and no wear, the HRG reaches navigation grade in a small volume and is used in spacecraft, ships and aircraft.
+
+<HrgGyro>
+  The rim of the resonator seen from above, vibrating in its elliptical standing wave (shape strongly exaggerated). The electrodes are fixed to the case and rotate with it. **Try:** watch the orange pattern axis fall behind the dashed line that rotates with the case; the readout shows the angle relative to the case growing as $-k\Phi$. Switch between hemisphere and ring to change the Bryan factor $k$.
+</HrgGyro>
 
 ### Accelerometers
 

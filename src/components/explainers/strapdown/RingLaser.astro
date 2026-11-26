@@ -1,0 +1,121 @@
+---
+import M from '../../blog/M.astro';
+// Ring laser gyro: counter-propagating beams in a triangular cavity, a moving fringe pattern counted at the detector,
+// and the lock-in dead band that mechanical dither removes.
+---
+
+<figure class="xp wide" data-xp="rlg">
+  <div class="xp-head"><span class="label fig-title">The ring laser gyro and lock-in</span></div>
+  <div class="xp-row two">
+    <canvas class="c-l" role="img" aria-label="Triangular laser cavity with two counter-propagating beams and a moving interference pattern at the detector"></canvas>
+    <canvas class="c-t" role="img" aria-label="Output rate against input rate: without dither there is a dead band around zero, with dither the response is nearly linear"></canvas>
+  </div>
+  <ul class="xp-legend">
+    <li class="c-accent"><i></i><span>beam with the rotation; output with dither</span></li>
+    <li class="c-fg"><i></i><span>beam against the rotation; output without dither</span></li>
+    <li class="c-muted dash"><i></i><span>ideal sensor</span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Rotation rate <M t={String.raw`\Omega`} /></span><output for="om"></output></span><input type="range" name="om" min="-1" max="1" step="0.005" value="0.05" /></label>
+    <label class="xp-ctl"><span><span>Lock-in rate <M t={String.raw`\Omega_L`} /></span><output for="ol"></output></span><input type="range" name="ol" min="0.01" max="0.3" step="0.005" value="0.1" /></label>
+  </div>
+  <div class="xp-btns"><button class="btn" type="button" data-act="dither" aria-pressed="false">Dither off</button></div>
+  <p class="xp-readout" aria-live="polite">
+    <span>beat frequency <M t={String.raw`\Delta f`} /> = <b class="hot" data-o="df"></b></span>
+    <span>angle per fringe = <b data-o="q"></b></span>
+    <span>measured rate = <b data-o="meas"></b></span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, animate, label, slider, axes, series, outputs, reducedMotion } from '../../../lib/explainer';
+
+  // triangle with 10 cm sides, HeNe laser
+  const SIDE = 0.1, LAMBDA = 633e-9, PER = 3 * SIDE, AREA = (Math.sqrt(3) / 4) * SIDE * SIDE;
+  const K = (4 * AREA) / (LAMBDA * PER);         // Hz per rad/s
+  const D2R = Math.PI / 180;
+  const DITHER = 2.5;                             // dither amplitude in the model [°/s], much larger than lock-in
+
+  // beat output (as an equivalent rate) for input rate w with lock-in wl (Adler-type model), optionally dithered
+  const raw = (w: number, wl: number) => Math.sign(w) * Math.sqrt(Math.max(0, w * w - wl * wl));
+  const outRate = (w: number, wl: number, dither: boolean) => {
+    if (!dither) return raw(w, wl);
+    let s = 0; const n = 720;
+    for (let i = 0; i < n; i++) s += raw(w + DITHER * Math.sin((2 * Math.PI * i) / n), wl);
+    return s / n;
+  };
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="rlg"]')) {
+    const cl = fig.querySelector<HTMLCanvasElement>('.c-l')!, ct = fig.querySelector<HTMLCanvasElement>('.c-t')!;
+    const out = outputs(fig);
+    const dBtn = fig.querySelector<HTMLButtonElement>('[data-act="dither"]')!;
+    let om = 0.05, ol = 0.1, dither = false, t = 0, fringe = 0, count = 0;
+    const Lc = setupCanvas(cl, 1, () => drawLaser()), Tc = setupCanvas(ct, 1, () => drawCurve());
+
+    function drawLaser() {
+      const P = palette(), { ctx, size } = Lc, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const cx = W / 2, cy = H * 0.44, R = Math.min(W, H) * 0.32;
+      const corner = (k: number, r = R) => ({ x: cx + r * Math.cos(-Math.PI / 2 + (k * 2 * Math.PI) / 3), y: cy + r * Math.sin(-Math.PI / 2 + (k * 2 * Math.PI) / 3) });
+      // glass block outline
+      ctx.strokeStyle = P.border; ctx.lineWidth = 1; ctx.beginPath(); [0, 1, 2].forEach((k) => { const p = corner(k, R * 1.28); k ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }); ctx.closePath(); ctx.stroke();
+      // two beams, slightly offset, with dashes moving in opposite directions
+      const beam = (offset: number, col: string, dir: number) => {
+        ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.setLineDash([10, 8]); ctx.lineDashOffset = -dir * t * 60;
+        ctx.beginPath(); [0, 1, 2].forEach((k) => { const p = corner(k, R + offset); k ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }); ctx.closePath(); ctx.stroke(); ctx.restore();
+      };
+      beam(-4, P.fg, -1);
+      beam(4, P.accent, 1);
+      // mirrors
+      for (let k = 0; k < 3; k++) {
+        const p = corner(k, R + 10), ang = -Math.PI / 2 + (k * 2 * Math.PI) / 3 + Math.PI / 2;
+        ctx.strokeStyle = P.soft; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(p.x - Math.cos(ang) * 14, p.y - Math.sin(ang) * 14); ctx.lineTo(p.x + Math.cos(ang) * 14, p.y + Math.sin(ang) * 14); ctx.stroke();
+      }
+      label(ctx, 'mirror', corner(0, R + 26).x, corner(0, R + 26).y - 4, P.muted, { size: 10, align: 'center' });
+      // fringe pattern at the detector
+      const fx = 24, fy = H - 54, fw = W - 48, fh = 22;
+      for (let i = 0; i < fw; i += 2) {
+        const v = 0.5 * (1 + Math.cos((i / fw) * 6 * Math.PI - fringe * 2 * Math.PI));
+        ctx.fillStyle = P.accent; ctx.globalAlpha = 0.1 + 0.8 * v; ctx.fillRect(fx + i, fy, 2, fh);
+      }
+      ctx.globalAlpha = 1; ctx.strokeStyle = P.strong; ctx.strokeRect(fx + 0.5, fy + 0.5, fw - 1, fh - 1);
+      label(ctx, `fringes at the detector, counted: ${count}`, fx, fy - 10, P.soft, { size: 11 });
+      label(ctx, 'motion slowed down', W - 8, H - 10, P.muted, { size: 10, align: 'right' });
+    }
+
+    function drawCurve() {
+      const P = palette(), { ctx, size } = Tc, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const box = { x: 46, y: 24, w: W - 58, h: H - 62 };
+      const A = axes(ctx, P, box, [-1, 1], [-1, 1], { ylabel: 'measured rate [°/s]', xlabel: 'true rate $\\Omega$ [°/s]', xticks: 4, yticks: 4, xfmt: (v) => v.toFixed(1), yfmt: (v) => v.toFixed(1), zeroLine: true });
+      const xs = new Float64Array(161), y1 = new Float64Array(161), y2 = new Float64Array(161);
+      for (let i = 0; i <= 160; i++) { const w = -1 + i / 80; xs[i] = w; y1[i] = raw(w, ol); y2[i] = outRate(w, ol, true); }
+      series(ctx, box, xs, xs, A.sx, A.sy, P.muted, 1.25, [5, 4]);
+      series(ctx, box, xs, y1, A.sx, A.sy, P.fg, dither ? 1.25 : 2.25);
+      if (dither) series(ctx, box, xs, y2, A.sx, A.sy, P.accent, 2.25);
+      ctx.fillStyle = P.accent; ctx.beginPath(); ctx.arc(A.sx(om), A.sy(outRate(om, ol, dither)), 5, 0, Math.PI * 2); ctx.fill();
+      // dead band
+      ctx.fillStyle = P.fg; ctx.globalAlpha = 0.06; ctx.fillRect(A.sx(-ol), box.y, A.sx(ol) - A.sx(-ol), box.h); ctx.globalAlpha = 1;
+      label(ctx, dither ? 'with dither: dead band averaged out' : 'lock-in: no output inside the dead band', 8, 12, P.soft, { size: 12 });
+      const m = outRate(om, ol, dither);
+      out('df', `${Math.abs(m * D2R * K).toFixed(0)} Hz`);
+      out('q', `${((1 / K) / D2R * 3600).toFixed(2)}″`);
+      out('meas', `${m.toFixed(3)} °/s`);
+    }
+
+    const anim = animate(fig, (dt) => {
+      t += dt;
+      const m = outRate(om, ol, dither);
+      const prev = Math.floor(fringe);
+      fringe += dt * m * 4;                       // visual fringe speed
+      if (Math.floor(fringe) !== prev) count += Math.sign(m);
+      drawLaser();
+    }, () => !reducedMotion());
+    slider(fig, 'om', (v) => `${v.toFixed(3)} °/s`, (v) => { om = v; drawCurve(); anim.kick(); });
+    slider(fig, 'ol', (v) => `${v.toFixed(3)} °/s`, (v) => { ol = v; drawCurve(); });
+    dBtn.addEventListener('click', () => { dither = !dither; dBtn.setAttribute('aria-pressed', String(dither)); dBtn.textContent = dither ? 'Dither on' : 'Dither off'; drawCurve(); });
+  }
+</script>

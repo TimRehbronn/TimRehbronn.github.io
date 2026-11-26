@@ -1,0 +1,91 @@
+---
+import M from '../../blog/M.astro';
+// Hemispherical resonator gyro: the rim of a vibrating "wine glass" in a standing wave; when the glass rotates,
+// the pattern lags behind by a fixed fraction k of the rotation angle (Bryan effect).
+---
+
+<figure class="xp wide" data-xp="hrg">
+  <div class="xp-head"><span class="label fig-title">The hemispherical resonator gyro and the Bryan effect</span></div>
+  <canvas role="img" aria-label="Top view of the rim of a vibrating glass with its standing wave pattern and eight electrodes; as the glass rotates, the pattern lags behind"></canvas>
+  <ul class="xp-legend">
+    <li class="c-fg"><i></i><span>rim of the resonator and its electrodes (rotate with the case)</span></li>
+    <li class="c-accent"><i></i><span>axis of the vibration pattern (antinodes)</span></li>
+    <li class="c-muted dash"><i></i><span>where the pattern would be if it rotated fully with the glass</span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Rotation rate of the case</span><output for="rate"></output></span><input type="range" name="rate" min="-40" max="40" step="1" value="20" /></label>
+  </div>
+  <div class="xp-btns">
+    <button class="btn" type="button" data-k="0.3" aria-pressed="true">Hemisphere, <M t="k \approx 0.3" /></button>
+    <button class="btn" type="button" data-k="0.4" aria-pressed="false">Thin ring, <M t="k = 0.4" /></button>
+    <button class="btn" type="button" data-act="reset">Reset angle</button>
+  </div>
+  <p class="xp-readout" aria-live="polite">
+    <span>case rotated by <M t={String.raw`\Phi`} /> = <b data-o="phi"></b></span>
+    <span>pattern relative to the case: <M t={String.raw`-k\Phi`} /> = <b class="hot" data-o="rel"></b></span>
+    <span>pattern in space: <M t={String.raw`(1-k)\Phi`} /> = <b data-o="abs"></b></span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<style>
+  [data-xp='hrg'] .btn { text-transform: none; letter-spacing: 0.02em; }
+</style>
+
+<script>
+  import { palette, setupCanvas, animate, label, slider, outputs, reducedMotion } from '../../../lib/explainer';
+
+  const D2R = Math.PI / 180;
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="hrg"]')) {
+    const canvas = fig.querySelector('canvas')!;
+    const out = outputs(fig);
+    let rate = 20, k = 0.3, phi = 0, t = 0;
+    const { ctx, size } = setupCanvas(canvas, (w) => Math.min(w * 0.62, 460), draw);
+
+    function draw() {
+      const P = palette(), W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const cx = W / 2, cy = H / 2, R = Math.min(W, H) * 0.34;
+      const caseAng = phi * D2R, pat = (1 - k) * phi * D2R;        // angles in space
+      const amp = reducedMotion() ? 0.1 : 0.1 * Math.cos(2 * Math.PI * 1.2 * t);
+      // ideal "co-rotating" pattern axis (dashed) and actual pattern axis
+      const axisLine = (a: number, col: string, dash: number[], w: number) => {
+        ctx.strokeStyle = col; ctx.lineWidth = w; ctx.setLineDash(dash);
+        ctx.beginPath(); ctx.moveTo(cx - Math.cos(a) * R * 1.35, cy + Math.sin(a) * R * 1.35); ctx.lineTo(cx + Math.cos(a) * R * 1.35, cy - Math.sin(a) * R * 1.35); ctx.stroke(); ctx.setLineDash([]);
+      };
+      axisLine(caseAng, P.muted, [5, 4], 1);
+      axisLine(pat, P.accent, [], 2);
+      // undeformed rim
+      ctx.strokeStyle = P.border; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+      // vibrating rim: n = 2 standing wave, antinodes along the pattern axis
+      ctx.strokeStyle = P.fg; ctx.lineWidth = 2; ctx.beginPath();
+      for (let i = 0; i <= 180; i++) {
+        const th = (i / 180) * 2 * Math.PI, r = R * (1 + amp * Math.cos(2 * (th - pat)));
+        const x = cx + r * Math.cos(th), y = cy - r * Math.sin(th);
+        i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+      }
+      ctx.stroke();
+      // electrodes fixed to the case
+      for (let e = 0; e < 8; e++) {
+        const a = caseAng + (e * Math.PI) / 4, r0 = R * 1.18, r1 = R * 1.28;
+        ctx.strokeStyle = e === 0 ? P.fg : P.strong; ctx.lineWidth = e === 0 ? 5 : 4;
+        ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * r0, cy - Math.sin(a) * r0); ctx.lineTo(cx + Math.cos(a) * r1, cy - Math.sin(a) * r1); ctx.stroke();
+      }
+      label(ctx, 'reference electrode', cx + Math.cos(caseAng) * R * 1.34, cy - Math.sin(caseAng) * R * 1.34, P.soft, { size: 10, align: Math.cos(caseAng) >= 0 ? 'left' : 'right' });
+      // nodes
+      for (const off of [Math.PI / 4, (3 * Math.PI) / 4, (5 * Math.PI) / 4, (7 * Math.PI) / 4]) {
+        const a = pat + off; ctx.fillStyle = P.muted; ctx.beginPath(); ctx.arc(cx + Math.cos(a) * R, cy - Math.sin(a) * R, 3, 0, Math.PI * 2); ctx.fill();
+      }
+      label(ctx, 'grey dots: nodes (no motion)', 8, H - 10, P.muted, { size: 10 });
+      out('phi', `${phi.toFixed(1)}°`); out('rel', `${(-k * phi).toFixed(1)}°`); out('abs', `${((1 - k) * phi).toFixed(1)}°`);
+    }
+
+    const anim = animate(fig, (dt) => { t += dt; phi += rate * dt; draw(); }, () => !reducedMotion());
+    slider(fig, 'rate', (v) => `${v} °/s`, (v) => { rate = v; anim.kick(); draw(); });
+    const kb = fig.querySelectorAll<HTMLButtonElement>('[data-k]');
+    kb.forEach((b) => b.addEventListener('click', () => { k = Number(b.dataset.k); kb.forEach((x) => x.setAttribute('aria-pressed', String(x === b))); draw(); }));
+    fig.querySelector('[data-act="reset"]')!.addEventListener('click', () => { phi = 0; draw(); });
+    if (reducedMotion()) { phi = 60; draw(); }
+  }
+</script>

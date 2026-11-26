@@ -1,0 +1,114 @@
+---
+import M from '../../blog/M.astro';
+// A spinning rotor on a pivot: with angular momentum it precesses under a torque, without it falls.
+---
+
+<figure class="xp wide" data-xp="mgyro">
+  <div class="xp-head"><span class="label fig-title">A spinning rotor: precession instead of falling</span><span class="label" style="color:var(--muted)">drag to orbit</span></div>
+  <canvas class="drag" role="img" aria-label="A rotor on a pivot with its angular momentum vector and the torque from its weight; the axis precesses about the vertical"></canvas>
+  <ul class="xp-legend">
+    <li class="c-accent"><i></i><span>angular momentum <M t={String.raw`\mathbf H = J\omega_r\,\mathbf u`} /></span></li>
+    <li class="c-fg"><i></i><span>torque <M t={String.raw`\boldsymbol\tau`} /> from the weight</span></li>
+    <li class="c-muted dash"><i></i><span>path of the axis</span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Spin rate <M t={String.raw`\omega_r`} /></span><output for="sp"></output></span><input type="range" name="sp" min="0" max="30000" step="500" value="24000" /></label>
+    <label class="xp-ctl"><span><span>Torque <M t={String.raw`\tau`} /></span><output for="tq"></output></span><input type="range" name="tq" min="0.002" max="0.03" step="0.001" value="0.015" /></label>
+  </div>
+  <div class="xp-btns"><button class="btn" type="button" data-act="reset">Restart</button></div>
+  <p class="xp-readout" aria-live="polite">
+    <span><M t={String.raw`\lVert\mathbf H\rVert`} /> = <b data-o="H"></b></span>
+    <span>precession rate <M t={String.raw`\Omega_p = \tau / H`} /> = <b class="hot" data-o="op"></b></span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, animate, label, slider, arrow, outputs, reducedMotion } from '../../../lib/explainer';
+  import { camera, type V3 } from '../../../lib/rot';
+
+  const J = 1e-5;               // rotor inertia [kg m²] (50 g, 2 cm radius)
+  const R2D = 180 / Math.PI;
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="mgyro"]')) {
+    const canvas = fig.querySelector('canvas')!;
+    const out = outputs(fig);
+    let rpm = 24000, tq = 0.015, t = 0, phase = 0, az = 0.8, el = 0.35;
+    const { ctx, size } = setupCanvas(canvas, (w) => Math.max(320, w * 0.5), draw);
+
+    const H = () => J * (rpm * 2 * Math.PI) / 60;
+    const falls = () => rpm < 1500;
+
+    function axis(): { u: V3; tilt: number } {
+      if (falls()) { const th = Math.min(Math.PI / 2, 0.5 * 9 * t * t); return { u: [Math.cos(th), 0, -Math.sin(th)], tilt: th }; }
+      const p = (tq / H()) * t;
+      return { u: [Math.cos(p), Math.sin(p), 0], tilt: 0 };
+    }
+
+    function draw() {
+      const P = palette(), W = size.w, Hh = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, Hh);
+      const cam = camera(az, el, Math.min(W, Hh) * 0.28, W / 2, Hh * 0.45);
+      const pr = (v: V3) => cam.project([v[0], v[1], -v[2]]);     // z up on screen
+      const o = pr([0, 0, 0]);
+      // stand and ground circle
+      const base = pr([0, 0, -1.3]);
+      ctx.strokeStyle = P.strong; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.lineTo(base.x, base.y); ctx.stroke();
+      ctx.strokeStyle = P.border; ctx.lineWidth = 1; ctx.beginPath();
+      for (let i = 0; i <= 64; i++) { const a = (i / 64) * 2 * Math.PI, q = pr([Math.cos(a) * 0.6, Math.sin(a) * 0.6, -1.3]); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); }
+      ctx.stroke();
+      const { u } = axis();
+      // path of the axis (precession circle)
+      if (!falls()) {
+        ctx.strokeStyle = P.muted; ctx.setLineDash([4, 4]); ctx.beginPath();
+        for (let i = 0; i <= 64; i++) { const a = (i / 64) * 2 * Math.PI, q = pr([Math.cos(a) * 1.2, Math.sin(a) * 1.2, 0]); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); }
+        ctx.stroke(); ctx.setLineDash([]);
+      }
+      // rotor: disc perpendicular to u at distance 1.2
+      const c: V3 = [u[0] * 1.2, u[1] * 1.2, u[2] * 1.2];
+      let a1: V3 = [-u[1], u[0], 0]; const n1 = Math.hypot(...a1) || 1; a1 = [a1[0] / n1, a1[1] / n1, a1[2] / n1];
+      if (Math.hypot(...a1) < 0.5) a1 = [0, 1, 0];
+      const a2: V3 = [u[1] * a1[2] - u[2] * a1[1], u[2] * a1[0] - u[0] * a1[2], u[0] * a1[1] - u[1] * a1[0]];
+      const rim = (ang: number, r = 0.55): V3 => [c[0] + r * (Math.cos(ang) * a1[0] + Math.sin(ang) * a2[0]), c[1] + r * (Math.cos(ang) * a1[1] + Math.sin(ang) * a2[1]), c[2] + r * (Math.cos(ang) * a1[2] + Math.sin(ang) * a2[2])];
+      const shaft = pr(c);
+      ctx.strokeStyle = P.soft; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.lineTo(shaft.x, shaft.y); ctx.stroke();
+      ctx.fillStyle = P.bg; ctx.strokeStyle = P.fg; ctx.lineWidth = 1.5; ctx.beginPath();
+      for (let i = 0; i <= 48; i++) { const q = pr(rim((i / 48) * 2 * Math.PI)); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); }
+      ctx.closePath(); ctx.globalAlpha = 0.9; ctx.fill(); ctx.globalAlpha = 1; ctx.stroke();
+      // spokes to show the spin
+      for (let k = 0; k < 4; k++) { const q = pr(rim(phase + (k * Math.PI) / 2)); ctx.strokeStyle = P.muted; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(shaft.x, shaft.y); ctx.lineTo(q.x, q.y); ctx.stroke(); }
+      // vectors: H along u, torque horizontal and perpendicular (z × u direction)
+      if (!falls()) {
+        const hl = 0.4 + 0.9 * (rpm / 30000);
+        const hEnd = pr([c[0] + u[0] * hl, c[1] + u[1] * hl, c[2] + u[2] * hl]);
+        arrow(ctx, shaft.x, shaft.y, hEnd.x, hEnd.y, P.accent, 2.5, 10);
+        label(ctx, '$\\mathbf{H}$', hEnd.x + 6, hEnd.y - 6, P.accent, { size: 13 });
+      }
+      const tl = 0.4 + 0.8 * (tq / 0.03), td: V3 = [-u[1], u[0], 0];
+      const tEnd = pr([td[0] * tl, td[1] * tl, 0]);
+      arrow(ctx, o.x, o.y, tEnd.x, tEnd.y, P.fg, 2, 9);
+      label(ctx, '$\\boldsymbol\\tau$', tEnd.x + 6, tEnd.y - 6, P.fg, { size: 13 });
+      label(ctx, falls() ? 'spin too slow: the rotor simply falls' : 'the axis moves sideways, in the direction of the torque', 8, 14, P.soft, { size: 12 });
+    }
+
+    const anim = animate(fig, (dt) => {
+      t += dt; phase += dt * Math.min(25, rpm / 1500);
+      if (falls() && t > 0.6) t = 0.6;
+      draw();
+    }, () => !reducedMotion());
+    const upd = () => {
+      out('H', `${H().toFixed(4)} kg m²/s`);
+      out('op', falls() ? 'no precession' : `${((tq / H()) * R2D).toFixed(1)} °/s`);
+      draw();
+    };
+    slider(fig, 'sp', (v) => `${v} rpm`, (v) => { rpm = v; t = 0; upd(); anim.kick(); });
+    slider(fig, 'tq', (v) => `${(v * 1000).toFixed(0)} mN m`, (v) => { tq = v; upd(); });
+    fig.querySelector('[data-act="reset"]')!.addEventListener('click', () => { t = 0; anim.kick(); draw(); });
+
+    let drag: { x: number; y: number; az: number; el: number } | null = null;
+    canvas.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, az, el }; canvas.setPointerCapture(e.pointerId); });
+    canvas.addEventListener('pointermove', (e) => { if (!drag) return; az = drag.az - (e.clientX - drag.x) * 0.01; el = Math.max(-1.2, Math.min(1.4, drag.el + (e.clientY - drag.y) * 0.01)); draw(); });
+    canvas.addEventListener('pointerup', () => (drag = null));
+  }
+</script>
