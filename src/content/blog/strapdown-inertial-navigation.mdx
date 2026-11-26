@@ -27,6 +27,9 @@ import EarthShape from '../../components/explainers/strapdown/EarthShape.astro';
 import MechanicalGyro from '../../components/explainers/strapdown/MechanicalGyro.astro';
 import RingLaser from '../../components/explainers/strapdown/RingLaser.astro';
 import HrgGyro from '../../components/explainers/strapdown/HrgGyro.astro';
+import MemsAccel from '../../components/explainers/strapdown/MemsAccel.astro';
+import ServoAccel from '../../components/explainers/strapdown/ServoAccel.astro';
+import VibratingBeamAccel from '../../components/explainers/strapdown/VibratingBeamAccel.astro';
 import FrameVector from '../../components/explainers/strapdown/FrameVector.astro';
 import NoiseWalk from '../../components/explainers/strapdown/NoiseWalk.astro';
 import Representations from '../../components/explainers/strapdown/Representations.astro';
@@ -1142,10 +1145,25 @@ The **hemispherical resonator gyro** is also a vibratory Coriolis gyro, but at t
 
 ### Accelerometers
 
-Accelerometers are simpler: almost all of them measure the force that holds a proof mass in place, as in the specific-force figure above.
-- **MEMS accelerometers** measure the displacement of a silicon proof mass capacitively with comb-shaped electrodes.
-- **Force-rebalance (servo) accelerometers** keep a pendulous proof mass, often on a quartz flexure, at its null position with an electromagnetic coil. The current needed for this is proportional to the specific force. They are the standard in navigation-grade systems, with biases of $10$ to $100\,\mu g$.
-- **Vibrating beam accelerometers** measure how the resonance frequency of a quartz beam changes when the proof mass pulls on it.
+Accelerometers are simpler than gyros: almost all of them measure the force that holds a proof mass in place, as in the specific-force figure earlier. They differ in how they measure that force.
+
+**MEMS accelerometers.** A silicon proof mass hangs on thin springs and carries comb-shaped fingers that sit between fixed electrodes. A specific force $f$ along the sense axis displaces the mass against the springs; with the resonance frequency $f_0 = \omega_0 / 2\pi$ of the mass on its springs, the displacement is $x = -f/\omega_0^2$. The gaps on the two sides of each finger change in opposite directions, so one capacitance grows and the other shrinks. Measuring the *difference* of the two (differential capacitive readout) doubles the signal and cancels effects that change both equally. The resonance frequency sets a trade-off: soft springs (low $f_0$) give large displacements and high sensitivity, but only for slow signals; stiff springs follow fast vibrations but move very little.
+
+<MemsAccel>
+  Left: the proof mass on its springs with comb fingers between fixed electrodes. Right: one comb cell magnified, with the two capacitances. **Try:** change the specific force and watch the two capacitances change in opposite directions. Then raise the resonance frequency: the displacement per $g$ shrinks with $1/f_0^2$, from hundreds of nanometres at $1\,\text{kHz}$ to fractions of a nanometre at $20\,\text{kHz}$, while the usable bandwidth grows.
+</MemsAccel>
+
+**Force-rebalance (servo) accelerometers.** A pendulous proof mass, often a quartz plate on a thin flexure hinge, sits between two pickoff electrodes that sense the smallest deflection. A control loop drives a current through a coil on the proof mass, which pushes it back to its null position. In equilibrium the magnetic force equals the inertial force, so the **coil current is proportional to the specific force**, and that current is the output. Because the mass hardly moves, the springs and the geometry stay where they were calibrated; the accuracy rests on the magnet and the current measurement instead. These sensors are the standard in navigation-grade systems, with biases of $10$ to $100\,\mu g$.
+
+<ServoAccel>
+  A step in specific force at $t = 0.3\,\text{s}$. Without the control loop (white) the pendulum swings and settles at a deflection proportional to the force. With the loop (orange) the deflection stays almost zero, and the coil current rises until it exactly balances the force. **Try:** switch the loop off and on, and change the size of the step: the final current always equals the input.
+</ServoAccel>
+
+**Vibrating beam accelerometers (VBA).** Here the proof mass hangs between two small quartz beams that vibrate at their resonance frequency, like guitar strings. A specific force pulls on the mass, which stretches one beam and compresses the other. A stretched string sounds higher, a compressed one lower, so the two frequencies move apart by an amount proportional to the specific force. The output is the **frequency difference**, which digital electronics can count very precisely. Effects that shift both frequencies the same way, above all temperature, cancel in the difference. VBAs reach tactical to navigation grade and are increasingly made as MEMS.
+
+<VibratingBeamAccel>
+  Two quartz beams in push-pull around a proof mass. **Try:** apply a specific force: one beam vibrates faster, the other slower, and the difference gives the force. Then change the temperature: both frequencies drift together, but the difference, and with it the measured specific force, stays the same.
+</VibratingBeamAccel>
 
 In an IMU the gyros usually decide the performance class and most of the price. The accelerometers are chosen to match: a navigation-grade gyro is useless with a consumer accelerometer, because a tilt error and an accelerometer bias are equivalent, as we saw earlier.
 

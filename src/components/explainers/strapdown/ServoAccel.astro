@@ -1,0 +1,113 @@
+---
+import M from '../../blog/M.astro';
+// Force-rebalance (servo) accelerometer: a pendulous proof mass is held at its null position by a coil;
+// the coil current is the output. Compared with the open-loop pendulum.
+---
+
+<figure class="xp wide" data-xp="servo">
+  <div class="xp-head"><span class="label fig-title">A force-rebalance accelerometer</span></div>
+  <div class="xp-row two">
+    <canvas class="c-s" role="img" aria-label="A pendulous proof mass on a flexure hinge between two pickoff electrodes, with a coil that pushes it back to the centre"></canvas>
+    <canvas class="c-t" role="img" aria-label="Response to a step in acceleration: deflection with and without the control loop, and the coil current"></canvas>
+  </div>
+  <ul class="xp-legend">
+    <li class="c-fg"><i></i><span>deflection without control loop (open loop)</span></li>
+    <li class="c-accent"><i></i><span>deflection and coil current with control loop</span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Step in specific force <M t="f" /></span><output for="a"></output></span><input type="range" name="a" min="-1" max="1" step="0.05" value="0.6" /></label>
+  </div>
+  <div class="xp-btns">
+    <button class="btn" type="button" data-act="loop" aria-pressed="true">Control loop on</button>
+    <button class="btn" type="button" data-act="replay">Replay step</button>
+  </div>
+  <p class="xp-readout" aria-live="polite">
+    <span>final deflection: open loop <b data-o="th0"></b>, closed loop <b class="hot" data-o="th1"></b></span>
+    <span>coil current <M t={String.raw`i \propto f`} />: <b data-o="i"></b></span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, animate, label, slider, axes, series, outputs, reducedMotion } from '../../../lib/explainer';
+
+  const W0 = 2 * Math.PI * 1.2, Z = 0.15, DT = 1e-3, T = 3, N = Math.round(T / DT) + 1, T_STEP = 0.3;
+  const KP = 60, KI = 300, KD = 3;
+
+  function simulate(a: number, closed: boolean) {
+    const th = new Float64Array(N), cur = new Float64Array(N);
+    let x = 0, v = 0, I = 0;
+    for (let k = 0; k < N; k++) {
+      const t = k * DT, f = t > T_STEP ? a : 0;
+      const i = closed ? KP * x + KI * I + KD * v : 0;
+      th[k] = x; cur[k] = -i;
+      const acc = -W0 * W0 * x - 2 * Z * W0 * v - f - i;
+      v += acc * DT; x += v * DT; I += x * DT;
+    }
+    return { th, cur };
+  }
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="servo"]')) {
+    const cs = fig.querySelector<HTMLCanvasElement>('.c-s')!, ct = fig.querySelector<HTMLCanvasElement>('.c-t')!;
+    const out = outputs(fig);
+    const loopBtn = fig.querySelector<HTMLButtonElement>('[data-act="loop"]')!;
+    let a = 0.6, closed = true, now = reducedMotion() ? T : 0;
+    let open = simulate(a, false), cl = simulate(a, true);
+    const ts = new Float64Array(N); for (let k = 0; k < N; k++) ts[k] = k * DT;
+    const S = setupCanvas(cs, 1, () => drawScene()), Tc = setupCanvas(ct, 1, () => drawPlot());
+    const thMax = 1 / (W0 * W0);       // open-loop deflection for |f| = 1
+
+    function drawScene() {
+      const P = palette(), { ctx, size } = S, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const k = Math.min(N - 1, Math.round(now / DT));
+      const th = (closed ? cl.th[k] : open.th[k]) / thMax * 0.35;   // drawn angle [rad]
+      const hx = W / 2, hy = H * 0.14, L = H * 0.55;
+      const mx = hx + Math.sin(th) * L, my = hy + Math.cos(th) * L;
+      // housing, hinge
+      ctx.strokeStyle = P.strong; ctx.lineWidth = 1; ctx.strokeRect(W * 0.15, H * 0.06, W * 0.7, H * 0.8);
+      ctx.fillStyle = P.strong; ctx.fillRect(hx - 18, hy - 8, 36, 8);
+      label(ctx, 'flexure hinge', hx + 24, hy - 4, P.muted, { size: 10 });
+      // pendulum
+      ctx.strokeStyle = P.fg; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(mx, my); ctx.stroke();
+      ctx.fillStyle = P.bg; ctx.strokeStyle = P.fg; ctx.lineWidth = 1.5; ctx.fillRect(mx - 22, my - 16, 44, 32); ctx.strokeRect(mx - 22, my - 16, 44, 32);
+      label(ctx, '$m$', mx, my, P.fg, { size: 13, align: 'center' });
+      // pickoff electrodes left and right of the mass
+      ctx.fillStyle = P.muted; ctx.fillRect(hx - 60, hy + L - 22, 6, 44); ctx.fillRect(hx + 54, hy + L - 22, 6, 44);
+      label(ctx, 'pickoff', hx - 64, hy + L + 32, P.muted, { size: 10, align: 'center' });
+      // coil and current
+      ctx.strokeStyle = closed ? P.accent : P.strong; ctx.lineWidth = 1.5;
+      for (let j = 0; j < 4; j++) { ctx.beginPath(); ctx.ellipse(hx, hy + L * 0.45 + j * 7, 14, 4, 0, 0, Math.PI * 2); ctx.stroke(); }
+      label(ctx, closed ? `coil: current pushes the mass back` : 'coil off', hx + 22, hy + L * 0.45 + 10, closed ? P.accent : P.muted, { size: 10 });
+      // specific force arrow
+      const f = now > T_STEP ? a : 0;
+      if (Math.abs(f) > 0.01) { ctx.strokeStyle = P.soft; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(W * 0.5 - f * 60, H * 0.93); ctx.lineTo(W * 0.5 + f * 60, H * 0.93); ctx.stroke(); }
+      label(ctx, 'input $f$', W * 0.5 + 70, H * 0.93, P.soft, { size: 11 });
+      label(ctx, `deflection drawn exaggerated`, 8, H - 8, P.muted, { size: 10 });
+    }
+
+    function drawPlot() {
+      const P = palette(), { ctx, size } = Tc, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const k = Math.min(N - 1, Math.round(now / DT));
+      const h = (H - 68) / 2;
+      const b1 = { x: 44, y: 10, w: W - 54, h }, b2 = { x: 44, y: 10 + h + 26, w: W - 54, h };
+      const A1 = axes(ctx, P, b1, [0, T], [-1.3, 1.3], { ylabel: 'deflection (relative)', xfmt: () => '', yfmt: () => '', yticks: 2, zeroLine: true });
+      const scaleTh = (arr: Float64Array) => arr.map((v) => v / thMax);
+      series(ctx, b1, ts, scaleTh(open.th), A1.sx, A1.sy, P.fg, 1.75, [], k + 1);
+      if (closed) series(ctx, b1, ts, scaleTh(cl.th), A1.sx, A1.sy, P.accent, 2, [], k + 1);
+      const A2 = axes(ctx, P, b2, [0, T], [-1.3, 1.3], { ylabel: 'coil current $i$ (relative)', xlabel: 'time [s]', xfmt: (v) => v.toFixed(1), yfmt: () => '', yticks: 2, zeroLine: true });
+      if (closed) series(ctx, b2, ts, cl.cur, A2.sx, A2.sy, P.accent, 2, [], k + 1);
+      out('th0', `${(open.th[N - 1] / thMax).toFixed(2)}`); out('th1', `${(cl.th[N - 1] / thMax).toFixed(4)}`);
+      out('i', closed ? `${cl.cur[N - 1].toFixed(2)} (equals the input)` : 'loop off');
+    }
+
+    const anim = animate(fig, (dt) => { now += dt * 0.8; if (now >= T) now = T; drawScene(); drawPlot(); }, () => now < T);
+    const restart = () => { now = reducedMotion() ? T : 0; anim.kick(); drawScene(); drawPlot(); };
+    slider(fig, 'a', (v) => `${v.toFixed(2)} g`, (v) => { a = v; open = simulate(a, false); cl = simulate(a, true); restart(); });
+    loopBtn.addEventListener('click', () => { closed = !closed; loopBtn.setAttribute('aria-pressed', String(closed)); loopBtn.textContent = closed ? 'Control loop on' : 'Control loop off'; restart(); });
+    fig.querySelector('[data-act="replay"]')!.addEventListener('click', restart);
+  }
+</script>

@@ -1,0 +1,71 @@
+---
+import M from '../../blog/M.astro';
+// Vibrating beam accelerometer: two quartz beams in push-pull; acceleration detunes them in opposite directions,
+// temperature in the same direction, so the frequency difference keeps the acceleration and cancels the temperature.
+---
+
+<figure class="xp wide" data-xp="vba">
+  <div class="xp-head"><span class="label fig-title">A vibrating beam accelerometer</span></div>
+  <canvas role="img" aria-label="A proof mass between two vibrating quartz beams; one beam is stretched and vibrates faster, the other is compressed and vibrates slower"></canvas>
+  <ul class="xp-legend">
+    <li class="c-accent"><i></i><span>beam 1, stretched by a positive specific force</span></li>
+    <li class="c-fg"><i></i><span>beam 2, compressed</span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Specific force <M t="f" /></span><output for="a"></output></span><input type="range" name="a" min="-5" max="5" step="0.05" value="1.5" /></label>
+    <label class="xp-ctl"><span><span>Temperature change <M t={String.raw`\Delta T`} /></span><output for="dt"></output></span><input type="range" name="dt" min="-40" max="40" step="1" value="0" /></label>
+  </div>
+  <p class="xp-readout" aria-live="polite">
+    <span><M t="f_1" /> = <b data-o="f1"></b></span>
+    <span><M t="f_2" /> = <b data-o="f2"></b></span>
+    <span><M t="f_1 - f_2" /> = <b class="hot" data-o="d"></b> → <b data-o="a"></b></span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, animate, label, slider, arrow, outputs, reducedMotion } from '../../../lib/explainer';
+
+  const F0 = 40000, S = 100, TC = -1.2;   // Hz, Hz per g, Hz per kelvin (illustrative values)
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="vba"]')) {
+    const canvas = fig.querySelector('canvas')!;
+    const out = outputs(fig);
+    let a = 1.5, dT = 0, t = 0;
+    const { ctx, size } = setupCanvas(canvas, (w) => Math.max(260, w * 0.36), draw);
+    const f1 = () => F0 + S * a + TC * dT, f2 = () => F0 - S * a + TC * dT;
+
+    function draw() {
+      const P = palette(), W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const cy = H / 2, x0 = W * 0.08, x1 = W * 0.92, mw = W * 0.12, mx = W / 2 - a * 4;   // the mass lags behind: displaced against f
+      // frame
+      ctx.fillStyle = P.strong; ctx.fillRect(x0 - 12, cy - 60, 12, 120); ctx.fillRect(x1, cy - 60, 12, 120);
+      // proof mass
+      ctx.fillStyle = P.bg; ctx.strokeStyle = P.fg; ctx.lineWidth = 1.5; ctx.fillRect(mx - mw / 2, cy - 40, mw, 80); ctx.strokeRect(mx - mw / 2, cy - 40, mw, 80);
+      label(ctx, 'proof mass', mx, cy, P.fg, { size: 11, align: 'center' });
+      // beams as vibrating strings; drawn frequency scales with the detuning so the difference is visible
+      const beam = (xa: number, xb: number, f: number, col: string, name: string) => {
+        const fv = 1.2 + (f - F0) / 60, amp = reducedMotion() ? 10 : 10 * Math.sin(2 * Math.PI * fv * t);
+        ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.beginPath();
+        for (let i = 0; i <= 60; i++) { const s = i / 60, x = xa + (xb - xa) * s, y = cy + amp * Math.sin(Math.PI * s); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+        ctx.stroke();
+        label(ctx, `${name}: ${(f / 1000).toFixed(3)} kHz`, (xa + xb) / 2, cy - 30, col, { size: 11, align: 'center' });
+      };
+      beam(x0, mx - mw / 2, f2(), P.fg, 'beam 2');
+      beam(mx + mw / 2, x1, f1(), P.accent, 'beam 1');
+      // force arrow
+      if (Math.abs(a) > 0.01) {
+        const ay = cy + 62; arrow(ctx, mx, ay, mx - a * 22, ay, P.soft, 1.75, 8);
+        label(ctx, 'inertial force on the mass', mx, ay + 16, P.soft, { size: 10, align: 'center' });
+      }
+      label(ctx, 'vibration slowed down, displacement exaggerated', 8, H - 8, P.muted, { size: 10 });
+      out('f1', `${f1().toFixed(1)} Hz`); out('f2', `${f2().toFixed(1)} Hz`);
+      const d = f1() - f2();
+      out('d', `${d.toFixed(1)} Hz`); out('a', `${(d / (2 * S)).toFixed(2)} g, independent of temperature`);
+    }
+    animate(fig, (dt) => { t += dt; draw(); }, () => !reducedMotion());
+    slider(fig, 'a', (v) => `${v.toFixed(2)} g`, (v) => { a = v; draw(); });
+    slider(fig, 'dt', (v) => `${v > 0 ? '+' : ''}${v} K`, (v) => { dT = v; draw(); });
+  }
+</script>

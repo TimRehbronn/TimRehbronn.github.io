@@ -1,0 +1,113 @@
+---
+import M from '../../blog/M.astro';
+// MEMS capacitive accelerometer: a proof mass on springs with comb electrodes; acceleration shifts the mass and
+// changes two capacitances in opposite directions.
+---
+
+<figure class="xp wide" data-xp="macc">
+  <div class="xp-head"><span class="label fig-title">A MEMS accelerometer: proof mass and comb electrodes</span></div>
+  <div class="xp-row two">
+    <canvas class="c-m" role="img" aria-label="Top view of a proof mass on springs with comb fingers between fixed electrodes"></canvas>
+    <canvas class="c-c" role="img" aria-label="One comb cell magnified: a moving finger between two fixed electrodes with two capacitances"></canvas>
+  </div>
+  <ul class="xp-legend">
+    <li class="c-fg"><i></i><span>proof mass and its fingers (move)</span></li>
+    <li class="c-muted"><i></i><span>fixed electrodes</span></li>
+    <li class="c-accent"><i></i><span>capacitances <M t="C_1" /> and <M t="C_2" /></span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Specific force along the sense axis <M t="f" /></span><output for="a"></output></span><input type="range" name="a" min="-2" max="2" step="0.01" value="0.6" /></label>
+    <label class="xp-ctl"><span><span>Resonance frequency <M t="f_0" /></span><output for="f0"></output></span><input type="range" name="f0" min="3" max="4.3" step="0.01" value="3.7" /></label>
+  </div>
+  <p class="xp-readout" aria-live="polite">
+    <span>displacement <M t={String.raw`x = -f/\omega_0^2`} /> = <b class="hot" data-o="x"></b></span>
+    <span><M t={String.raw`(C_1 - C_2)/(C_1 + C_2) = -x/d`} /> = <b data-o="r"></b></span>
+    <span>usable bandwidth roughly up to <b data-o="bw"></b></span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, label, slider, arrow, outputs } from '../../../lib/explainer';
+
+  const G = 9.81, GAP = 2e-6;   // electrode gap d = 2 µm
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="macc"]')) {
+    const cm = fig.querySelector<HTMLCanvasElement>('.c-m')!, cc = fig.querySelector<HTMLCanvasElement>('.c-c')!;
+    const out = outputs(fig);
+    let a = 0.6, lf0 = 3.7;
+    const Mc = setupCanvas(cm, 0.9, () => draw()), Cc = setupCanvas(cc, 0.9, () => draw());
+
+    const disp = () => (a * G) / (2 * Math.PI * 10 ** lf0) ** 2;   // metres
+    // drawn displacement: relative to the gap, compressed so that the picture stays readable
+    const vis = () => Math.max(-0.75, Math.min(0.75, Math.sign(disp()) * Math.min(0.75, Math.abs(disp() / GAP) ** 0.5 * 1.6)));
+
+    function draw() {
+      const P = palette();
+      const v = vis();
+      { // overview
+        const { ctx, size } = Mc, W = size.w, H = size.h;
+        if (!W) return;
+        ctx.clearRect(0, 0, W, H);
+        const cx = W / 2, cy = H / 2 + 6, mw = W * 0.34, mh = H * 0.36, sh = -v * W * 0.045; // mass lags behind: displaced against f
+        // anchors and springs (left and right)
+        const spring = (x0: number, x1: number, y: number) => {
+          const n = 10; ctx.strokeStyle = P.muted; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x0, y);
+          for (let i = 1; i < n; i++) ctx.lineTo(x0 + ((x1 - x0) * i) / n, y + (i % 2 ? 6 : -6));
+          ctx.lineTo(x1, y); ctx.stroke();
+        };
+        ctx.fillStyle = P.strong; ctx.fillRect(14, cy - 26, 12, 52); ctx.fillRect(W - 26, cy - 26, 12, 52);
+        spring(26, cx - mw / 2 + sh, cy); spring(cx + mw / 2 + sh, W - 26, cy);
+        // proof mass with fingers above and below
+        ctx.strokeStyle = P.fg; ctx.lineWidth = 1.5; ctx.strokeRect(cx - mw / 2 + sh, cy - mh / 2, mw, mh);
+        label(ctx, 'proof mass', cx + sh, cy, P.fg, { size: 12, align: 'center' });
+        const nF = 5;
+        for (let i = 0; i < nF; i++) {
+          const fx = cx - mw / 2 + ((i + 0.5) * mw) / nF + sh;
+          for (const dir of [-1, 1]) {
+            const y0 = cy + (dir * mh) / 2, y1 = y0 + dir * H * 0.16;
+            ctx.strokeStyle = P.fg; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(fx, y0); ctx.lineTo(fx, y1); ctx.stroke();
+            // fixed electrodes on both sides of each finger
+            for (const side of [-1, 1]) {
+              const ex = cx - mw / 2 + ((i + 0.5) * mw) / nF + side * mw / nF * 0.3;
+              ctx.strokeStyle = P.muted; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(ex, y1 + dir * 14); ctx.lineTo(ex, y0 + dir * 10); ctx.stroke();
+            }
+          }
+        }
+        arrow(ctx, cx - 40, 18, cx + 40, 18, P.soft, 1.25, 7);
+        label(ctx, 'sense axis', cx + 46, 18, P.soft, { size: 11 });
+        label(ctx, 'motion strongly exaggerated', 8, H - 8, P.muted, { size: 10 });
+      }
+      { // one comb cell
+        const { ctx, size } = Cc, W = size.w, H = size.h;
+        if (!W) return;
+        ctx.clearRect(0, 0, W, H);
+        const cx = W / 2, top = H * 0.16, bot = H * 0.72, d = W * 0.16;
+        const fx = cx - v * d;           // finger moves with the mass, against f
+        ctx.fillStyle = P.strong; ctx.fillRect(cx - d - 10, top, 10, bot - top); ctx.fillRect(cx + d, top, 10, bot - top);
+        ctx.fillStyle = P.fg; ctx.fillRect(fx - 5, top + 10, 10, bot - top - 20);
+        const g1 = fx - 5 - (cx - d), g2 = cx + d - (fx + 5);
+        ctx.fillStyle = P.accent; ctx.globalAlpha = 0.25; ctx.fillRect(cx - d, top + 10, g1, bot - top - 20); ctx.fillRect(fx + 5, top + 10, g2, bot - top - 20); ctx.globalAlpha = 1;
+        label(ctx, '$C_1$', cx - d + g1 / 2, top - 8, P.accent, { size: 13, align: 'center' });
+        label(ctx, '$C_2$', fx + 5 + g2 / 2, top - 8, P.accent, { size: 13, align: 'center' });
+        label(ctx, 'fixed', cx - d - 5, bot + 14, P.muted, { size: 10, align: 'center' });
+        label(ctx, 'fixed', cx + d + 5, bot + 14, P.muted, { size: 10, align: 'center' });
+        label(ctx, 'moving finger', fx, bot + 14, P.fg, { size: 10, align: 'center' });
+        // bars for C1 and C2 (C ∝ 1/gap)
+        const c1 = 1 / Math.max(0.05, 1 - v), c2 = 1 / Math.max(0.05, 1 + v), cmax = Math.max(c1, c2, 1.5);
+        const by = H - 26, bw = W * 0.3;
+        for (const [k, c, txt] of [[0, c1, '$C_1$'], [1, c2, '$C_2$']] as [number, number, string][]) {
+          const x = 24 + k * (bw + 40);
+          ctx.strokeStyle = P.strong; ctx.strokeRect(x + 0.5, by + 0.5, bw, 10);
+          ctx.fillStyle = P.accent; ctx.fillRect(x + 1, by + 1, (c / cmax) * (bw - 1), 9);
+          label(ctx, txt, x - 4, by + 5, P.accent, { size: 12, align: 'right' });
+        }
+      }
+      const x = -disp();
+      out('x', Math.abs(x) >= 1e-6 ? `${(x * 1e6).toFixed(2)} µm` : `${(x * 1e9).toFixed(2)} nm`);
+      out('r', (-x / GAP).toExponential(2));
+      out('bw', `${(10 ** lf0 / 3).toFixed(0)} Hz`);
+    }
+    slider(fig, 'a', (v) => `${v.toFixed(2)} g`, (v) => { a = v; draw(); });
+    slider(fig, 'f0', (v) => `${(10 ** v / 1000).toFixed(1)} kHz`, (v) => { lf0 = v; draw(); });
+  }
+</script>
