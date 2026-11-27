@@ -1,0 +1,137 @@
+---
+import M from '../../blog/M.astro';
+// Extrinsic calibration: an IMU mounted with a lever arm and a small rotation relative to the vehicle reference point, in a steady turn.
+---
+
+<figure class="xp wide" data-xp="lever">
+  <div class="xp-head"><span class="label fig-title">Lever arm and mounting rotation in a turn</span></div>
+  <div class="xp-row two">
+    <canvas class="c-top" role="img" aria-label="Top view of a vehicle turning left: the reference point on the rear axle, the IMU mounted ahead and to the right with a small rotation, the circular paths of both points and their centripetal accelerations"></canvas>
+    <canvas class="c-plot" role="img" aria-label="Acceleration errors in milli-g against the turn rate on a logarithmic axis: the lever arm term and the leak of the lateral acceleration through the mounting rotation"></canvas>
+  </div>
+  <ul class="xp-legend">
+    <li class="c-fg"><i></i><span>centripetal acceleration of the reference point, <M t={String.raw`\omega^2 R`} /></span></li>
+    <li class="c-accent"><i></i><span>extra acceleration at the IMU, <M t={String.raw`\boldsymbol\omega\times(\boldsymbol\omega\times\mathbf l)`} /></span></li>
+    <li class="c-muted dash"><i></i><span>paths of the two points</span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Lever arm length <M t={String.raw`\lVert\mathbf l\rVert`} /></span><output for="la"></output></span><input type="range" name="la" min="0" max="3" step="0.05" value="1.5" /></label>
+    <label class="xp-ctl"><span><span>Turn rate <M t={String.raw`\omega`} /></span><output for="tw"></output></span><input type="range" name="tw" min="0" max="30" step="0.5" value="20" /></label>
+    <label class="xp-ctl"><span><span>Mounting rotation <M t={String.raw`\delta\psi`} /></span><output for="dm"></output></span><input type="range" name="dm" min="0" max="5" step="0.1" value="1" /></label>
+  </div>
+  <p class="xp-readout" aria-live="polite">
+    <span>speed <M t={String.raw`v = \omega R`} />: <b data-o="v"></b></span>
+    <span>reference point <M t={String.raw`\omega^2 R`} />: <b data-o="aref"></b></span>
+    <span>extra at the IMU <M t={String.raw`\omega^2 \lVert\mathbf l\rVert`} />: <b class="hot" data-o="alev"></b></span>
+    <span>leak of <M t={String.raw`\omega^2 R`} /> into the forward axis: <b class="hot" data-o="leak"></b></span>
+    <span>cross-track error after 1 km with heading off by <M t={String.raw`\delta\psi`} />: <b data-o="xt"></b></span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, label, slider, arrow, axes, series, outputs } from '../../../lib/explainer';
+
+  const D2R = Math.PI / 180, G = 9.80665, R = 20; // radius of the reference point's path [m]
+  const DIR = 18 * D2R;                             // direction of the lever arm: forward and slightly to the right
+  const EXAG = 4;                                   // mounting rotation drawn exaggerated
+  const MAG = 8;                                    // lever-arm acceleration drawn longer than the centripetal one
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="lever"]')) {
+    const out = outputs(fig);
+    let la = 1.5, tw = 20, dm = 1;
+    const Pt = setupCanvas(fig.querySelector<HTMLCanvasElement>('.c-top')!, 0.86, draw);
+    const Pp = setupCanvas(fig.querySelector<HTMLCanvasElement>('.c-plot')!, 0.86, draw);
+
+    function draw() {
+      const P = palette();
+      const w = tw * D2R, w2 = w * w;
+      const lf = la * Math.cos(DIR), lr = la * Math.sin(DIR); // lever arm: forward and right components [m]
+      { // top view, vehicle fixed and pointing up, turning left about a centre R metres to the left
+        const { ctx, size } = Pt, W = size.w, H = size.h;
+        if (!W) return;
+        ctx.clearRect(0, 0, W, H);
+        const s = Math.min(W * 0.95, H) * 0.165;          // pixels per metre
+        const rx = W * 0.62, ry = H * 0.76;               // reference point on screen
+        const X = (_fwd: number, right: number) => rx + right * s, Y = (fwd: number) => ry - fwd * s;
+        const ox = rx - R * s, oy = ry;                   // turn centre (off canvas)
+        // paths of the reference point and of the IMU
+        ctx.setLineDash([5, 4]); ctx.lineWidth = 1.25; ctx.strokeStyle = P.muted;
+        ctx.beginPath(); ctx.arc(ox, oy, R * s, -0.6, 0.6); ctx.stroke();
+        const rImu = Math.hypot(R + lr, lf);
+        ctx.beginPath(); ctx.arc(ox, oy, rImu * s, -0.6, 0.6); ctx.stroke(); ctx.setLineDash([]);
+        // vehicle body: 5 m long (1 m behind the rear axle), 2.1 m wide
+        ctx.strokeStyle = P.strong; ctx.lineWidth = 1.5;
+        ctx.strokeRect(X(0, -1.05), Y(4), 2.1 * s, 5 * s);
+        ctx.fillStyle = P.border;
+        for (const [f, r] of [[0, -1.05], [0, 1.05], [3, -1.05], [3, 1.05]]) ctx.fillRect(X(f, r) - 3, Y(f) - 0.35 * s, 6, 0.7 * s);
+        // vehicle axes at the reference point
+        arrow(ctx, X(0, 0), Y(0), X(0, 0), Y(1), P.muted, 1.25, 7);
+        label(ctx, '$x^v$', X(0, 0) - 20, Y(0.95), P.muted, { size: 12 });
+        ctx.fillStyle = P.fg; ctx.beginPath(); ctx.arc(X(0, 0), Y(0), 4, 0, 2 * Math.PI); ctx.fill();
+        label(ctx, 'reference point', X(0, 0) + 8, Y(0) + 12, P.soft, { size: 11 });
+        // lever arm
+        const ix = X(lf, lr), iy = Y(lf);
+        if (la > 0.05) { arrow(ctx, X(0, 0), Y(0), ix, iy, P.soft, 1.5, 7); label(ctx, '$\\b{l}$', (X(0, 0) + ix) / 2 + 6, (Y(0) + iy) / 2, P.soft, { size: 13 }); }
+        // IMU: a small box rotated by the mounting rotation (exaggerated), with its forward axis
+        const d = dm * D2R * EXAG; // positive yaw (nose to the right) turns the axis clockwise on screen
+        const ca = Math.cos(d), sa = Math.sin(d);
+        const rot = (fx: number, fy: number) => [ix + fx * ca - fy * sa, iy + fx * sa + fy * ca];
+        ctx.beginPath(); [[-9, -9], [9, -9], [9, 9], [-9, 9]].forEach(([a, b], i) => { const [px, py] = rot(a, b); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); });
+        ctx.closePath(); ctx.fillStyle = P.bg; ctx.fill(); ctx.strokeStyle = P.fg; ctx.lineWidth = 1.5; ctx.stroke();
+        const [fx, fy] = rot(0, -1.6 * s);
+        arrow(ctx, ix, iy, fx, fy, P.fg, 1.5, 7);
+        label(ctx, '$x^b$ (IMU)', fx + 8, fy - 2, P.fg, { size: 12 });
+        ctx.setLineDash([3, 3]); ctx.strokeStyle = P.muted; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(ix, iy); ctx.lineTo(ix, iy - 1.6 * s); ctx.stroke(); ctx.setLineDash([]);
+        if (dm > 0) {
+          ctx.strokeStyle = P.accent; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(ix, iy, 1.2 * s, -Math.PI / 2, -Math.PI / 2 + d); ctx.stroke();
+          label(ctx, '$\\delta\\psi$', ix + 1.2 * s * Math.sin(d / 2) + 6, iy - 1.2 * s * Math.cos(d / 2) + 2, P.accent, { size: 12 });
+        }
+        // accelerations on a common scale
+        const ka = (W * 0.42) / (Math.pow(30 * D2R, 2) * R);
+        const aref = w2 * R * ka;
+        arrow(ctx, X(0, 0), Y(0), X(0, 0) - aref, Y(0), P.fg, 2, 8);
+        if (aref > 30) label(ctx, '$\\omega^2 R$', X(0, 0) - aref / 2, Y(0) - 10, P.fg, { size: 12, align: 'center' });
+        // at the IMU: the extra lever-arm term -w^2 l, which points from the IMU towards the reference point (drawn MAG times longer)
+        const ex = -w2 * lr * ka * MAG, ey = w2 * lf * ka * MAG; // screen components of -w^2 l
+        if (Math.hypot(ex, ey) > 2) {
+          const ux = ex / Math.hypot(ex, ey), uy = ey / Math.hypot(ex, ey);
+          arrow(ctx, ix - uy * 14, iy + ux * 14, ix - uy * 14 + ex, iy + ux * 14 + ey, P.accent, 2.5, 8);
+        }
+        label(ctx, 'to the turn centre', 8, Y(0) - 10, P.muted, { size: 10 });
+        arrow(ctx, 60, Y(0) + 4, 8, Y(0) + 4, P.muted, 1, 6);
+        label(ctx, `$R$ = ${R} m · rotation drawn ${EXAG}×, orange arrow ${MAG}× longer`, 8, H - 10, P.muted, { size: 10 });
+      }
+      { // errors against turn rate
+        const { ctx, size } = Pp, W = size.w, H = size.h;
+        if (!W) return;
+        ctx.clearRect(0, 0, W, H);
+        const b = { x: 46, y: 22, w: W - 56, h: H - 56 };
+        label(ctx, 'Acceleration errors if ignored', b.x, 8, P.fg, { size: 11 });
+        const A = axes(ctx, P, b, [0, 30], [0.01, 1000], { logY: true, xlabel: 'turn rate $\\omega$ [°/s]', ylabel: 'error [mg]', xfmt: (v) => `${v}`, yfmt: (v) => `${v}`, xticks: 6 });
+        const xs = Array.from({ length: 121 }, (_, i) => 0.25 * i + 1e-3);
+        const lev = xs.map((x) => ((x * D2R) ** 2 * la) / G * 1000);
+        const leak = xs.map((x) => ((x * D2R) ** 2 * R * Math.sin(dm * D2R)) / G * 1000);
+        ctx.setLineDash([5, 4]); ctx.strokeStyle = P.muted; ctx.lineWidth = 1.25; ctx.beginPath(); ctx.moveTo(b.x, A.sy(1)); ctx.lineTo(b.x + b.w, A.sy(1)); ctx.stroke(); ctx.setLineDash([]);
+        label(ctx, 'bias of a good MEMS accelerometer, about 1 mg', b.x + b.w - 6, A.sy(1) + 11, P.muted, { size: 10, align: 'right' });
+        series(ctx, b, xs, leak, A.sx, A.sy, P.fg, 1.75);
+        series(ctx, b, xs, lev, A.sx, A.sy, P.accent, 2.25);
+        const lv = (w2 * la) / G * 1000, lk = (w2 * R * Math.sin(dm * D2R)) / G * 1000;
+        const xm = A.sx(tw);
+        ctx.strokeStyle = P.soft; ctx.setLineDash([2, 3]); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(xm + 0.5, b.y); ctx.lineTo(xm + 0.5, b.y + b.h); ctx.stroke(); ctx.setLineDash([]);
+        if (lv > 0.01) { ctx.fillStyle = P.accent; ctx.beginPath(); ctx.arc(xm, A.sy(lv), 4, 0, 2 * Math.PI); ctx.fill(); }
+        if (lk > 0.01) { ctx.fillStyle = P.fg; ctx.beginPath(); ctx.arc(xm, A.sy(lk), 4, 0, 2 * Math.PI); ctx.fill(); }
+        label(ctx, 'lever arm $\\omega^2 l$', b.x + 8, b.y + 30, P.accent, { size: 11 });
+        label(ctx, 'mounting rotation $\\omega^2 R\\,\\r{sin}\\,\\delta\\psi$', b.x + 8, b.y + 48, P.fg, { size: 11 });
+        out('v', `${(w * R * 3.6).toFixed(0)} km/h`);
+        out('aref', `${(w2 * R).toFixed(2)} m/s²`);
+        out('alev', `${(w2 * la).toFixed(3)} m/s² = ${lv.toFixed(1)} mg`);
+        out('leak', `${lk.toFixed(1)} mg`);
+        out('xt', `${(1000 * Math.sin(dm * D2R)).toFixed(1)} m`);
+      }
+    }
+    slider(fig, 'la', (v) => `${v.toFixed(2)} m`, (v) => { la = v; draw(); });
+    slider(fig, 'tw', (v) => `${v.toFixed(1)} °/s`, (v) => { tw = v; draw(); });
+    slider(fig, 'dm', (v) => `${v.toFixed(1)}°`, (v) => { dm = v; draw(); });
+  }
+</script>

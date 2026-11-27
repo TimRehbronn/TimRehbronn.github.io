@@ -1,0 +1,198 @@
+---
+import M from '../../blog/M.astro';
+// Summary map of the post: sensors -> strapdown algorithm -> navigation state; sensor errors -> error growth ->
+// aiding and fusion -> next parts. Lines are SVG, boxes are HTML on a 1000 x 560 grid (font sizes in container units).
+// Hovering or tapping a block highlights everything upstream and downstream of it and shows a one-line explanation.
+const GW = 1000, GH = 560;
+const pos = (x: number, y: number, w?: number, h?: number) =>
+  `left:${(x / GW) * 100}%;top:${(y / GH) * 100}%;` + (w ? `width:${(w / GW) * 100}%;` : '') + (h ? `height:${(h / GH) * 100}%;` : '');
+// text with $...$ segments rendered as math
+const parts = (s: string) => s.split('$').map((t, i) => ({ t, math: i % 2 === 1 }));
+
+type Node = { id: string; x: number; y: number; w: number; h: number; title: string; tex?: string; sub?: string; why: string };
+const nodes: Node[] = [
+  { id: 'gyro', x: 20, y: 36, w: 150, h: 56, title: 'Gyroscopes', tex: String.raw`\boldsymbol\omega_{ib}^b`,
+    why: 'Gyros measure the angular velocity $\\boldsymbol\\omega_{ib}^b$ of the body relative to inertial space, in body axes.' },
+  { id: 'acc', x: 20, y: 140, w: 150, h: 56, title: 'Accelerometers', tex: String.raw`\mathbf f_{ib}^b`,
+    why: 'Accelerometers measure specific force $\\mathbf f_{ib}^b$, acceleration minus gravitation, so gravity and acceleration must be separated with the attitude.' },
+  { id: 'att', x: 230, y: 36, w: 300, h: 56, title: 'Attitude', tex: String.raw`\dot{\mathbf C}_b^n = \mathbf C_b^n\boldsymbol\Omega_{ib}^b - \boldsymbol\Omega_{in}^n\mathbf C_b^n`,
+    why: 'The attitude is propagated from the gyro increments with the matrix exponential or quaternions, minus the rotation $\\boldsymbol\\omega_{in}^n$ of the navigation frame.' },
+  { id: 'state', x: 600, y: 36, w: 380, h: 56, title: 'Navigation state', tex: String.raw`\mathbf x = (\mathbf C_b^n,\ \mathbf v_{eb}^n,\ L,\ \lambda,\ h)`,
+    why: 'Attitude, velocity and position: nine dimensions, stored as 15 numbers with a rotation matrix or 10 with a quaternion.' },
+  { id: 'res', x: 230, y: 140, w: 150, h: 56, title: 'Resolve specific force', tex: String.raw`\mathbf f^n = \mathbf C_b^n\mathbf f_{ib}^b`,
+    why: 'The attitude $\\mathbf C_b^n$ rotates the measured specific force from body axes into north, east and down.' },
+  { id: 'grav', x: 410, y: 140, w: 200, h: 56, title: 'Add gravity and Coriolis', tex: String.raw`+\,\mathbf g^n - (2\boldsymbol\omega_{ie}^n + \boldsymbol\omega_{en}^n)\times\mathbf v^n`,
+    why: 'Gravity $\\mathbf g^n$ is added back; the Coriolis and transport-rate terms account for the rotating Earth and the turning NED axes.' },
+  { id: 'vel', x: 640, y: 140, w: 150, h: 56, title: 'Velocity', tex: String.raw`\mathbf v_{eb}^n = \textstyle\int \dot{\mathbf v}^n\,dt`,
+    why: 'Integrating the acceleration $\\dot{\\mathbf v}^n$ once gives the velocity over ground in NED axes.' },
+  { id: 'pos', x: 820, y: 140, w: 160, h: 56, title: 'Position', tex: String.raw`L,\ \lambda,\ h`,
+    why: 'Integrating the velocity gives latitude $L$, longitude $\\lambda$ and height $h$, which in turn set gravity and the frame rates (Earth model).' },
+  { id: 'frames', x: 230, y: 238, w: 750, h: 26, title: '',
+    why: 'Every quantity is defined relative to a frame: the indices of $\\mathbf v_{eb}^n$ say what moves ($b$), relative to what ($e$) and in which axes ($n$).' },
+  { id: 'err', x: 20, y: 300, w: 150, h: 104, title: 'Sensor errors', tex: String.raw`\mathbf b_g,\ \mathbf b_a,\ \mathbf M,\ \mathbf w`, sub: 'bias, scale factor, misalignment, noise',
+    why: 'Calibration removes the deterministic part; the rest is modelled as white noise, random walk and Gauss–Markov processes, read off the Allan variance.' },
+  { id: 'g1', x: 230, y: 300, w: 170, h: 104, title: 'First minutes', tex: String.raw`\tfrac12 b\,t^2 + \tfrac16 g\,\varepsilon\,t^3`, sub: 'flat-Earth growth',
+    why: 'An accelerometer bias $b$ grows into a position error with $t^2$, a gyro bias $\\varepsilon$ with $t^3$, as long as the Earth looks flat.' },
+  { id: 'g2', x: 450, y: 296, w: 250, h: 52, title: 'Horizontal: Schuler', tex: String.raw`T_s = 84.4\,\mathrm{min},\ \ R\,\varepsilon\,t`,
+    why: 'The Earth\'s curvature pulls the horizontal error back: accelerometer errors oscillate with period $T_s$, a gyro bias still drifts at $R\\,\\varepsilon$.' },
+  { id: 'g3', x: 450, y: 356, w: 250, h: 52, title: 'Vertical: unstable', tex: String.raw`\delta h \propto \cosh\omega_v t - 1`,
+    why: 'Gravity weakens with height, so a height error feeds itself and grows exponentially with the time constant $1/\\omega_v \\approx 9.5$ min.' },
+  { id: 'aid', x: 740, y: 296, w: 240, h: 112, title: 'Aiding', sub: 'GNSS (part 2), barometer, wheel, LiDAR, radar and visual odometry (parts 6, 7, 11)',
+    why: 'An unaided INS drifts. Measurements that do not drift, or drift differently, keep the errors bounded.' },
+  { id: 'fus', x: 600, y: 446, w: 380, h: 60, title: 'Sensor fusion', sub: 'Kalman filters estimate the INS errors and their uncertainty, then correct them (parts 3 to 5, 8 to 10, 12)',
+    why: 'A filter compares the INS with the aiding sensors, estimates its errors including the biases, and feeds corrections back into the navigation state.' },
+  { id: 'next', x: 20, y: 446, w: 540, h: 98, title: 'Next in the series', sub: '2 GNSS · 3 Bayes and Kalman filter · 4 nonlinear filters · 5 INS and GNSS fusion · 6, 7 LiDAR and radar odometry · 8 filters on manifolds · 9 factor graphs · 10 multi-sensor fusion · 11 visual odometry · 12 visual-inertial fusion · 13 SLAM · 14 multi-target tracking',
+    why: 'The following parts build this fusion step by step, from GNSS and the Kalman filter to factor graphs, SLAM and tracking.' },
+];
+// edges: [from, to, svg path, optional label {x, y, tex, align}]
+type Edge = { a: string; b: string; d: string; dash?: boolean };
+const edges: Edge[] = [
+  { a: 'gyro', b: 'att', d: 'M170 64 H228' },
+  { a: 'acc', b: 'res', d: 'M170 168 H228' },
+  { a: 'att', b: 'res', d: 'M305 92 V138' },
+  { a: 'res', b: 'grav', d: 'M380 168 H408' },
+  { a: 'grav', b: 'vel', d: 'M610 168 H638' },
+  { a: 'vel', b: 'pos', d: 'M790 168 H818' },
+  { a: 'att', b: 'state', d: 'M530 64 H598' },
+  { a: 'vel', b: 'state', d: 'M715 140 V94' },
+  { a: 'pos', b: 'state', d: 'M900 140 V94' },
+  { a: 'pos', b: 'grav', d: 'M900 196 V214 H510 V198' },
+  { a: 'err', b: 'acc', d: 'M95 300 V198', dash: true },
+  { a: 'err', b: 'gyro', d: 'M20 352 H8 V64 H18', dash: true },
+  { a: 'err', b: 'g1', d: 'M170 352 H228' },
+  { a: 'g1', b: 'g2', d: 'M400 336 L448 322' },
+  { a: 'g1', b: 'g3', d: 'M400 368 L448 382' },
+  { a: 'g2', b: 'aid', d: 'M700 322 H738' },
+  { a: 'g3', b: 'aid', d: 'M700 382 H738' },
+  { a: 'aid', b: 'fus', d: 'M860 408 V444' },
+  { a: 'fus', b: 'state', d: 'M980 476 H993 V64 H982' },
+  { a: 'fus', b: 'next', d: 'M600 476 H562' },
+];
+const labels = [
+  { x: 310, y: 115, text: '$\\mathbf C_b^n$', align: 'left' },
+  { x: 700, y: 225, text: 'Earth model: $\\mathbf g^n(L, h),\\ \\boldsymbol\\omega_{ie}^n,\\ \\boldsymbol\\omega_{en}^n$', align: 'center' },
+  { x: 199, y: 340, text: 'integrated', align: 'center' },
+  { x: 988, y: 426, text: 'corrections', align: 'right' },
+];
+const groups = [
+  { x: 214, y: 22, w: 776, h: 248, label: 'strapdown algorithm' },
+  { x: 214, y: 284, w: 500, h: 134, label: 'how the errors grow' },
+];
+---
+
+<figure class="xp wide sm" data-xp="summap">
+  <div class="xp-head"><span class="label fig-title">The whole post on one page</span></div>
+  <div class="sm-scroll">
+    <div class="sm-canvas" role="group" aria-label="Summary map: sensors feed the strapdown algorithm that produces the navigation state; sensor errors grow through the same integrations; aiding sensors and sensor fusion bound them; the next parts of the series follow.">
+      <svg viewBox={`0 0 ${GW} ${GH}`} aria-hidden="true">
+        <defs>
+          <marker id="sm-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="sm-head" /></marker>
+          <marker id="sm-arrow-on" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="sm-head-on" /></marker>
+        </defs>
+        {groups.map((g) => <rect x={g.x} y={g.y} width={g.w} height={g.h} rx="4" class="sm-group" />)}
+        {edges.map((e) => <path d={e.d} data-a={e.a} data-b={e.b} class:list={['sm-edge', { dash: e.dash }]} />)}
+      </svg>
+      {groups.map((g) => <div class="sm-glabel" style={pos(g.x + 8, g.y - 7)}>{g.label}</div>)}
+      <div class="sm-glabel" style={pos(28, 15)}>sensors</div>
+      {labels.map((l) => (
+        <div class:list={['sm-lbl', l.align]} style={pos(l.x, l.y)}>{parts(l.text).map((p) => (p.math ? <M t={p.t} /> : p.t))}</div>
+      ))}
+      {nodes.map((n) => (
+        <button type="button" class:list={['sm-box', { wide: n.id === 'frames', text: n.id === 'next' || n.id === 'aid' || n.id === 'fus' }]} data-n={n.id} style={pos(n.x, n.y, n.w, n.h)}>
+          {n.id === 'frames' ? (
+            <span class="sm-frames">frames: <M t="i" /> inertial · <M t="e" /> Earth-fixed (ECEF) · <M t="n" /> navigation (NED) · <M t="b" /> body</span>
+          ) : (
+            <>
+              <span class="sm-title">{n.title}</span>
+              {n.tex && <span class="sm-tex"><M t={n.tex} /></span>}
+              {n.sub && <span class="sm-sub">{n.sub}</span>}
+            </>
+          )}
+        </button>
+      ))}
+    </div>
+  </div>
+  <p class="xp-readout sm-why" aria-live="polite">
+    <span data-w="">Hover over or tap a block to follow its path through the post.</span>
+    {nodes.map((n) => (
+      <span data-w={n.id} hidden>{parts(n.why).map((p) => (p.math ? <M t={p.t} /> : p.t))}</span>
+    ))}
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<style>
+  .sm .sm-scroll { overflow-x: auto; }
+  .sm .sm-canvas { position: relative; width: 100%; min-width: 800px; aspect-ratio: 1000 / 560; container-type: inline-size; }
+  .sm svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .sm .sm-group { fill: none; stroke: var(--border); stroke-dasharray: 4 4; }
+  .sm .sm-glabel { position: absolute; font-size: 1.15cqw; color: var(--muted); background: var(--bg); padding: 0 0.4cqw; line-height: 1; white-space: nowrap; }
+  .sm .sm-edge { fill: none; stroke: var(--muted); stroke-width: 1.25; marker-end: url(#sm-arrow); transition: stroke 0.15s, opacity 0.15s; }
+  .sm .sm-edge.dash { stroke-dasharray: 4 3; }
+  .sm .sm-head { fill: var(--muted); }
+  .sm .sm-head-on { fill: var(--accent); }
+  .sm .sm-edge.on { stroke: var(--accent); stroke-width: 2; marker-end: url(#sm-arrow-on); }
+  .sm.sel .sm-edge:not(.on) { opacity: 0.25; }
+  .sm .sm-box {
+    position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.35cqw;
+    margin: 0; padding: 0 0.6cqw; border: 1px solid var(--border-strong); border-radius: 3px; background: var(--bg);
+    color: var(--fg); font: inherit; text-align: center; line-height: 1.2; cursor: pointer; overflow: hidden;
+    transition: border-color 0.15s, opacity 0.15s;
+  }
+  .sm .sm-box:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .sm .sm-box.on { border-color: var(--accent); }
+  .sm .sm-box.on .sm-title { color: var(--accent); }
+  .sm.sel .sm-box:not(.on) { opacity: 0.35; }
+  .sm .sm-title { font-size: 1.45cqw; white-space: nowrap; }
+  .sm .sm-tex { font-size: 1.2cqw; color: var(--fg-soft); white-space: nowrap; }
+  .sm .sm-sub { font-size: 1.1cqw; color: var(--muted); line-height: 1.3; }
+  .sm .sm-box.text .sm-sub { font-size: 1.15cqw; }
+  .sm .sm-box.wide { flex-direction: row; }
+  .sm .sm-frames { font-size: 1.25cqw; color: var(--fg-soft); white-space: nowrap; }
+  .sm .sm-lbl { position: absolute; font-size: 1.1cqw; color: var(--muted); white-space: nowrap; line-height: 1; transform: translateY(-50%); background: var(--bg); padding: 0 0.3cqw; }
+  .sm .sm-lbl.center { transform: translate(-50%, -50%); }
+  .sm .sm-lbl.right { transform: translate(-100%, -50%); }
+  .sm :global(.katex) { font-size: 1.1em; }
+  .sm .sm-why { min-height: 3.2em; font-family: var(--font-sans); font-size: 0.86rem; }
+  @media (prefers-reduced-motion: reduce) {
+    .sm .sm-edge, .sm .sm-box { transition: none; }
+  }
+</style>
+
+<script>
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="summap"]')) {
+    const boxes = [...fig.querySelectorAll<HTMLButtonElement>('[data-n]')];
+    const paths = [...fig.querySelectorAll<SVGPathElement>('path[data-a]')];
+    const whys = [...fig.querySelectorAll<HTMLElement>('[data-w]')];
+    const E = paths.map((p) => [p.dataset.a!, p.dataset.b!] as const);
+    const reach = (start: string, dir: 0 | 1) => {
+      const seen = new Set([start]), stack = [start];
+      while (stack.length) {
+        const u = stack.pop()!;
+        for (const e of E) if (e[dir] === u && !seen.has(e[1 - dir])) { seen.add(e[1 - dir]); stack.push(e[1 - dir]); }
+      }
+      return seen;
+    };
+    let pinned = '';
+    const show = (id: string) => {
+      fig.classList.toggle('sel', !!id);
+      const down = id ? reach(id, 0) : new Set<string>(), up = id ? reach(id, 1) : new Set<string>();
+      boxes.forEach((b) => b.classList.toggle('on', down.has(b.dataset.n!) || up.has(b.dataset.n!)));
+      paths.forEach((p, i) => {
+        const [a, b] = E[i];
+        p.classList.toggle('on', (down.has(a) && down.has(b)) || (up.has(a) && up.has(b)));
+      });
+      whys.forEach((w) => { w.hidden = w.dataset.w !== id; });
+    };
+    for (const b of boxes) {
+      const id = b.dataset.n!;
+      b.addEventListener('pointerenter', (ev) => { if (ev.pointerType === 'mouse') show(id); });
+      b.addEventListener('pointerleave', (ev) => { if (ev.pointerType === 'mouse') show(pinned); });
+      b.addEventListener('focus', () => show(id));
+      b.addEventListener('blur', () => show(pinned));
+      b.addEventListener('click', () => { pinned = pinned === id ? '' : id; b.setAttribute('aria-pressed', String(pinned === id)); boxes.forEach((x) => x !== b && x.setAttribute('aria-pressed', 'false')); show(pinned); });
+      b.setAttribute('aria-pressed', 'false');
+    }
+    show('');
+  }
+</script>

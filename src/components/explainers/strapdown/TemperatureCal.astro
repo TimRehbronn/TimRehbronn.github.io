@@ -1,0 +1,122 @@
+---
+import M from '../../blog/M.astro';
+// Temperature calibration of a gyro bias: chamber measurements while heating and cooling, a polynomial fit, and the residual after compensation.
+---
+
+<figure class="xp wide" data-xp="tcal">
+  <div class="xp-head"><span class="label fig-title">Temperature calibration of the bias</span></div>
+  <div class="xp-row two">
+    <canvas class="c-fit" role="img" aria-label="Gyro bias measured in a temperature chamber at many temperatures, while heating and while cooling, with a fitted polynomial"></canvas>
+    <canvas class="c-res" role="img" aria-label="The bias that remains after subtracting the fitted polynomial, against temperature"></canvas>
+  </div>
+  <ul class="xp-legend">
+    <li class="c-muted dash"><i></i><span>ideal sensor (no bias)</span></li>
+    <li class="c-fg"><i></i><span>chamber measurements: filled while heating, open while cooling</span></li>
+    <li class="c-accent"><i></i><span>fitted polynomial (left), residual after compensation (right)</span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Polynomial order <M t="n" /></span><output for="ord"></output></span><input type="range" name="ord" min="0" max="6" step="1" value="1" /></label>
+    <label class="xp-ctl"><span><span>Hysteresis <M t="h" /></span><output for="hy"></output></span><input type="range" name="hy" min="0" max="10" step="0.5" value="2" /></label>
+    <label class="xp-ctl"><span><span>Temperature in operation <M t={String.raw`T`} /></span><output for="top"></output></span><input type="range" name="top" min="-40" max="85" step="1" value="-10" /></label>
+  </div>
+  <p class="xp-readout" aria-live="polite">
+    <span>bias at <M t="T" /> without compensation: <b data-o="raw"></b></span>
+    <span>after compensation: <b class="hot" data-o="res"></b></span>
+    <span>RMS residual from <M t={String.raw`-40`} /> to <M t={String.raw`85\,^\circ\mathrm C`} />: <b class="hot" data-o="rms"></b></span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, label, slider, axes, series, rng, outputs, type Palette } from '../../../lib/explainer';
+
+  const T0 = -40, T1 = 85;
+  const u = (T: number) => (T - 22.5) / 62.5; // temperature mapped to [-1, 1] for a well-conditioned fit
+  // true bias of the gyro over temperature, in °/h
+  const truth = (T: number) => { const x = u(T); return 6 + 22 * x + 14 * x * x - 18 * x * x * x + 4 * Math.sin(4.2 * x); };
+  const TEMPS: number[] = []; for (let T = T0; T <= T1; T += 5) TEMPS.push(T);
+
+  /** Least-squares polynomial of order n through (x, y), returned as coefficients in powers of x. */
+  function polyfit(xs: number[], ys: number[], n: number) {
+    const m = n + 1, A = Array.from({ length: m }, () => new Array(m + 1).fill(0));
+    xs.forEach((x, k) => {
+      for (let i = 0; i < m; i++) { for (let j = 0; j < m; j++) A[i][j] += x ** (i + j); A[i][m] += ys[k] * x ** i; }
+    });
+    for (let c = 0; c < m; c++) { // Gaussian elimination with partial pivoting
+      let p = c; for (let r = c + 1; r < m; r++) if (Math.abs(A[r][c]) > Math.abs(A[p][c])) p = r;
+      [A[c], A[p]] = [A[p], A[c]];
+      for (let r = 0; r < m; r++) { if (r === c) continue; const f = A[r][c] / A[c][c]; for (let j = c; j <= m; j++) A[r][j] -= f * A[c][j]; }
+    }
+    return A.map((row, i) => row[m] / A[i][i]);
+  }
+  const peval = (c: number[], x: number) => c.reduce((s, a, i) => s + a * x ** i, 0);
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="tcal"]')) {
+    const out = outputs(fig);
+    let ord = 1, hy = 2, top = -10;
+    const r = rng(21), nU = TEMPS.map(() => r.gauss()), nD = TEMPS.map(() => r.gauss());
+    const NOISE = 0.6;
+    const Pf = setupCanvas(fig.querySelector<HTMLCanvasElement>('.c-fit')!, 0.72, draw);
+    const Pr = setupCanvas(fig.querySelector<HTMLCanvasElement>('.c-res')!, 0.72, draw);
+
+    function draw() {
+      const P = palette();
+      // heating reads low, cooling reads high (the sensor lags behind the chamber)
+      const up = TEMPS.map((T, i) => truth(T) - hy / 2 + NOISE * nU[i]);
+      const dn = TEMPS.map((T, i) => truth(T) + hy / 2 + NOISE * nD[i]);
+      const xs = [...TEMPS, ...TEMPS].map(u), ys = [...up, ...dn];
+      const c = polyfit(xs, ys, ord);
+      const fit = (T: number) => peval(c, u(T));
+      const grid = Array.from({ length: 126 }, (_, i) => T0 + i);
+      const dots = (ctx: CanvasRenderingContext2D, A: { sx: (v: number) => number; sy: (v: number) => number }, vals: number[], filled: boolean, col: string) => {
+        ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1.2;
+        TEMPS.forEach((T, i) => { ctx.beginPath(); ctx.arc(A.sx(T), A.sy(vals[i]), 2.6, 0, 2 * Math.PI); filled ? ctx.fill() : ctx.stroke(); });
+      };
+      const marker = (ctx: CanvasRenderingContext2D, P: Palette, b: { x: number; y: number; w: number; h: number }, x: number) => {
+        ctx.strokeStyle = P.soft; ctx.lineWidth = 1; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(x + 0.5, b.y); ctx.lineTo(x + 0.5, b.y + b.h); ctx.stroke(); ctx.setLineDash([]);
+      };
+      const dashedZero = (ctx: CanvasRenderingContext2D, b: { x: number; y: number; w: number; h: number }, y: number) => {
+        ctx.setLineDash([5, 4]); ctx.strokeStyle = P.muted; ctx.lineWidth = 1.25; ctx.beginPath(); ctx.moveTo(b.x, y); ctx.lineTo(b.x + b.w, y); ctx.stroke(); ctx.setLineDash([]);
+      };
+      { // measurements and fit
+        const { ctx, size } = Pf, W = size.w, H = size.h;
+        if (!W) return;
+        ctx.clearRect(0, 0, W, H);
+        const b = { x: 40, y: 22, w: W - 50, h: H - 56 };
+        label(ctx, 'Measured bias and fit', b.x, 8, P.fg, { size: 11 });
+        const A = axes(ctx, P, b, [T0, T1], [-15, 35], { xlabel: 'temperature $T$ [°C]', ylabel: 'bias $b_g$ [°/h]', xfmt: (v) => `${v}`, yfmt: (v) => v.toFixed(0), xticks: 6 });
+        dashedZero(ctx, b, A.sy(0));
+        dots(ctx, A, up, true, P.fg); dots(ctx, A, dn, false, P.fg);
+        series(ctx, b, grid, grid.map(fit), A.sx, A.sy, P.accent, 2);
+        marker(ctx, P, b, A.sx(top));
+        ctx.fillStyle = P.accent; ctx.beginPath(); ctx.arc(A.sx(top), A.sy(fit(top)), 3.5, 0, 2 * Math.PI); ctx.fill();
+        label(ctx, `$n$ = ${ord}`, b.x + b.w - 8, b.y + 12, P.accent, { size: 11, align: 'right' });
+      }
+      { // residual after compensation
+        const { ctx, size } = Pr, W = size.w, H = size.h;
+        if (!W) return;
+        ctx.clearRect(0, 0, W, H);
+        const res = grid.map((T) => truth(T) - fit(T));
+        const lim = Math.max(4, ...res.map(Math.abs), hy / 2 + 2 * NOISE) * 1.2;
+        const b = { x: 40, y: 22, w: W - 50, h: H - 56 };
+        label(ctx, 'Residual after compensation', b.x, 8, P.fg, { size: 11 });
+        const A = axes(ctx, P, b, [T0, T1], [-lim, lim], { xlabel: 'temperature $T$ [°C]', ylabel: 'bias $-$ fit [°/h]', xfmt: (v) => `${v}`, yfmt: (v) => v.toFixed(lim < 8 ? 1 : 0), xticks: 6 });
+        dashedZero(ctx, b, A.sy(0));
+        dots(ctx, A, up.map((y, i) => y - fit(TEMPS[i])), true, P.fg);
+        dots(ctx, A, dn.map((y, i) => y - fit(TEMPS[i])), false, P.fg);
+        series(ctx, b, grid, res, A.sx, A.sy, P.accent, 2);
+        marker(ctx, P, b, A.sx(top));
+        const rTop = truth(top) - fit(top);
+        ctx.fillStyle = P.accent; ctx.beginPath(); ctx.arc(A.sx(top), A.sy(rTop), 3.5, 0, 2 * Math.PI); ctx.fill();
+        // RMS over the whole range, measured against the readings (includes hysteresis and noise)
+        const rms = Math.sqrt(ys.reduce((s, y, i) => s + (y - peval(c, xs[i])) ** 2, 0) / ys.length);
+        out('raw', `${truth(top).toFixed(1)} °/h`);
+        out('res', `${rTop.toFixed(1)} °/h, plus or minus ${(hy / 2).toFixed(1)} °/h hysteresis`);
+        out('rms', `${rms.toFixed(1)} °/h`);
+      }
+    }
+    slider(fig, 'ord', (v) => `${v}`, (v) => { ord = v; draw(); });
+    slider(fig, 'hy', (v) => `${v.toFixed(1)} °/h`, (v) => { hy = v; draw(); });
+    slider(fig, 'top', (v) => `${v} °C`, (v) => { top = v; draw(); });
+  }
+</script>

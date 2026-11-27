@@ -1,0 +1,176 @@
+---
+import M from '../../blog/M.astro';
+// Flat-Earth error chain: gyro bias -> tilt -> false acceleration -> velocity -> position, and the accelerometer branch.
+// Every integration raises the power of t by one; a shared time cursor runs through all mini-plots.
+---
+
+<figure class="xp wide" data-xp="echain">
+  <div class="xp-head"><span class="label fig-title">Each integration adds a power of t</span></div>
+  <canvas role="img" aria-label="Two chains of small plots. Top: gyro bias, tilt error growing linearly, false acceleration, velocity error growing with t squared, position error growing with t cubed. Bottom: accelerometer bias, velocity error growing linearly, position error growing with t squared."></canvas>
+  <ul class="xp-legend">
+    <li class="c-fg"><i></i><span>error over time (scale shared per column)</span></li>
+    <li class="c-accent"><i></i><span>time cursor <M t={String.raw`t`} /></span></li>
+    <li class="c-muted"><i></i><span>hollow dot: value at <M t={String.raw`t/2`} /></span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Gyro bias <M t={String.raw`\varepsilon`} /></span><output for="eps"></output></span><input type="range" name="eps" min="0" max="3" step="0.05" value="1" /></label>
+    <label class="xp-ctl"><span><span>Accelerometer bias <M t={String.raw`b`} /></span><output for="ab"></output></span><input type="range" name="ab" min="0" max="3" step="0.05" value="1" /></label>
+    <label class="xp-ctl"><span><span>Time <M t={String.raw`t`} /></span><output for="tc"></output></span><input type="range" name="tc" min="0" max="1000" step="1" value="1000" /></label>
+  </div>
+  <div class="xp-btns">
+    <button class="btn btn-primary" type="button" data-act="play">Play</button>
+    <button class="btn" type="button" data-span="0" aria-pressed="false">1 min</button>
+    <button class="btn" type="button" data-span="1" aria-pressed="true">10 min</button>
+    <button class="btn" type="button" data-span="2" aria-pressed="false">1 h</button>
+  </div>
+  <p class="xp-readout" aria-live="polite">
+    <span>gyro part <M t={String.raw`\tfrac16 g\varepsilon t^3`} /> = <b data-o="xg"></b></span>
+    <span>accelerometer part <M t={String.raw`\tfrac12 b t^2`} /> = <b data-o="xa"></b></span>
+    <span><M t={String.raw`\delta x`} /> = <b class="hot" data-o="x"></b></span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, animate, label, slider, arrow, fmtLen, reducedMotion, outputs } from '../../../lib/explainer';
+
+  const G = 9.80665, D2R = Math.PI / 180;
+  const SPANS = [60, 600, 3600];
+  const fmtT = (s: number) => (s < 120 ? `${s.toFixed(0)} s` : `${(s / 60).toFixed(1)} min`);
+
+  type Cell = { row: 0 | 1; col: number; title: string; pow: number; val: (t: number) => number; fmt: (v: number) => string };
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="echain"]')) {
+    const canvas = fig.querySelector('canvas')!;
+    const out = outputs(fig);
+    const playBtn = fig.querySelector<HTMLButtonElement>('[data-act="play"]')!;
+    let eps = 1, ab = 1, span = 1, tc = 0, running = !reducedMotion();
+    const tc0 = reducedMotion() ? 0.8 : 0;
+
+    const e = () => (eps * D2R) / 3600; // rad/s
+    const b = () => ab * 1e-3 * G;      // m/s²
+    const fAcc = (v: number) => `${((v / G) * 1000).toFixed(2)} mg`;
+    const fVel = (v: number) => `${v.toFixed(v >= 10 ? 0 : 2)} m/s`;
+    const cells: Cell[] = [
+      { row: 0, col: 0, title: 'gyro bias $\\varepsilon$', pow: 0, val: () => e(), fmt: (v) => `${(v / D2R * 3600).toFixed(2)} °/h` },
+      { row: 0, col: 1, title: 'tilt $\\delta\\theta = \\varepsilon t$', pow: 1, val: (t) => e() * t, fmt: (v) => `${(v / D2R).toFixed(3)}°` },
+      { row: 0, col: 2, title: 'false accel. $g\\,\\delta\\theta$', pow: 1, val: (t) => G * e() * t, fmt: fAcc },
+      { row: 0, col: 3, title: 'velocity $\\delta v = g\\varepsilon t^2/2$', pow: 2, val: (t) => (G * e() * t * t) / 2, fmt: fVel },
+      { row: 0, col: 4, title: 'position $\\delta x = g\\varepsilon t^3/6$', pow: 3, val: (t) => (G * e() * t ** 3) / 6, fmt: fmtLen },
+      { row: 1, col: 2, title: 'accel. bias $b$', pow: 0, val: () => b(), fmt: fAcc },
+      { row: 1, col: 3, title: 'velocity $\\delta v = b\\,t$', pow: 1, val: (t) => b() * t, fmt: fVel },
+      { row: 1, col: 4, title: 'position $\\delta x = b\\,t^2/2$', pow: 2, val: (t) => (b() * t * t) / 2, fmt: fmtLen },
+    ];
+    // links: [from cell, to cell, kind]
+    const links: [number, number, 'int' | 'g'][] = [[0, 1, 'int'], [1, 2, 'g'], [2, 3, 'int'], [3, 4, 'int'], [5, 6, 'int'], [6, 7, 'int']];
+    const HEADS = ['rate', 'angle', 'acceleration', 'velocity', 'position'];
+
+    const narrowW = 640;
+    const { ctx, size } = setupCanvas(canvas, (w) => (w < narrowW ? 5 * 102 + 4 * 26 + 4 : 20 + 2 * 120 + 26 + 4), draw);
+
+    function draw() {
+      const P = palette(), W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const narrow = W < narrowW;
+      const T = SPANS[span], t = tc * T;
+
+      // cell geometry: title strip + plot box
+      const TH = 16, FH = 16;
+      let place: (c: Cell) => { x: number; y: number; w: number; h: number };
+      if (!narrow) {
+        const gap = 52, cw = (W - 8 - 4 * gap) / 5, ph = 88, top = 20;
+        place = (c) => ({ x: 4 + c.col * (cw + gap), y: top + c.row * (TH + ph + FH + 26) + TH, w: cw, h: ph });
+        HEADS.forEach((h, i) => label(ctx, h, 4 + i * (cw + gap) + cw / 2, 7, P.muted, { size: 10, align: 'center' }));
+      } else {
+        const gap = 26, cw = (W - 4 - gap) / 2, ph = 70, vg = 26;
+        place = (c) => ({ x: 2 + c.row * (cw + gap), y: c.col * (TH + ph + FH + vg) + TH, w: cw, h: ph });
+      }
+
+      // shared scale per column (same physical quantity in both rows)
+      const colMax = new Map<number, number>();
+      for (const c of cells) colMax.set(c.col, Math.max(colMax.get(c.col) ?? 0, Math.abs(c.val(T))));
+
+      // links between cells
+      for (const [a, z, kind] of links) {
+        const A = place(cells[a]), Z = place(cells[z]);
+        const col = kind === 'int' ? P.accent : P.soft;
+        const txt = kind === 'int' ? 'integrate' : '$\\times g$';
+        if (!narrow) {
+          const y = A.y + A.h / 2;
+          arrow(ctx, A.x + A.w + 6, y, Z.x - 6, y, P.soft, 1.5, 7);
+          label(ctx, txt, (A.x + A.w + Z.x) / 2, y - 11, col, { size: 10, align: 'center' });
+        } else {
+          const x = A.x + A.w / 2;
+          arrow(ctx, x, A.y + A.h + FH + 2, x, Z.y - TH - 2, P.soft, 1.5, 7);
+          label(ctx, txt, x + 8, (A.y + A.h + FH + Z.y - TH) / 2, col, { size: 10 });
+        }
+      }
+
+      // the accelerometer branch starts later: explain the empty space
+      {
+        const a = place({ ...cells[5], col: 0 }), z = place({ ...cells[5], col: 1 });
+        const cx = narrow ? a.x + a.w / 2 : (a.x + z.x + z.w) / 2, cy = narrow ? (a.y + z.y + z.h) / 2 - TH / 2 : a.y + a.h / 2 - 8;
+        const lines = narrow
+          ? ['$b$ is already an', 'acceleration: it', 'skips the first', 'integration']
+          : ['the accelerometer bias $b$ is already an acceleration:', 'it enters one step later and skips the first integration'];
+        lines.forEach((s, i) => label(ctx, s, cx, cy + (i - (lines.length - 1) / 2) * 16, P.muted, { size: 11, align: 'center' }));
+      }
+      // sum of the two position contributions
+      {
+        const A = place(cells[4]), Z = place(cells[7]);
+        if (!narrow) label(ctx, '$+$', A.x + A.w / 2, (A.y + A.h + FH + Z.y - TH) / 2, P.fg, { size: 16, align: 'center' });
+        else label(ctx, '$+$', (A.x + A.w + Z.x) / 2, A.y + A.h / 2, P.fg, { size: 16, align: 'center' });
+      }
+
+      for (const c of cells) {
+        const bx = place(c), m = colMax.get(c.col) || 1;
+        label(ctx, c.title, bx.x, bx.y - TH / 2 - 1, P.fg, { size: 11 });
+        ctx.strokeStyle = P.strong; ctx.lineWidth = 1; ctx.strokeRect(bx.x + 0.5, bx.y + 0.5, bx.w - 1, bx.h - 1);
+        const pad = 6;
+        const X = (s: number) => bx.x + pad + (s / T) * (bx.w - 2 * pad);
+        const Y = (v: number) => bx.y + bx.h - pad - (Math.abs(v) / m) * (bx.h - 2 * pad - 16);
+        // curve
+        ctx.strokeStyle = P.fg; ctx.lineWidth = 1.75; ctx.beginPath();
+        for (let i = 0; i <= 80; i++) { const s = (i / 80) * T; i ? ctx.lineTo(X(s), Y(c.val(s))) : ctx.moveTo(X(s), Y(c.val(s))); }
+        ctx.stroke();
+        // cursor and half-time marker
+        const xc = X(t);
+        ctx.strokeStyle = P.accent; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(Math.round(xc) + 0.5, bx.y + 1); ctx.lineTo(Math.round(xc) + 0.5, bx.y + bx.h - 1); ctx.stroke();
+        if (c.pow > 0 && tc > 0.08) {
+          ctx.strokeStyle = P.muted; ctx.lineWidth = 1.25; ctx.beginPath(); ctx.arc(X(t / 2), Y(c.val(t / 2)), 3.5, 0, 2 * Math.PI); ctx.stroke();
+        }
+        ctx.fillStyle = P.accent; ctx.beginPath(); ctx.arc(xc, Y(c.val(t)), 4, 0, 2 * Math.PI); ctx.fill();
+        // value at the cursor, power of t, doubling factor
+        label(ctx, `= ${c.fmt(c.val(t))}`, bx.x + 6, bx.y + 11, P.soft, { size: 10 });
+        const badge = c.pow === 0 ? 'constant' : c.pow === 1 ? '$\\propto t$' : `$\\propto t^${c.pow}$`;
+        label(ctx, badge, bx.x + 1, bx.y + bx.h + FH / 2 + 2, P.accent, { size: 11 });
+        if (c.pow > 0) label(ctx, `double $t$: $\\times ${2 ** c.pow}$`, bx.x + bx.w - 1, bx.y + bx.h + FH / 2 + 2, P.muted, { size: 10, align: 'right' });
+      }
+
+      const xg = cells[4].val(t), xa = cells[7].val(t);
+      out('xg', fmtLen(xg)); out('xa', fmtLen(xa)); out('x', fmtLen(xg + xa));
+    }
+
+    const tS = slider(fig, 'tc', (v) => fmtT((v / 1000) * SPANS[span]), (v) => { tc = v / 1000; draw(); });
+    slider(fig, 'eps', (v) => `${v.toFixed(2)} °/h`, (v) => { eps = v; draw(); });
+    slider(fig, 'ab', (v) => `${v.toFixed(2)} mg`, (v) => { ab = v; draw(); });
+    tS.set(tc0 * 1000);
+
+    const anim = animate(fig, (dt) => {
+      tc = Math.min(1, tc + dt / 7);
+      if (tc >= 1) { running = false; playBtn.textContent = 'Play'; }
+      tS.set(tc * 1000);
+    }, () => running);
+    const setRun = (r: boolean) => { running = r; playBtn.textContent = r ? 'Pause' : 'Play'; anim.kick(); };
+    playBtn.addEventListener('click', () => { if (tc >= 1) tc = 0; setRun(!running); });
+    tS.input.addEventListener('input', () => setRun(false));
+    const sb = fig.querySelectorAll<HTMLButtonElement>('[data-span]');
+    sb.forEach((btn) => btn.addEventListener('click', () => {
+      span = Number(btn.dataset.span);
+      sb.forEach((x) => x.setAttribute('aria-pressed', String(x === btn)));
+      tS.set(tc * 1000);
+    }));
+    setRun(running);
+  }
+</script>

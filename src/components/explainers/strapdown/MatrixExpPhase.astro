@@ -1,0 +1,203 @@
+---
+import M from '../../blog/M.astro';
+// What exp(At) does: trajectories x(t) = exp(At) x0 of the linear system x' = A x in the plane, for a rotation,
+// a stretch and a damped rotation, with the scalar analogue e^{at} alongside.
+---
+
+<figure class="xp wide" data-xp="mexpph">
+  <div class="xp-head"><span class="label fig-title">What the matrix exponential does</span><span class="label" style="color:var(--muted)">drag the start point</span></div>
+  <div class="xp-row two">
+    <canvas class="c-ph drag" role="img" aria-label="Phase plane with the velocity field A x, the trajectory of a start point under exp(A t) and the image of the unit circle"></canvas>
+    <div class="mp-side">
+      <div class="mp-eq">
+        <div class="mp-blk"><span class="mp-cap"><M t={String.raw`\mathbf A`} /></span><table class="mp-m"><tbody data-o-a></tbody></table></div>
+        <div class="mp-blk hot"><span class="mp-cap"><M t={String.raw`\exp(\mathbf A t)`} /></span><table class="mp-m"><tbody data-o-e></tbody></table></div>
+      </div>
+      <p class="small muted mp-note" data-note="rot">Skew-symmetric, <M t={String.raw`\mathbf A^\mathsf T = -\mathbf A`} />: the velocity <M t={String.raw`\mathbf A\mathbf x`} /> is always perpendicular to <M t={String.raw`\mathbf x`} />, so lengths never change. <M t={String.raw`\exp(\mathbf A t)`} /> is the rotation by the angle <M t="t" />.</p>
+      <p class="small muted mp-note" data-note="diag" hidden>Diagonal: each coordinate grows or shrinks on its own, like the scalar <M t={String.raw`e^{at}`} />, and <M t={String.raw`\exp(\mathbf A t) = \operatorname{diag}(e^{0.3t}, e^{-0.6t})`} />. Circles become ellipses: not a rotation.</p>
+      <p class="small muted mp-note" data-note="spiral" hidden>The skew-symmetric matrix from the first preset plus the damping <M t={String.raw`-0.25\,\mathbf I`} />: points turn and shrink at the same time, and <M t={String.raw`\exp(\mathbf A t) = e^{-0.25t}`} /> times the rotation by <M t="t" />.</p>
+      <canvas class="c-sc" role="img" aria-label="Length of x(t) over time, compared with the scalar exponentials e to the a t"></canvas>
+    </div>
+  </div>
+  <ul class="xp-legend">
+    <li class="c-accent"><i></i><span>trajectory <M t={String.raw`\mathbf x(t) = \exp(\mathbf A t)\,\mathbf x_0`} /></span></li>
+    <li class="c-fg dash"><i></i><span>image of the unit circle under <M t={String.raw`\exp(\mathbf A t)`} /></span></li>
+    <li class="c-muted"><i></i><span>velocity field <M t={String.raw`\dot{\mathbf x} = \mathbf A\mathbf x`} /></span></li>
+  </ul>
+  <div class="xp-btns">
+    <button class="btn" type="button" data-pre="rot" aria-pressed="true">rotation (skew-symmetric)</button>
+    <button class="btn" type="button" data-pre="diag" aria-pressed="false">stretch (diagonal)</button>
+    <button class="btn" type="button" data-pre="spiral" aria-pressed="false">rotation with damping</button>
+    <button class="btn" type="button" data-act="play">play</button>
+  </div>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Time <M t="t" /></span><output for="t"></output></span><input type="range" name="t" min="0" max="6.28" step="0.01" value="4" /></label>
+  </div>
+  <p class="xp-readout" aria-live="polite">
+    <span><M t={String.raw`\lVert\mathbf x_0\rVert`} /> = <b data-o="n0"></b></span>
+    <span><M t={String.raw`\lVert\mathbf x(t)\rVert`} /> = <b class="hot" data-o="nt"></b></span>
+    <span><M t={String.raw`\det\exp(\mathbf A t)`} /> = <b data-o="det"></b></span>
+    <span><M t={String.raw`\lVert\exp(\mathbf A t)^\mathsf T\exp(\mathbf A t) - \mathbf I\rVert`} /> = <b class="hot" data-o="orth"></b></span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<style>
+  .mp-side { min-width: 0; overflow-x: auto; }
+  .mp-eq { display: flex; align-items: center; gap: 1.6rem; margin: 0.2rem 0 0.6rem; flex-wrap: wrap; }
+  .mp-blk { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; }
+  .mp-cap { font-size: 0.85rem; color: var(--fg-soft); }
+  .mp-blk.hot .mp-cap { color: var(--accent); }
+  .mp-m { border-collapse: collapse; margin: 0; font-variant-numeric: tabular-nums; font-size: 0.85rem; }
+  .mp-m tr, .mp-m tbody { border: 0; }
+  .mp-m td { border: 0; padding: 0.1rem 0.5rem; text-align: right; color: var(--fg); min-width: 3.2rem; }
+  .mp-blk.hot .mp-m td { color: var(--accent); }
+  .mp-m tr td:first-child { border-left: 1px solid var(--border-strong); }
+  .mp-m tr td:last-child { border-right: 1px solid var(--border-strong); }
+  .mp-note { text-align: left; margin: 0 0 0.6rem; min-height: 3em; }
+</style>
+
+<script>
+  import { palette, setupCanvas, animate, label, slider, arrow, outputs, reducedMotion, axes, series } from '../../../lib/explainer';
+
+  type M2 = [number, number, number, number];
+  const PRESETS: Record<string, M2> = { rot: [0, -1, 1, 0], diag: [0.3, 0, 0, -0.6], spiral: [-0.25, -1, 1, -0.25] };
+
+  /** exp(A t) for a 2x2 matrix in closed form: A = s I + B with B traceless, B^2 = d I. */
+  function expm(A: M2, t: number): M2 {
+    const s = (A[0] + A[3]) / 2, B: M2 = [A[0] - s, A[1], A[2], A[3] - s];
+    const d = B[0] * B[0] + B[1] * B[2];
+    let c: number, f: number;
+    if (Math.abs(d) < 1e-12) { c = 1; f = t; }
+    else if (d > 0) { const r = Math.sqrt(d); c = Math.cosh(r * t); f = Math.sinh(r * t) / r; }
+    else { const r = Math.sqrt(-d); c = Math.cos(r * t); f = Math.sin(r * t) / r; }
+    const e = Math.exp(s * t);
+    return [e * (c + f * B[0]), e * f * B[1], e * f * B[2], e * (c + f * B[3])];
+  }
+  const ap = (E: M2, x: number[]) => [E[0] * x[0] + E[1] * x[1], E[2] * x[0] + E[3] * x[1]];
+  /** real parts of the eigenvalues of A */
+  function reEig(A: M2) {
+    const s = (A[0] + A[3]) / 2, d = ((A[0] - A[3]) / 2) ** 2 + A[1] * A[2];
+    return d >= 0 ? [...new Set([s + Math.sqrt(d), s - Math.sqrt(d)].map((v) => +v.toFixed(6)))] : [s];
+  }
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="mexpph"]')) {
+    const cph = fig.querySelector<HTMLCanvasElement>('.c-ph')!, csc = fig.querySelector<HTMLCanvasElement>('.c-sc')!;
+    const out = outputs(fig);
+    const tA = fig.querySelector<HTMLElement>('[data-o-a]')!, tE = fig.querySelector<HTMLElement>('[data-o-e]')!;
+    const notes = fig.querySelectorAll<HTMLElement>('[data-note]');
+    const playBtn = fig.querySelector<HTMLButtonElement>('[data-act="play"]')!;
+    const TMAX = 6.28;
+    let pre = 'rot', t = 4, x0 = [1.2, 0.5], playing = false, view = { S: 1, cx: 0, cy: 0 };
+    const A = () => PRESETS[pre];
+
+    const PH = setupCanvas(cph, 1, () => drawPhase());
+    const SC = setupCanvas(csc, 0.5, () => drawScalar());
+
+    function drawPhase() {
+      const P = palette(), { ctx, size } = PH, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const L = 2.2, S = Math.min(W, H) / (2 * L), cx = W / 2, cy = H / 2;
+      view = { S, cx, cy };
+      const X = (p: number[]) => cx + p[0] * S, Y = (p: number[]) => cy - p[1] * S;
+      ctx.strokeStyle = P.border; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, cy + 0.5); ctx.lineTo(W, cy + 0.5); ctx.moveTo(cx + 0.5, 0); ctx.lineTo(cx + 0.5, H); ctx.stroke();
+      label(ctx, '$x_1$', W - 8, cy - 10, P.muted, { size: 12, align: 'right' });
+      label(ctx, '$x_2$', cx + 8, 12, P.muted, { size: 12 });
+      // velocity field
+      const Am = A();
+      for (let i = -4; i <= 4; i++) for (let j = -4; j <= 4; j++) {
+        const p = [i * 0.5, j * 0.5];
+        if (!i && !j) continue;
+        const v = ap(Am, p), sc = 0.16;
+        arrow(ctx, X(p), Y(p), X([p[0] + v[0] * sc, p[1] + v[1] * sc]), Y([p[0] + v[0] * sc, p[1] + v[1] * sc]), P.strong, 1, 5);
+      }
+      // unit circle and its image
+      const E = expm(Am, t);
+      ctx.strokeStyle = P.soft; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx, cy, S, 0, Math.PI * 2); ctx.stroke();
+      ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.clip();
+      ctx.strokeStyle = P.fg; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]); ctx.beginPath();
+      for (let k = 0; k <= 96; k++) { const a = (k / 96) * 2 * Math.PI, q = ap(E, [Math.cos(a), Math.sin(a)]); k ? ctx.lineTo(X(q), Y(q)) : ctx.moveTo(X(q), Y(q)); }
+      ctx.stroke(); ctx.setLineDash([]);
+      // marker that rides along: image of (1, 0)
+      const m = ap(E, [1, 0]);
+      ctx.fillStyle = P.fg; ctx.beginPath(); ctx.arc(X(m), Y(m), 3, 0, Math.PI * 2); ctx.fill();
+      // trajectory of x0
+      ctx.strokeStyle = P.accent; ctx.lineWidth = 2.25; ctx.beginPath();
+      const n = Math.max(2, Math.ceil(t * 40));
+      for (let k = 0; k <= n; k++) { const q = ap(expm(Am, (k / n) * t), x0); k ? ctx.lineTo(X(q), Y(q)) : ctx.moveTo(X(q), Y(q)); }
+      ctx.stroke(); ctx.restore();
+      arrow(ctx, cx, cy, X(x0), Y(x0), P.fg, 2, 9);
+      label(ctx, '$\\mathbf{x}_0$', X(x0) + 8, Y(x0) - 10, P.fg, { size: 14 });
+      const xt = ap(E, x0);
+      arrow(ctx, cx, cy, X(xt), Y(xt), P.accent, 2.5, 10);
+      if (Math.abs(xt[0]) < 2.15 && Math.abs(xt[1]) < 2.15) label(ctx, '$\\mathbf{x}(t)$', X(xt) + 8, Y(xt) + 12, P.accent, { size: 14 });
+      ctx.fillStyle = P.fg; ctx.beginPath(); ctx.arc(X(x0), Y(x0), 5, 0, Math.PI * 2); ctx.fill();
+    }
+
+    function drawScalar() {
+      const P = palette(), { ctx, size } = SC, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const box = { x: 40, y: 24, w: W - 52, h: H - 58 };
+      const { sx, sy } = axes(ctx, P, box, [0, TMAX], [0, 3], { xlabel: 'time $t$', xticks: 6, yticks: 3 });
+      label(ctx, 'length $|\\mathbf{x}(t)| / |\\mathbf{x}_0|$ and the scalar $e^{at}$', box.x, 10, P.soft, { size: 11 });
+      const Am = A(), n0 = Math.hypot(x0[0], x0[1]) || 1;
+      const ts: number[] = [], ls: number[] = [];
+      for (let k = 0; k <= 200; k++) { const s = (k / 200) * TMAX; ts.push(s); const q = ap(expm(Am, s), x0); ls.push(Math.hypot(q[0], q[1]) / n0); }
+      reEig(Am).forEach((a, i) => {
+        series(ctx, box, ts, ts.map((s) => Math.exp(a * s)), sx, sy, P.muted, 1.5, [5, 4]);
+        const s1 = Math.min(TMAX, a > 0 ? Math.log(2.8) / a : TMAX);
+        label(ctx, `$e^{${a === 0 ? '0' : a.toFixed(2)}t}$`, sx(s1) - 4, sy(Math.exp(a * s1)) + (i ? 12 : -12), P.muted, { size: 11, align: 'right' });
+      });
+      const upTo = Math.floor((t / TMAX) * 200) + 1;
+      series(ctx, box, ts, ls, sx, sy, P.accent, 2.25, [], upTo);
+      const x = sx(t);
+      ctx.strokeStyle = P.strong; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, box.y); ctx.lineTo(Math.round(x) + 0.5, box.y + box.h); ctx.stroke();
+    }
+
+    const f = (v: number) => (Math.abs(v) < 5e-3 ? '0' : v.toFixed(2));
+    function draw() {
+      drawPhase(); drawScalar();
+      const Am = A(), E = expm(Am, t), xt = ap(E, x0);
+      tA.innerHTML = `<tr><td>${f(Am[0])}</td><td>${f(Am[1])}</td></tr><tr><td>${f(Am[2])}</td><td>${f(Am[3])}</td></tr>`;
+      tE.innerHTML = `<tr><td>${f(E[0])}</td><td>${f(E[1])}</td></tr><tr><td>${f(E[2])}</td><td>${f(E[3])}</td></tr>`;
+      notes.forEach((n) => (n.hidden = n.dataset.note !== pre));
+      const G = [E[0] * E[0] + E[2] * E[2] - 1, E[0] * E[1] + E[2] * E[3], E[0] * E[1] + E[2] * E[3], E[1] * E[1] + E[3] * E[3] - 1];
+      const orth = Math.hypot(...G);
+      out('n0', Math.hypot(x0[0], x0[1]).toFixed(3));
+      out('nt', Math.hypot(xt[0], xt[1]).toFixed(3));
+      out('det', (E[0] * E[3] - E[1] * E[2]).toFixed(3));
+      out('orth', orth < 5e-4 ? '0 (a rotation)' : `${orth.toFixed(3)} (not a rotation)`);
+    }
+
+    const ts = slider(fig, 't', (v) => v.toFixed(2), (v) => { t = v; draw(); });
+    const pb = fig.querySelectorAll<HTMLButtonElement>('[data-pre]');
+    pb.forEach((b) => b.addEventListener('click', () => { pre = b.dataset.pre!; pb.forEach((x) => x.setAttribute('aria-pressed', String(x === b))); draw(); }));
+
+    const setPlaying = (p: boolean) => { playing = p; playBtn.textContent = p ? 'pause' : 'play'; playBtn.setAttribute('aria-pressed', String(p)); if (p) anim.kick(); };
+    const anim = animate(fig, (d) => {
+      let v = t + d * 1.2;
+      if (v >= TMAX) { v = TMAX; setPlaying(false); }
+      ts.set(+v.toFixed(2));
+    }, () => playing && !reducedMotion());
+    playBtn.addEventListener('click', () => {
+      if (reducedMotion()) { ts.set(TMAX); return; }
+      if (!playing && t >= TMAX - 0.01) ts.set(0);
+      setPlaying(!playing);
+    });
+
+    // drag the start point
+    let dragging = false;
+    const setX0 = (e: PointerEvent) => {
+      const r = cph.getBoundingClientRect();
+      const px = (e.clientX - r.left - view.cx) / view.S, py = -(e.clientY - r.top - view.cy) / view.S;
+      x0 = [Math.max(-2, Math.min(2, px)), Math.max(-2, Math.min(2, py))];
+      draw();
+    };
+    cph.addEventListener('pointerdown', (e) => { dragging = true; cph.setPointerCapture(e.pointerId); setX0(e); });
+    cph.addEventListener('pointermove', (e) => { if (dragging) setX0(e); });
+    cph.addEventListener('pointerup', () => (dragging = false));
+  }
+</script>

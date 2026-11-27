@@ -1,0 +1,218 @@
+---
+import M from '../../blog/M.astro';
+// One small tile per term of the inertial sensor error model: what the error does to the output, with its own size control.
+// All tiles use a gyro as the example; accelerometers behave the same with specific force as the input.
+---
+
+<figure class="xp wide" data-xp="egal">
+  <div class="xp-head"><span class="label fig-title">Each error source on its own</span></div>
+  <div class="eg-grid">
+    <div class="eg-tile" data-t="bias">
+      <div class="eg-name">Bias <M t={String.raw`b`} /></div>
+      <canvas role="img" aria-label="Gyro output at zero input over three switch-on cycles: each cycle starts at a different offset and wanders slowly"></canvas>
+      <p class="eg-txt">An offset at zero input. It is different after every switch-on (turn-on bias) and wanders slowly while the sensor runs (in-run variation).</p>
+      <label class="xp-ctl"><span><span>Turn-on spread</span><output for="eg-b0"></output></span><input type="range" name="eg-b0" min="0" max="0.6" step="0.01" value="0.35" /></label>
+      <label class="xp-ctl"><span><span>In-run variation</span><output for="eg-b1"></output></span><input type="range" name="eg-b1" min="0" max="0.3" step="0.01" value="0.12" /></label>
+    </div>
+    <div class="eg-tile" data-t="scale">
+      <div class="eg-name">Scale factor error <M t={String.raw`s`} /></div>
+      <canvas role="img" aria-label="Output against input: the output line is steeper than the ideal line, so the error grows with the input"></canvas>
+      <p class="eg-txt">The output line is too steep or too flat. The error is a fixed proportion of the input: zero at rest, large in fast turns.</p>
+      <label class="xp-ctl"><span><span>Error <M t={String.raw`s`} /> (exaggerated)</span><output for="eg-s"></output></span><input type="range" name="eg-s" min="-25" max="25" step="0.5" value="15" /></label>
+    </div>
+    <div class="eg-tile" data-t="mis">
+      <div class="eg-name">Misalignment <M t={String.raw`m_{yx}`} /></div>
+      <canvas role="img" aria-label="Output of the y gyro against a rotation about x: ideally zero, but a tilted sensor axis picks up a fraction of the rotation"></canvas>
+      <p class="eg-txt">The <M t="y" /> axis is tilted by <M t={String.raw`\gamma`} /> towards <M t="x" />, so the <M t="y" /> gyro sees the fraction <M t={String.raw`\sin\gamma`} /> of a rotation about <M t="x" />.</p>
+      <label class="xp-ctl"><span><span>Tilt <M t={String.raw`\gamma`} /> (exaggerated)</span><output for="eg-m"></output></span><input type="range" name="eg-m" min="0" max="15" step="0.5" value="8" /></label>
+    </div>
+    <div class="eg-tile" data-t="nl">
+      <div class="eg-name">Nonlinearity</div>
+      <canvas role="img" aria-label="Output against input: the output curve bends away from the ideal straight line towards the ends of the range"></canvas>
+      <p class="eg-txt">The slope itself depends on the input, so the output curve bends away from the straight line, mostly near the ends of the range.</p>
+      <label class="xp-ctl"><span><span>Size (% of range)</span><output for="eg-k"></output></span><input type="range" name="eg-k" min="0" max="30" step="0.5" value="20" /></label>
+    </div>
+    <div class="eg-tile" data-t="q">
+      <div class="eg-name">Quantization</div>
+      <canvas role="img" aria-label="Output against input, zoomed in: the output is a staircase around the ideal straight line"></canvas>
+      <p class="eg-txt">The output is a digital number, so it can only change in steps. Small inputs between two steps are lost (zoomed view).</p>
+      <label class="xp-ctl"><span><span>Step size</span><output for="eg-q"></output></span><input type="range" name="eg-q" min="0" max="4" step="0.1" value="2" /></label>
+    </div>
+    <div class="eg-tile" data-t="g">
+      <div class="eg-name">g-sensitivity <M t={String.raw`\mathbf G_g`} /></div>
+      <canvas role="img" aria-label="Output of a gyro at rest against the specific force: ideally zero, but it grows in proportion to the specific force"></canvas>
+      <p class="eg-txt">A gyro at rest whose output changes with the specific force <M t="f" /> along it, for example when it is turned over in gravity or shaken.</p>
+      <label class="xp-ctl"><span><span>Sensitivity</span><output for="eg-g"></output></span><input type="range" name="eg-g" min="0" max="0.4" step="0.01" value="0.25" /></label>
+    </div>
+    <div class="eg-tile" data-t="noise">
+      <div class="eg-name">Noise <M t={String.raw`\mathbf w`} /></div>
+      <canvas role="img" aria-label="Gyro output at zero input over one second: random scatter around zero that differs from sample to sample"></canvas>
+      <p class="eg-txt">Random scatter that is new in every sample. Integrated over time it becomes angle random walk (velocity random walk for accelerometers).</p>
+      <label class="xp-ctl"><span><span>Standard deviation <M t={String.raw`\sigma_w`} /></span><output for="eg-n"></output></span><input type="range" name="eg-n" min="0" max="0.6" step="0.01" value="0.25" /></label>
+      <div class="eg-btn"><button class="btn" type="button" data-act="eg-new">New realization</button></div>
+    </div>
+    <div class="eg-tile" data-t="temp">
+      <div class="eg-name">Temperature dependence</div>
+      <canvas role="img" aria-label="Gyro bias against temperature: zero at the calibration temperature of 25 degrees, curving away at hot and cold temperatures"></canvas>
+      <p class="eg-txt">The bias (and the other errors) change with temperature. A sensor calibrated at <M t={String.raw`25\,^\circ\mathrm C`} /> is off when it is cold or hot.</p>
+      <label class="xp-ctl"><span><span>Bias at <M t={String.raw`85\,^\circ\mathrm C`} /></span><output for="eg-tc"></output></span><input type="range" name="eg-tc" min="0" max="1" step="0.01" value="0.5" /></label>
+    </div>
+  </div>
+  <ul class="xp-legend">
+    <li class="c-muted dash"><i></i><span>ideal sensor</span></li>
+    <li class="c-accent"><i></i><span>actual output, with the error shaded</span></li>
+  </ul>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<style>
+  .eg-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.7rem; }
+  @media (max-width: 760px) { .eg-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.55rem; } }
+  .eg-tile { display: flex; flex-direction: column; min-width: 0; padding: 0.55rem 0.6rem 0.4rem; border: 1px solid var(--border); border-radius: var(--radius); }
+  .eg-name { font-size: 0.82rem; color: var(--fg); margin: 0 0 0.35rem; line-height: 1.3; }
+  .eg-txt { flex: 1; hyphens: manual; margin: 0.4rem 0 0.35rem; font-size: 0.74rem; line-height: 1.4; color: var(--muted); text-align: left; }
+  .eg-tile .xp-ctl > span { font-size: 0.66rem; }
+  .eg-btn { margin-top: 0.25rem; }
+  .eg-btn .btn { padding: 0.3rem 0.55rem; font-size: 0.62rem; }
+</style>
+
+<script>
+  import { palette, setupCanvas, label, slider, rng, lin, type Palette } from '../../../lib/explainer';
+
+  type Plot = { ctx: CanvasRenderingContext2D; sx: (v: number) => number; sy: (v: number) => number; x0: number; x1: number; y0: number; y1: number };
+
+  /** Draws a small frame with zero lines and axis names; returns the mappings. */
+  function frame(ctx: CanvasRenderingContext2D, P: Palette, W: number, H: number, xr: [number, number], yr: [number, number], xl: string, yl: string): Plot {
+    const b = { x: 6, y: 6, w: W - 12, h: H - 26 };
+    const sx = lin(xr[0], xr[1], b.x, b.x + b.w), sy = lin(yr[0], yr[1], b.y + b.h, b.y);
+    ctx.lineWidth = 1; ctx.strokeStyle = P.border;
+    ctx.strokeRect(b.x + 0.5, b.y + 0.5, b.w - 1, b.h - 1);
+    ctx.strokeStyle = P.strong;
+    if (xr[0] < 0 && xr[1] > 0) { const x = Math.round(sx(0)) + 0.5; ctx.beginPath(); ctx.moveTo(x, b.y); ctx.lineTo(x, b.y + b.h); ctx.stroke(); }
+    if (yr[0] < 0 && yr[1] > 0) { const y = Math.round(sy(0)) + 0.5; ctx.beginPath(); ctx.moveTo(b.x, y); ctx.lineTo(b.x + b.w, y); ctx.stroke(); }
+    label(ctx, xl, b.x + b.w, H - 8, P.muted, { align: 'right', size: 10 });
+    label(ctx, yl, b.x + 5, b.y + 10, P.soft, { size: 10 });
+    return { ctx, sx, sy, x0: b.x, x1: b.x + b.w, y0: b.y, y1: b.y + b.h };
+  }
+  function clip(p: Plot, f: () => void) { const c = p.ctx; c.save(); c.beginPath(); c.rect(p.x0, p.y0, p.x1 - p.x0, p.y1 - p.y0); c.clip(); f(); c.restore(); }
+  /** Ideal line (dashed), actual output (orange) and the shaded difference between them. */
+  function curves(p: Plot, P: Palette, xs: number[], ideal: (x: number) => number, actual: (x: number) => number) {
+    const c = p.ctx;
+    clip(p, () => {
+      c.beginPath();
+      xs.forEach((x, i) => (i ? c.lineTo(p.sx(x), p.sy(actual(x))) : c.moveTo(p.sx(x), p.sy(actual(x)))));
+      for (let i = xs.length - 1; i >= 0; i--) c.lineTo(p.sx(xs[i]), p.sy(ideal(xs[i])));
+      c.closePath(); c.globalAlpha = 0.2; c.fillStyle = P.accent; c.fill(); c.globalAlpha = 1;
+      c.setLineDash([4, 3]); c.strokeStyle = P.muted; c.lineWidth = 1.25; c.beginPath();
+      xs.forEach((x, i) => (i ? c.lineTo(p.sx(x), p.sy(ideal(x))) : c.moveTo(p.sx(x), p.sy(ideal(x)))));
+      c.stroke(); c.setLineDash([]);
+      c.strokeStyle = P.accent; c.lineWidth = 2; c.lineJoin = 'round'; c.beginPath();
+      xs.forEach((x, i) => (i ? c.lineTo(p.sx(x), p.sy(actual(x))) : c.moveTo(p.sx(x), p.sy(actual(x)))));
+      c.stroke();
+    });
+  }
+  /** Vertical orange marker between the ideal and the actual value at x, with an optional label to its right. */
+  function bracket(p: Plot, P: Palette, x: number, yIdeal: number, yAct: number, text: string) {
+    const c = p.ctx, X = p.sx(x), A = p.sy(yIdeal), B = p.sy(yAct);
+    if (Math.abs(A - B) < 2) return;
+    c.strokeStyle = P.accent; c.lineWidth = 3; c.beginPath(); c.moveTo(X, A); c.lineTo(X, B); c.stroke();
+    if (text) label(c, text, X + 6, (A + B) / 2 + 4, P.accent, { size: 10 });
+  }
+  const range = (a: number, b: number, n: number) => Array.from({ length: n + 1 }, (_, i) => a + ((b - a) * i) / n);
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="egal"]')) {
+    const tile = (t: string) => fig.querySelector<HTMLElement>(`[data-t="${t}"]`)!;
+    const v = { b0: 0.35, b1: 0.12, s: 15, m: 8, k: 20, q: 2, g: 0.25, n: 0.25, tc: 0.5, seed: 7 };
+
+    // registers a tile: its canvas, aspect ratio and drawing routine
+    function add(t: string, paint: (ctx: CanvasRenderingContext2D, P: Palette, W: number, H: number) => void) {
+      const canvas = tile(t).querySelector('canvas')!;
+      const { ctx, size } = setupCanvas(canvas, 0.78, draw);
+      function draw() { const W = size.w, H = size.h; if (!W) return; ctx.clearRect(0, 0, W, H); paint(ctx, palette(), W, H); }
+      return draw;
+    }
+
+    // bias: three switch-on cycles, each with its own offset and a slow random wander
+    const RUNS = 3, NR = 80;
+    const wander: number[][] = [];
+    { const r = rng(11); for (let k = 0; k < RUNS; k++) { const w: number[] = []; let a = 0, s = 0; for (let i = 0; i <= NR; i++) { s = 0.9 * s + 0.12 * r.gauss(); a += s; w.push(a); } const m = Math.max(...w.map(Math.abs)) || 1; wander.push(w.map((x) => x / m)); } }
+    const TURN_ON = [0.9, -0.75, 0.25];
+    const dBias = add('bias', (ctx, P, W, H) => {
+      const p = frame(ctx, P, W, H, [0, RUNS], [-1.2, 1.2], 'time $t$', 'output $\\tilde\\omega$ at $\\omega = 0$');
+      for (let k = 0; k < RUNS; k++) {
+        const xs = range(k + 0.06, k + 0.94, NR);
+        curves(p, P, xs, () => 0, (x) => v.b0 * TURN_ON[k] + v.b1 * wander[k][Math.round(((x - k - 0.06) / 0.88) * NR)]);
+        if (k) { const x = Math.round(p.sx(k)) + 0.5; ctx.strokeStyle = P.border; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(x, p.y0); ctx.lineTo(x, p.y1); ctx.stroke(); ctx.setLineDash([]); }
+        label(ctx, `on ${k + 1}`, p.sx(k + 0.5), p.y1 - 8, P.muted, { size: 9, align: 'center' });
+      }
+    });
+
+    const FS = 100;
+    const dScale = add('scale', (ctx, P, W, H) => {
+      const p = frame(ctx, P, W, H, [-FS, FS], [-FS * 1.25, FS * 1.25], 'input $\\omega$', 'output $\\tilde\\omega$');
+      curves(p, P, range(-FS, FS, 40), (x) => x, (x) => (1 + v.s / 100) * x);
+      bracket(p, P, 0.6 * FS, 0.6 * FS, (1 + v.s / 100) * 0.6 * FS, '$s\\,\\omega$');
+    });
+
+    const dMis = add('mis', (ctx, P, W, H) => {
+      const p = frame(ctx, P, W, H, [-FS, FS], [-FS * 0.5, FS * 0.5], 'input $\\omega_x$', 'output $\\tilde\\omega_y$');
+      curves(p, P, range(-FS, FS, 40), () => 0, (x) => Math.sin((v.m * Math.PI) / 180) * x);
+      // pictogram: body axes and the tilted y sensor axis
+      const cx = p.x1 - 34, cy = p.y1 - 10, L = 24, g = (v.m * Math.PI) / 180;
+      ctx.strokeStyle = P.muted; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + L, cy); ctx.moveTo(cx, cy); ctx.lineTo(cx, cy - L); ctx.stroke();
+      ctx.strokeStyle = P.accent; ctx.lineWidth = 1.75;
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.sin(g) * L, cy - Math.cos(g) * L); ctx.stroke();
+      label(ctx, '$x$', cx + L + 3, cy, P.muted, { size: 9 });
+      label(ctx, '$y$', cx - 9, cy - L + 2, P.muted, { size: 9 });
+    });
+
+    const dNl = add('nl', (ctx, P, W, H) => {
+      const p = frame(ctx, P, W, H, [-FS, FS], [-FS * 1.25, FS * 1.25], 'input $\\omega$', 'output $\\tilde\\omega$');
+      curves(p, P, range(-FS, FS, 60), (x) => x, (x) => x - (v.k / 100) * FS * (x / FS) ** 3);
+      bracket(p, P, 0.9 * FS, 0.9 * FS, 0.9 * FS - (v.k / 100) * FS * 0.729, '');
+    });
+
+    const dQ = add('q', (ctx, P, W, H) => {
+      const R = 10;
+      const p = frame(ctx, P, W, H, [-R, R], [-R * 1.2, R * 1.2], 'input $\\omega$ (zoomed)', 'output $\\tilde\\omega$');
+      const xs = range(-R, R, 800);
+      curves(p, P, xs, (x) => x, (x) => (v.q > 0 ? Math.round(x / v.q) * v.q : x));
+    });
+
+    const dG = add('g', (ctx, P, W, H) => {
+      const p = frame(ctx, P, W, H, [-2, 2], [-0.8, 0.8], 'specific force $f$ [g]', 'output $\\tilde\\omega$ at $\\omega = 0$');
+      curves(p, P, range(-2, 2, 40), () => 0, (x) => v.g * x);
+      ctx.fillStyle = P.fg;
+      for (const f of [-1, 1]) { ctx.beginPath(); ctx.arc(p.sx(f), p.sy(v.g * f), 2.5, 0, 2 * Math.PI); ctx.fill(); }
+    });
+
+    const NN = 80;
+    let noise: number[] = [];
+    const makeNoise = () => { const r = rng(v.seed); noise = Array.from({ length: NN + 1 }, () => r.gauss()); };
+    makeNoise();
+    const dNoise = add('noise', (ctx, P, W, H) => {
+      const p = frame(ctx, P, W, H, [0, NN], [-1.6, 1.6], 'time $t$', 'output $\\tilde\\omega$ at $\\omega = 0$');
+      curves(p, P, range(0, NN, NN), () => 0, (x) => v.n * noise[Math.round(x)]);
+    });
+
+    const dTemp = add('temp', (ctx, P, W, H) => {
+      const p = frame(ctx, P, W, H, [-40, 85], [-1.2, 1.2], 'temperature $T$ [°C]', 'bias $b$');
+      const bias = (T: number) => { const u = (T - 25) / 60; return (v.tc / 0.65) * (0.55 * u + 0.45 * u * u - 0.35 * u * u * u); };
+      curves(p, P, range(-40, 85, 60), () => 0, bias);
+      ctx.fillStyle = P.fg; ctx.beginPath(); ctx.arc(p.sx(25), p.sy(0), 3, 0, 2 * Math.PI); ctx.fill();
+      label(ctx, 'calibrated', p.sx(25), p.sy(0) + 11, P.soft, { size: 9, align: 'center' });
+    });
+
+    slider(fig, 'eg-b0', (x) => `${x.toFixed(2)} °/s`, (x) => { v.b0 = x; dBias(); });
+    slider(fig, 'eg-b1', (x) => `${x.toFixed(2)} °/s`, (x) => { v.b1 = x; dBias(); });
+    slider(fig, 'eg-s', (x) => `${x.toFixed(1)} %`, (x) => { v.s = x; dScale(); });
+    slider(fig, 'eg-m', (x) => `${x.toFixed(1)}°`, (x) => { v.m = x; dMis(); });
+    slider(fig, 'eg-k', (x) => `${x.toFixed(1)} %`, (x) => { v.k = x; dNl(); });
+    slider(fig, 'eg-q', (x) => (x ? `${x.toFixed(1)} °/s` : 'off'), (x) => { v.q = x; dQ(); });
+    slider(fig, 'eg-g', (x) => `${x.toFixed(2)} °/s/g`, (x) => { v.g = x; dG(); });
+    slider(fig, 'eg-n', (x) => `${x.toFixed(2)} °/s`, (x) => { v.n = x; dNoise(); });
+    slider(fig, 'eg-tc', (x) => `${x.toFixed(2)} °/s`, (x) => { v.tc = x; dTemp(); });
+    fig.querySelector('[data-act="eg-new"]')!.addEventListener('click', () => { v.seed++; makeNoise(); dNoise(); });
+  }
+</script>

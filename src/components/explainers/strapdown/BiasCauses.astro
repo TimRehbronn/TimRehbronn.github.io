@@ -1,0 +1,136 @@
+---
+import M from '../../blog/M.astro';
+// Simulated gyro bias over four hours: warm-up, temperature-driven part, slow random wander and white noise.
+---
+
+<figure class="xp wide" data-xp="biascauses">
+  <div class="xp-head"><span class="label fig-title">Where a slowly changing bias comes from</span></div>
+  <canvas class="c-b" role="img" aria-label="Four hours of a simulated gyro output at rest: the raw samples, their moving average and the slow part of the bias"></canvas>
+  <canvas class="c-t" role="img" aria-label="The ambient temperature and the lagging temperature inside the sensor over the same four hours"></canvas>
+  <ul class="xp-legend">
+    <li class="c-muted"><i></i><span>raw gyro output at <M t={String.raw`1\,\mathrm{Hz}`} /></span></li>
+    <li class="c-accent"><i></i><span>moving average over the window <M t="T_w" /></span></li>
+    <li class="c-fg dash"><i></i><span>slow part of the bias (without white noise)</span></li>
+    <li class="c-fg"><i></i><span>sensor temperature <M t={String.raw`T_s`} />; dashed: ambient <M t={String.raw`T_a`} /></span></li>
+  </ul>
+  <div class="xp-btns">
+    <button class="btn" type="button" data-c="0" aria-pressed="true">Warm-up</button>
+    <button class="btn" type="button" data-c="1" aria-pressed="true">Temperature</button>
+    <button class="btn" type="button" data-c="2" aria-pressed="true">Slow random wander</button>
+    <button class="btn" type="button" data-c="3" aria-pressed="true">White noise</button>
+    <button class="btn" type="button" data-act="seed">New realization</button>
+  </div>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Averaging window <M t="T_w" /></span><output for="win"></output></span><input type="range" name="win" min="0" max="3.4" step="0.02" value="2.3" /></label>
+    <label class="xp-ctl"><span><span>Thermal time constant <M t={String.raw`\tau_{th}`} /></span><output for="tth"></output></span><input type="range" name="tth" min="1" max="60" step="1" value="15" /></label>
+  </div>
+  <p class="xp-readout" aria-live="polite"><span>white noise left after averaging: <b class="hot" data-o="res"></b></span><span>range of the slow part: <b data-o="rng"></b></span></p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, label, slider, axes, series, rng, outputs } from '../../../lib/explainer';
+
+  const FS = 1, T = 4 * 3600, N = T * FS;  // 1 Hz for four hours
+  const SIG_W = 8;          // white noise per sample [°/h]
+  const WARM_A = 9, WARM_TAU = 12 * 60;  // warm-up amplitude [°/h] and time constant [s]
+  const K_T = 1.2;           // bias per kelvin of sensor temperature [°/h/K]
+  const GM_TAU = 40 * 60, GM_SIG = 1.6;  // slow random wander [s], [°/h]
+
+  // ambient temperature: room, then the vehicle stands in the sun, then a cool evening
+  const ambient = (t: number) => {
+    const h = t / 3600;
+    const sun = 8 / (1 + Math.exp(-(h - 1.3) * 9)) - 8 / (1 + Math.exp(-(h - 2.6) * 9));
+    return 21 + sun - 3 / (1 + Math.exp(-(h - 3.3) * 8)) + 0.6 * Math.sin(2 * Math.PI * h / 0.9);
+  };
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="biascauses"]')) {
+    const cb = fig.querySelector<HTMLCanvasElement>('.c-b')!, ct = fig.querySelector<HTMLCanvasElement>('.c-t')!;
+    const out = outputs(fig);
+    const on = [true, true, true, true];
+    let seed = 7, win = 200, tth = 15 * 60;
+    const time = new Float64Array(N), ta = new Float64Array(N), ts = new Float64Array(N);
+    const white = new Float64Array(N), gm = new Float64Array(N);
+    const slow = new Float64Array(N), raw = new Float64Array(N), avg = new Float64Array(N);
+    for (let k = 0; k < N; k++) { time[k] = k / FS; ta[k] = ambient(k / FS); }
+
+    function noise() {
+      const r = rng(seed), phi = Math.exp(-1 / (FS * GM_TAU)), q = GM_SIG * Math.sqrt(1 - phi * phi);
+      let x = GM_SIG * r.gauss();
+      for (let k = 0; k < N; k++) { white[k] = SIG_W * r.gauss(); gm[k] = x; x = phi * x + q * r.gauss(); }
+    }
+    function thermal() {
+      // first-order lag of the sensor temperature behind the ambient temperature
+      const a = 1 - Math.exp(-1 / (FS * tth));
+      let s = ta[0];
+      for (let k = 0; k < N; k++) { s += a * (ta[k] - s); ts[k] = s; }
+    }
+    function combine() {
+      const tref = 21;  // temperature at which the bias was calibrated
+      for (let k = 0; k < N; k++) {
+        let s = 0;
+        if (on[0]) s += WARM_A * Math.exp(-time[k] / WARM_TAU);
+        if (on[1]) s += K_T * (ts[k] - tref);
+        if (on[2]) s += gm[k];
+        slow[k] = s; raw[k] = s + (on[3] ? white[k] : 0);
+      }
+      // centred moving average from the cumulative sum
+      const m = Math.max(1, Math.round(win * FS)), h = Math.floor(m / 2), cs = new Float64Array(N + 1);
+      for (let k = 0; k < N; k++) cs[k + 1] = cs[k] + raw[k];
+      for (let k = 0; k < N; k++) { const a = Math.max(0, k - h), b = Math.min(N, k - h + m); avg[k] = (cs[b] - cs[a]) / (b - a); }
+      let lo = Infinity, hi = -Infinity; for (let k = 0; k < N; k++) { lo = Math.min(lo, slow[k]); hi = Math.max(hi, slow[k]); }
+      out('res', on[3] ? `±${(SIG_W / Math.sqrt(m)).toFixed(2)} °/h` : 'none (switched off)');
+      out('rng', `${(hi - lo).toFixed(1)} °/h`);
+    }
+
+    const A = setupCanvas(cb, (w) => Math.max(230, w * 0.3), drawB);
+    const B = setupCanvas(ct, (w) => Math.max(120, w * 0.13), drawT);
+    const X0 = 56;
+
+    function drawB() {
+      const P = palette(), { ctx, size } = A, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const box = { x: X0, y: 8, w: W - X0 - 12, h: H - 40 };
+      const lim: [number, number] = on[3] ? [-24, 30] : [-8, 14];
+      const Ax = axes(ctx, P, box, [0, 4], lim, { ylabel: 'gyro output at rest [°/h]', xlabel: 'time since switch-on [h]', xfmt: (v) => `${+v.toFixed(1)}`, yfmt: (v) => v.toFixed(0), zeroLine: true });
+      // raw samples as min/max columns
+      const cols = Math.floor(box.w);
+      ctx.strokeStyle = P.muted; ctx.lineWidth = 1; ctx.globalAlpha = 0.5;
+      for (let x = 0; x < cols; x++) {
+        const k0 = Math.floor((x / cols) * N), k1 = Math.max(k0 + 1, Math.floor(((x + 1) / cols) * N));
+        let a = Infinity, b = -Infinity; for (let k = k0; k < k1; k++) { a = Math.min(a, raw[k]); b = Math.max(b, raw[k]); }
+        ctx.beginPath(); ctx.moveTo(box.x + x + 0.5, Math.max(box.y, Ax.sy(a))); ctx.lineTo(box.x + x + 0.5, Math.min(box.y + box.h, Ax.sy(b) - 0.5)); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      const step = Math.max(1, Math.floor(N / (cols * 2)));
+      const tx: number[] = [], ys: number[] = [], ya: number[] = [];
+      for (let k = 0; k < N; k += step) { tx.push(time[k] / 3600); ys.push(slow[k]); ya.push(avg[k]); }
+      series(ctx, box, tx, ya, Ax.sx, Ax.sy, P.accent, 2);
+      series(ctx, box, tx, ys, Ax.sx, Ax.sy, P.fg, 1.5, [5, 4]);
+      if (on[0]) label(ctx, 'warm-up', Ax.sx(0.2), box.y + 30, P.fg, { size: 11 });
+      if (on[1]) label(ctx, 'sun on the vehicle', Ax.sx(1.95), box.y + 30, P.fg, { size: 11, align: 'center' });
+    }
+
+    function drawT() {
+      const P = palette(), { ctx, size } = B, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const box = { x: X0, y: 6, w: W - X0 - 12, h: H - 30 };
+      const Ax = axes(ctx, P, box, [0, 4], [16, 36], { ylabel: 'temperature [°C]', xfmt: (v) => `${+v.toFixed(1)}`, yfmt: (v) => v.toFixed(0), yticks: 2 });
+      const step = 20, tx: number[] = [], a: number[] = [], s: number[] = [];
+      for (let k = 0; k < N; k += step) { tx.push(time[k] / 3600); a.push(ta[k]); s.push(ts[k]); }
+      series(ctx, box, tx, a, Ax.sx, Ax.sy, P.muted, 1.5, [5, 4]);
+      series(ctx, box, tx, s, Ax.sx, Ax.sy, P.fg, 1.75);
+      label(ctx, `$T_s$ lags behind $T_a$ by about $\\tau_{th}$ = ${Math.round(tth / 60)} min`, box.x + box.w - 8, box.y + 12, P.soft, { size: 11, align: 'right' });
+    }
+
+    const redraw = () => { combine(); drawB(); drawT(); };
+    noise(); thermal();
+    slider(fig, 'win', (v) => { const s = 10 ** v; return s >= 60 ? `${(s / 60).toFixed(s >= 600 ? 0 : 1)} min` : `${s.toFixed(0)} s`; }, (v) => { win = 10 ** v; redraw(); });
+    slider(fig, 'tth', (v) => `${v} min`, (v) => { tth = v * 60; thermal(); redraw(); });
+    const cbtn = fig.querySelectorAll<HTMLButtonElement>('[data-c]');
+    cbtn.forEach((b) => b.addEventListener('click', () => { const i = Number(b.dataset.c); on[i] = !on[i]; b.setAttribute('aria-pressed', String(on[i])); redraw(); }));
+    fig.querySelector('[data-act="seed"]')!.addEventListener('click', () => { seed++; noise(); redraw(); });
+  }
+</script>

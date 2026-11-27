@@ -1,0 +1,155 @@
+---
+import M from '../../blog/M.astro';
+// Gallery of the five classic error terms: a time-series snippet and the log-log Allan deviation with its slope.
+---
+
+<figure class="xp wide" data-xp="allanslopes">
+  <div class="xp-head"><span class="label fig-title">Each error term has its own slope</span></div>
+  <canvas role="img" aria-label="Five small panels: quantization noise, white rate noise, flicker noise, rate random walk and rate ramp, each with a short stretch of the signal and its Allan deviation on a log-log scale with slopes minus one, minus one half, zero, plus one half and plus one"></canvas>
+  <div class="xp-btns">
+    <button class="btn" type="button" data-p="0" aria-pressed="false">Quantization</button>
+    <button class="btn" type="button" data-p="1" aria-pressed="true">White rate noise</button>
+    <button class="btn" type="button" data-p="2" aria-pressed="false">Flicker</button>
+    <button class="btn" type="button" data-p="3" aria-pressed="false">Rate random walk</button>
+    <button class="btn" type="button" data-p="4" aria-pressed="false">Rate ramp</button>
+  </div>
+  <ul class="xp-legend">
+    <li class="c-accent"><i></i><span>selected error term</span></li>
+    <li class="c-fg"><i></i><span>Allan deviation <M t={String.raw`\sigma(\tau)`} /> of the simulated signal</span></li>
+    <li class="c-muted dash"><i></i><span>theory</span></li>
+  </ul>
+  <p class="xp-readout" aria-live="polite">
+    <span data-ex="0" hidden><b>Quantization noise</b>, slope <M t="-1" />: the output comes in whole steps of an angle quantum <M t="q" />, so the error of the integrated angle stays bounded. Divided by the cluster time, it shrinks like <M t={String.raw`1/\tau`} />.</span>
+    <span data-ex="1"><b>White rate noise</b> (angle random walk), slope <M t={String.raw`-\tfrac12`} />: every sample is independent, so an average over <M t="m" /> samples has a spread <M t={String.raw`\sqrt m`} /> times smaller, and <M t={String.raw`\sigma \propto 1/\sqrt\tau`} />.</span>
+    <span data-ex="2" hidden><b>Flicker noise</b> (bias instability), slope <M t="0" />: its power grows towards low frequencies like <M t="1/f" />. A longer average removes fast fluctuations but picks up slower ones, so averaging stops helping and the curve stays flat.</span>
+    <span data-ex="3" hidden><b>Rate random walk</b>, slope <M t={String.raw`+\tfrac12`} />: the rate itself wanders, and neighbouring clusters drift further apart the longer they are. The difference grows like <M t={String.raw`\sqrt\tau`} />.</span>
+    <span data-ex="4" hidden><b>Rate ramp</b>, slope <M t="+1" />: the rate changes steadily, for example while the temperature rises. Neighbouring averages differ by <M t={String.raw`R\,\tau`} />, so the curve grows like <M t={String.raw`\tau`} />.</span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, label, axes, series, rng } from '../../../lib/explainer';
+
+  const FS = 10, DT = 1 / FS, N = 1 << 16;  // about 1.8 h at 10 Hz
+  const TAUS: number[] = [];
+  for (let l = -1; l <= Math.log10(N * DT / 12) + 1e-9; l += 0.1) { const m = Math.max(1, Math.round(10 ** l * FS)); if (!TAUS.length || m / FS > TAUS[TAUS.length - 1]) TAUS.push(m / FS); }
+  const LX0 = -1, LX1 = 3;
+
+  function adev(y: Float64Array) {
+    const th = new Float64Array(N + 1);
+    for (let k = 0; k < N; k++) th[k + 1] = th[k] + y[k] * DT;
+    return TAUS.map((tau) => {
+      const m = Math.round(tau * FS); let s = 0;
+      for (let k = 0; k + 2 * m <= N; k++) { const d = th[k + 2 * m] - 2 * th[k + m] + th[k]; s += d * d; }
+      return Math.sqrt(s / (2 * tau * tau * (N - 2 * m + 1)));
+    });
+  }
+
+  type Panel = { name: string; slope: string; y: Float64Array; ad: number[]; th: (t: number) => number };
+  const r = rng(2024);
+  const Q = 1, SW = 1, K = 0.02, R = 1e-3;
+  const sig = [0, 1, 2, 3, 4].map(() => new Float64Array(N));
+  {
+    // quantization: the angle is read out in steps of q with random dither, the rate is the difference of steps
+    const q = 1, w0 = 0.3819 * q / DT;
+    let prev = 0;
+    for (let k = 0; k < N; k++) { const th = w0 * (k + 1) * DT, n = Math.floor(th / q + r.uni()); sig[0][k] = ((n - prev) * q) / DT; prev = n; }
+    // white rate noise
+    for (let k = 0; k < N; k++) sig[1][k] = SW * r.gauss();
+    // flicker approximated by Gauss-Markov processes with correlation times spread over decades
+    const tcs = [0.3, 1.5, 7, 35, 170, 850, 4000], phi = tcs.map((tc) => Math.exp(-DT / tc)), qq = phi.map((p) => Math.sqrt(1 - p * p)), st = tcs.map(() => r.gauss());
+    for (let k = 0; k < N; k++) { let s = 0; for (let j = 0; j < st.length; j++) { st[j] = phi[j] * st[j] + qq[j] * r.gauss(); s += st[j]; } sig[2][k] = s; }
+    // rate random walk
+    let x = 0; for (let k = 0; k < N; k++) { sig[3][k] = x; x += K * Math.sqrt(DT) * r.gauss(); }
+    // rate ramp
+    for (let k = 0; k < N; k++) sig[4][k] = R * k * DT;
+  }
+  const ads = sig.map(adev);
+  // flicker level: median of the flat part
+  const flat = (() => { const v = ads[2].filter((_, i) => TAUS[i] >= 3 && TAUS[i] <= 300).sort((a, b) => a - b); return v[Math.floor(v.length / 2)]; })();
+  const panels: Panel[] = [
+    { name: 'Quantization $Q$', slope: '$-1$', y: sig[0], ad: ads[0], th: (t) => (Math.sqrt(3) * (Q / Math.sqrt(6))) / t },
+    { name: 'White rate noise $N$', slope: '$-1/2$', y: sig[1], ad: ads[1], th: (t) => SW * Math.sqrt(DT / t) },
+    { name: 'Flicker $B$', slope: '$0$', y: sig[2], ad: ads[2], th: () => flat },
+    { name: 'Rate random walk $K$', slope: '$+1/2$', y: sig[3], ad: ads[3], th: (t) => K * Math.sqrt(t / 3) },
+    { name: 'Rate ramp $R$', slope: '$+1$', y: sig[4], ad: ads[4], th: (t) => (R * t) / Math.SQRT2 },
+  ];
+  // snippet lengths: short for the fast terms, long for the slow ones
+  const SNIP = [3, 30, 600, 3000, 6000];
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="allanslopes"]')) {
+    const canvas = fig.querySelector('canvas')!;
+    let sel = 1, hover = -1;
+    let cells: { x: number; y: number; w: number; h: number }[] = [];
+    const cols = (w: number) => (w >= 860 ? 5 : w >= 520 ? 3 : 2);
+    const cellH = (w: number) => { const c = cols(w), cw = (w - (c - 1) * 12) / c; return 30 + cw * 0.32 + 20 + (cw - 40) * 1.1 + 34; };
+    const { ctx, size } = setupCanvas(canvas, (w) => Math.ceil(5 / cols(w)) * cellH(w) + (Math.ceil(5 / cols(w)) - 1) * 12, draw);
+
+    function draw() {
+      const P = palette(), W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const c = cols(W), cw = (W - (c - 1) * 12) / c, ch = cellH(W), cur = hover >= 0 ? hover : sel;
+      cells = [];
+      panels.forEach((p, i) => {
+        const x0 = (i % c) * (cw + 12), y0 = Math.floor(i / c) * (ch + 12), hot = i === cur;
+        cells.push({ x: x0, y: y0, w: cw, h: ch });
+        ctx.strokeStyle = hot ? P.accent : P.border; ctx.lineWidth = 1;
+        ctx.strokeRect(x0 + 0.5, y0 + 0.5, cw - 1, ch - 1);
+        label(ctx, p.name, x0 + 10, y0 + 16, hot ? P.accent : P.fg, { size: 12, weight: hot ? 700 : 400 });
+        // snippet
+        const sb = { x: x0 + 10, y: y0 + 30, w: cw - 20, h: cw * 0.32 };
+        const n = Math.round(SNIP[i] * FS), cols2 = Math.floor(sb.w);
+        let lo = Infinity, hi = -Infinity; for (let k = 0; k < n; k++) { lo = Math.min(lo, p.y[k]); hi = Math.max(hi, p.y[k]); }
+        const pad = 0.1 * (hi - lo || 1); lo -= pad; hi += pad;
+        const sy = (v: number) => sb.y + sb.h - ((v - lo) / (hi - lo)) * sb.h;
+        ctx.strokeStyle = P.border; ctx.strokeRect(sb.x + 0.5, sb.y + 0.5, sb.w - 1, sb.h - 1);
+        ctx.strokeStyle = hot ? P.accent : P.soft; ctx.lineWidth = 1;
+        if (n <= cols2 * 2) {
+          ctx.beginPath();
+          const stair = i === 0;  // the quantized output holds each value for one sample
+          for (let k = 0; k < n; k++) {
+            const X = sb.x + (k / (stair ? n : n - 1)) * sb.w, Y = sy(p.y[k]);
+            if (!k) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+            if (stair) ctx.lineTo(sb.x + ((k + 1) / n) * sb.w, Y);
+          }
+          ctx.stroke();
+        } else {
+          for (let xx = 0; xx < cols2; xx++) {
+            const k0 = Math.floor((xx / cols2) * n), k1 = Math.max(k0 + 1, Math.floor(((xx + 1) / cols2) * n));
+            let a = Infinity, b = -Infinity; for (let k = k0; k < k1; k++) { a = Math.min(a, p.y[k]); b = Math.max(b, p.y[k]); }
+            ctx.beginPath(); ctx.moveTo(sb.x + xx + 0.5, sy(a)); ctx.lineTo(sb.x + xx + 0.5, Math.min(sy(b) - 0.5, sy(a) - 1)); ctx.stroke();
+          }
+        }
+        label(ctx, `${SNIP[i]} s of signal`, sb.x + sb.w - 4, sb.y + sb.h + 9, P.muted, { size: 10, align: 'right' });
+        // Allan deviation, 4 decades in each direction so that slopes look true
+        const ab = { x: x0 + 30, y: sb.y + sb.h + 20, w: cw - 40, h: (cw - 40) * 1.1 };
+        const lm = Math.log10(p.th(10));
+        const yr: [number, number] = [10 ** (lm - 2.2), 10 ** (lm + 2.2)];
+        const A = axes(ctx, P, ab, [LX0, LX1], yr, {
+          logY: true, xticks: 4, xfmt: (v) => (Math.abs(v - Math.round(v)) < 0.01 && Math.abs(Math.round(v)) % 2 === 1 ? (v < 0 ? '0.1' : `${10 ** Math.round(v)}`) : ''), yfmt: () => '',
+        });
+        const xs = TAUS.map(Math.log10);
+        series(ctx, ab, xs, TAUS.map(p.th), A.sx, A.sy, P.muted, 1.25, [5, 4]);
+        series(ctx, ab, xs, p.ad, A.sx, A.sy, hot ? P.accent : P.fg, hot ? 2.25 : 1.5);
+        label(ctx, `slope ${p.slope}`, ab.x + ab.w / 2, ab.y + 14, hot ? P.accent : P.soft, { size: 13, align: 'center', weight: 700 });
+        label(ctx, '$\\tau$ [s]', ab.x + ab.w, ab.y + ab.h + 24, P.muted, { size: 10, align: 'right' });
+        label(ctx, 'log $\\sigma$', ab.x - 4, ab.y + ab.h / 2, P.muted, { size: 10, align: 'right' });
+      });
+    }
+
+    const btns = fig.querySelectorAll<HTMLButtonElement>('[data-p]'), exs = fig.querySelectorAll<HTMLElement>('[data-ex]');
+    const show = () => {
+      const cur = hover >= 0 ? hover : sel;
+      btns.forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.p) === sel)));
+      exs.forEach((e) => { e.hidden = Number(e.dataset.ex) !== cur; });
+      draw();
+    };
+    const hit = (e: PointerEvent) => { const rc = canvas.getBoundingClientRect(), x = e.clientX - rc.left, y = e.clientY - rc.top; return cells.findIndex((c) => x >= c.x && x <= c.x + c.w && y >= c.y && y <= c.y + c.h); };
+    canvas.addEventListener('pointermove', (e) => { if (e.pointerType !== 'mouse') return; const h = hit(e); if (h !== hover) { hover = h; canvas.style.cursor = h >= 0 ? 'pointer' : ''; show(); } });
+    canvas.addEventListener('pointerleave', () => { hover = -1; show(); });
+    canvas.addEventListener('click', (e) => { const h = hit(e as PointerEvent); if (h >= 0) { sel = h; show(); } });
+    btns.forEach((b) => b.addEventListener('click', () => { sel = Number(b.dataset.p); hover = -1; show(); }));
+  }
+</script>

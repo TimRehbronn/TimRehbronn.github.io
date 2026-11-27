@@ -1,0 +1,238 @@
+---
+import M from '../../blog/M.astro';
+// Transport rate: the local NED frame turns because the vehicle moves over the curved Earth.
+// Left: moving north in a meridian section, "down" turns by distance / (R + h) about east.
+// Right: moving east along a circle of latitude, the frame turns about the spin axis at v_E / ((R + h) cos L).
+---
+
+<figure class="xp wide" data-xp="trate">
+  <div class="xp-head"><span class="label fig-title">Why the navigation frame turns</span></div>
+  <div class="xp-row two">
+    <canvas class="c-n" role="img" aria-label="Side view of the Earth with a vehicle moving north along a meridian; the local north and down directions are drawn once per hour and turn by the travelled distance divided by the radius"></canvas>
+    <canvas class="c-e" role="img" aria-label="Oblique view of the Earth with a vehicle moving east along a circle of latitude; the local north, east and down directions are drawn once per hour and turn about the spin axis"></canvas>
+  </div>
+  <ul class="xp-legend">
+    <li class="c-accent"><i></i><span>local down D, drawn once per hour</span></li>
+    <li class="c-fg"><i></i><span>local north N</span></li>
+    <li class="c-muted"><i></i><span>local east E</span></li>
+    <li class="c-muted dash"><i></i><span>the starting direction of D, carried along unchanged</span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Speed <M t="v" /></span><output for="v"></output></span><input type="range" name="v" min="0" max="300" step="5" value="250" /></label>
+    <label class="xp-ctl"><span><span>Height <M t="h" /> (range exaggerated)</span><output for="h"></output></span><input type="range" name="h" min="0" max="3000" step="10" value="0" /></label>
+    <label class="xp-ctl"><span><span>Latitude <M t="L" /> of the eastward flight</span><output for="lat"></output></span><input type="range" name="lat" min="0" max="80" step="1" value="51" /></label>
+  </div>
+  <div class="xp-btns">
+    <button class="btn" type="button" data-act="play" aria-pressed="true">Flying</button>
+    <button class="btn" type="button" data-act="reset">Restart</button>
+  </div>
+  <p class="xp-readout" aria-live="polite">
+    <span>north: <M t={String.raw`\dot L = v_N/(R_N + h)`} /> = <b class="hot" data-o="ld"></b></span>
+    <span>east: <M t={String.raw`\dot\lambda = v_E/((R_E + h)\cos L)`} /> = <b data-o="lam"></b></span>
+    <span>east flight: <M t={String.raw`\boldsymbol\omega_{en}^n`} /> = <b class="hot" data-o="wen"></b></span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, animate, label, slider, arrow, outputs, reducedMotion } from '../../../lib/explainer';
+  import { camera, type V3 } from '../../../lib/rot';
+
+  const D2R = Math.PI / 180, R0 = 6378137, E2 = 6.69437999014e-3;
+  const RS = 6371e3, HMAX = 3000e3, TMAX = 9; // drawing sphere radius, largest height, simulated hours
+  const RAD2DEGH = (180 / Math.PI) * 3600;
+  const RN = (L: number) => (R0 * (1 - E2)) / (1 - E2 * Math.sin(L) ** 2) ** 1.5;
+  const RE = (L: number) => R0 / Math.sqrt(1 - E2 * Math.sin(L) ** 2);
+  const num = (x: number, d = 2) => (Math.abs(x) < 0.5 * 10 ** -d ? (0).toFixed(d) : x.toFixed(d)).replace('-', '−');
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="trate"]')) {
+    const cn = fig.querySelector<HTMLCanvasElement>('.c-n')!, ce = fig.querySelector<HTMLCanvasElement>('.c-e')!;
+    const out = outputs(fig);
+    const playBtn = fig.querySelector<HTMLButtonElement>('[data-act="play"]')!, resetBtn = fig.querySelector<HTMLButtonElement>('[data-act="reset"]')!;
+    let v = 250, h = 0, latE = 51, t = 0, hold = 0, playing = !reducedMotion();
+    if (!playing) { t = 6; playBtn.setAttribute('aria-pressed', 'false'); playBtn.textContent = 'Paused'; }
+    const Nc = setupCanvas(cn, 0.95, () => draw()), Ec = setupCanvas(ce, 0.95, () => draw());
+
+    const arcM = (ctx: CanvasRenderingContext2D, x: number, y: number, r: number, a0: number, a1: number) => {
+      ctx.beginPath();
+      for (let i = 0; i <= 40; i++) { const a = a0 + ((a1 - a0) * i) / 40; i ? ctx.lineTo(x + r * Math.cos(a), y - r * Math.sin(a)) : ctx.moveTo(x + r * Math.cos(a), y - r * Math.sin(a)); }
+      ctx.stroke();
+    };
+    const into = (ctx: CanvasRenderingContext2D, x: number, y: number, col: string) => {
+      ctx.strokeStyle = col; ctx.lineWidth = 1.25;
+      ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x - 4, y - 4); ctx.lineTo(x + 4, y + 4); ctx.moveTo(x + 4, y - 4); ctx.lineTo(x - 4, y + 4); ctx.stroke();
+    };
+
+    function drawNorth() {
+      const P = palette(), { ctx, size } = Nc, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const RpMax = Math.min(W / 1.6, (H - 40) / 1.34), k = RpMax / (RS + HMAX);
+      const Re = RS * k, Rp = (RS + h) * k, cx = 0.3 * RpMax + 16, cy = H - 0.12 * RpMax - 14;
+      const ell = 0.15 * RpMax;
+      const X = (x: number) => cx + x, Y = (y: number) => cy - y;
+      const th = (v * t * 3600) / (RS + h);
+
+      ctx.fillStyle = P.bg; ctx.strokeStyle = P.strong; ctx.lineWidth = 1.25; ctx.beginPath(); ctx.arc(cx, cy, Re, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = P.border; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Rp + 0.22 * RpMax, cy); ctx.stroke();
+      label(ctx, 'equator', cx + 6, cy + 11, P.muted, { size: 10 });
+      ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, cy - Rp - 0.2 * RpMax); ctx.stroke(); ctx.setLineDash([]);
+      label(ctx, 'spin axis', cx - 6, cy - 0.5 * Re, P.muted, { size: 10, align: 'right' });
+      if (h > 0) { ctx.strokeStyle = P.muted; ctx.setLineDash([3, 4]); arcM(ctx, cx, cy, Rp, -0.05, Math.PI * 0.62); ctx.setLineDash([]); }
+      // path flown so far
+      ctx.strokeStyle = P.soft; ctx.lineWidth = 1.75; arcM(ctx, cx, cy, Rp, 0, th);
+      // angle at the centre
+      ctx.strokeStyle = P.border; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(X(Rp * Math.cos(th)), Y(Rp * Math.sin(th))); ctx.stroke();
+      if (th > 0.03) {
+        ctx.strokeStyle = P.fg; ctx.lineWidth = 1.25; arcM(ctx, cx, cy, 0.24 * Re, 0, th);
+        const r = 0.24 * Re + 14;
+        label(ctx, '$\\Delta L$', cx + r * Math.cos(th / 2) + 2, cy - r * Math.sin(th / 2), P.fg, { size: 13 });
+      }
+      // one triad per hour, then the current one
+      const triad = (a: number, alpha: number, main: boolean) => {
+        const x = X(Rp * Math.cos(a)), y = Y(Rp * Math.sin(a));
+        ctx.globalAlpha = alpha;
+        arrow(ctx, x, y, x - ell * Math.sin(a), y - ell * Math.cos(a), P.fg, main ? 2 : 1.5, main ? 9 : 7);
+        arrow(ctx, x, y, x - ell * Math.cos(a), y + ell * Math.sin(a), P.accent, main ? 2.5 : 1.5, main ? 9 : 7);
+        ctx.globalAlpha = 1;
+        if (main) {
+          label(ctx, 'N', x - (ell + 10) * Math.sin(a), y - (ell + 10) * Math.cos(a), P.fg, { size: 12, align: 'center', weight: 700 });
+          label(ctx, 'D', x - (ell + 11) * Math.cos(a), y + (ell + 11) * Math.sin(a), P.accent, { size: 12, align: 'center', weight: 700 });
+          into(ctx, x + 12 * Math.cos(a) + 12 * Math.sin(a), y - 12 * Math.sin(a) + 12 * Math.cos(a), P.muted);
+          label(ctx, 'E (into the page)', x + 22 * Math.cos(a) + 12 * Math.sin(a), y - 22 * Math.sin(a) + 12 * Math.cos(a), P.muted, { size: 10 });
+        }
+      };
+      const hours = Math.floor(t + 1e-9);
+      for (let i = 0; i <= hours; i++) if (t - i > 0.15) triad((v * i * 3600) / (RS + h), 0.4, false);
+      // the starting "down" direction, carried along without turning
+      const x = X(Rp * Math.cos(th)), y = Y(Rp * Math.sin(th));
+      if (th > 0.03) {
+        ctx.strokeStyle = P.muted; ctx.lineWidth = 1.25; ctx.setLineDash([4, 3]);
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - ell * 1.1, y); ctx.stroke(); ctx.setLineDash([]);
+        ctx.strokeStyle = P.accent; ctx.lineWidth = 1.25; arcM(ctx, x, y, ell * 0.62, Math.PI, Math.PI + th);
+      }
+      triad(th, 1, true);
+      ctx.fillStyle = P.fg; ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
+
+      label(ctx, 'moving north, $v_N = v$', 10, 16, P.soft, { size: 12 });
+      label(ctx, `t = ${t.toFixed(1)} h, travelled s = ${Math.round((v * t * 3.6))} km`, 10, 34, P.muted, { size: 11 });
+      label(ctx, `$\\Delta L = s/(R+h)$ = ${(th / D2R).toFixed(1)}°`, 10, 52, P.accent, { size: 11 });
+    }
+
+    function drawEast() {
+      const P = palette(), { ctx, size } = Ec, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const RpMax = Math.min(W, H) * 0.4, k = RpMax / (RS + HMAX);
+      const Re = RS * k, Rp = (RS + h) * k, cx = W * 0.5, cy = H * 0.57;
+      const cam = camera(0, 0.42, 1, cx, cy);
+      const pr = (p: V3) => cam.project([p[0], -p[1], -p[2]]);
+      const shown = (p: V3) => { const q = pr(p); return q.z > 0 || Math.hypot(q.x - cx, q.y - cy) > Re + 0.5; };
+      const L = latE * D2R, cL = Math.cos(L), sL = Math.sin(L);
+      const lam0 = -30 * D2R, lam = lam0 + (v * t * 3600) / ((RS + h) * cL);
+      const ell = 0.24 * RpMax;
+      const poly = (pts: V3[], col: string, w: number, back: boolean) => {
+        ctx.strokeStyle = col; ctx.lineWidth = w;
+        for (const pass of back ? [0, 1] : [1]) {
+          ctx.globalAlpha = pass ? 1 : 0.3; ctx.setLineDash(pass ? [] : [2, 4]);
+          ctx.beginPath(); let pen = false;
+          for (const p of pts) { const q = pr(p), vis = shown(p); if (vis !== !!pass) { pen = false; continue; } pen ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); pen = true; }
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1; ctx.setLineDash([]);
+      };
+
+      ctx.fillStyle = P.bg; ctx.strokeStyle = P.strong; ctx.lineWidth = 1.25; ctx.beginPath(); ctx.arc(cx, cy, Re, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      const eq: V3[] = []; for (let i = 0; i <= 120; i++) { const a = (i / 120) * 2 * Math.PI; eq.push([Re * Math.cos(a), Re * Math.sin(a), 0]); }
+      poly(eq, P.border, 1, false);
+      // spin axis: dashed inside the Earth, solid outside
+      const zc = Rp * sL, rho = Rp * cL;
+      const a0 = pr([0, 0, -Re]), a1 = pr([0, 0, Re]), a2 = pr([0, 0, Rp + 0.42 * RpMax]);
+      ctx.strokeStyle = P.muted; ctx.lineWidth = 1; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(a0.x, a0.y); ctx.lineTo(a1.x, a1.y); ctx.stroke(); ctx.setLineDash([]);
+      arrow(ctx, a1.x, a1.y, a2.x, a2.y, P.muted, 1.25, 8);
+      label(ctx, 'spin axis', a2.x + 8, a2.y + 4, P.muted, { size: 10 });
+      // turning arrow about the spin axis, labelled with the longitude rate
+      const ta: V3[] = []; for (let i = 0; i <= 40; i++) { const a = -0.3 * Math.PI + (i / 40) * 1.6 * Math.PI; ta.push([16 * Math.cos(a), 16 * Math.sin(a), Rp + 0.24 * RpMax]); }
+      ctx.strokeStyle = P.fg; ctx.lineWidth = 1.25; ctx.beginPath(); ta.forEach((p, i) => { const q = pr(p); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); }); ctx.stroke();
+      { const q1 = pr(ta[ta.length - 2]), q2 = pr(ta[ta.length - 1]); arrow(ctx, q1.x, q1.y, q2.x + (q2.x - q1.x) * 2, q2.y + (q2.y - q1.y) * 2, P.fg, 1.25, 7); }
+      { const q = pr([0, 18, Rp + 0.24 * RpMax]); { const lx = q.x - 2 * (q.x - cx) - 10, w = label(ctx, '$\\lambda$', lx, q.y - 2, P.fg, { size: 13, align: 'right' });
+        ctx.fillStyle = P.fg; ctx.beginPath(); ctx.arc(lx - w / 2 + 1.5, q.y - 12, 1.4, 0, Math.PI * 2); ctx.fill(); } } // the dot above marks the rate
+
+      // circle of latitude flown along
+      const lc: V3[] = []; for (let i = 0; i <= 160; i++) { const a = (i / 160) * 2 * Math.PI; lc.push([rho * Math.cos(a), rho * Math.sin(a), zc]); }
+      poly(lc, P.muted, 1, true);
+      const flown: V3[] = []; const span = Math.min(lam - lam0, 2 * Math.PI);
+      for (let i = 0; i <= 120; i++) { const a = lam0 + (span * i) / 120; flown.push([rho * Math.cos(a), rho * Math.sin(a), zc]); }
+      poly(flown, P.soft, 1.75, true);
+      // radius of the circle of latitude and the swept longitude
+      const c0 = pr([0, 0, zc]), s0 = pr([rho * Math.cos(lam0), rho * Math.sin(lam0), zc]), w0 = pr([0, -rho, zc]);
+      ctx.strokeStyle = P.border; ctx.lineWidth = 1; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(c0.x, c0.y); ctx.lineTo(s0.x, s0.y); ctx.stroke();
+      const cur = pr([rho * Math.cos(lam), rho * Math.sin(lam), zc]);
+      ctx.beginPath(); ctx.moveTo(c0.x, c0.y); ctx.lineTo(cur.x, cur.y); ctx.stroke();
+      ctx.strokeStyle = P.muted; ctx.beginPath(); ctx.moveTo(c0.x, c0.y); ctx.lineTo(w0.x, w0.y); ctx.stroke(); ctx.setLineDash([]);
+      label(ctx, 'radius $(R+h)$ cos $L$', w0.x - 8, w0.y, P.muted, { size: 11, align: 'right' });
+      if (lam - lam0 > 0.03) {
+        const rr = Math.min(0.45 * rho, 0.2 * RpMax), arc: V3[] = [];
+        for (let i = 0; i <= 60; i++) { const a = lam0 + (span * i) / 60; arc.push([rr * Math.cos(a), rr * Math.sin(a), zc]); }
+        ctx.strokeStyle = P.fg; ctx.lineWidth = 1.25; ctx.beginPath(); arc.forEach((p, i) => { const q = pr(p); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); }); ctx.stroke();
+      }
+      ctx.fillStyle = P.muted; ctx.beginPath(); ctx.arc(c0.x, c0.y, 2.5, 0, Math.PI * 2); ctx.fill();
+
+      // triads: N, E, D at a point on the circle of latitude
+      const triad = (a: number, alpha: number, main: boolean) => {
+        const p: V3 = [rho * Math.cos(a), rho * Math.sin(a), zc];
+        const N: V3 = [-sL * Math.cos(a), -sL * Math.sin(a), cL], E: V3 = [-Math.sin(a), Math.cos(a), 0], D: V3 = [-cL * Math.cos(a), -cL * Math.sin(a), -sL];
+        const vis = shown(p), q = pr(p);
+        ctx.globalAlpha = alpha * (vis ? 1 : 0.3);
+        const tipOf = (d: V3) => pr([p[0] + d[0] * ell, p[1] + d[1] * ell, p[2] + d[2] * ell]);
+        const tn = tipOf(N), te = tipOf(E), td = tipOf(D);
+        arrow(ctx, q.x, q.y, te.x, te.y, P.muted, main ? 2 : 1.25, main ? 8 : 6);
+        arrow(ctx, q.x, q.y, tn.x, tn.y, P.fg, main ? 2 : 1.25, main ? 8 : 6);
+        arrow(ctx, q.x, q.y, td.x, td.y, P.accent, main ? 2.5 : 1.25, main ? 9 : 6);
+        if (main) {
+          const lab = (tp: { x: number; y: number }, s: string, col: string) => {
+            const dx = tp.x - q.x, dy = tp.y - q.y, l = Math.hypot(dx, dy) || 1;
+            label(ctx, s, tp.x + (dx / l) * 10, tp.y + (dy / l) * 10, col, { size: 12, align: 'center', weight: 700 });
+          };
+          lab(tn, 'N', P.fg); lab(te, 'E', P.muted); lab(td, 'D', P.accent);
+          ctx.fillStyle = P.fg; ctx.beginPath(); ctx.arc(q.x, q.y, 4, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      };
+      const hours = Math.floor(t + 1e-9);
+      for (let i = 0; i <= hours; i++) if (t - i > 0.15) triad(lam0 + (v * i * 3600) / ((RS + h) * cL), 0.45, false);
+      triad(lam, 1, true);
+
+      label(ctx, 'moving east, $v_E = v$', 10, 16, P.soft, { size: 12 });
+      label(ctx, `$\\Delta\\lambda$ = ${((lam - lam0) / D2R).toFixed(1)}° in ${t.toFixed(1)} h`, 10, 34, P.muted, { size: 11 });
+    }
+
+    function draw() {
+      drawNorth(); drawEast();
+      const th = (v * t * 3600) / (RS + h), Ln = Math.min(th, Math.PI / 2);
+      const ld = v / (RN(Ln) + h);
+      out('ld', `${num(ld * RAD2DEGH)} °/h (at L = ${(Ln / D2R).toFixed(0)}°)`);
+      const L = latE * D2R, re = RE(L) + h;
+      out('lam', `${num((v / (re * Math.cos(L))) * RAD2DEGH)} °/h`);
+      out('wen', `[${num((v / re) * RAD2DEGH)}, 0, ${num((-v * Math.tan(L) / re) * RAD2DEGH)}] °/h`);
+    }
+
+    slider(fig, 'v', (x) => `${x} m/s`, (x) => { v = x; draw(); });
+    slider(fig, 'h', (x) => `${x} km`, (x) => { h = x * 1000; draw(); });
+    slider(fig, 'lat', (x) => `${x}°`, (x) => { latE = x; draw(); });
+
+    const anim = animate(fig, (dt) => {
+      if (t >= TMAX) { hold += dt; if (hold > 1.5) { t = 0; hold = 0; } }
+      else t = Math.min(TMAX, t + dt * 1.2);
+      draw();
+    }, () => playing);
+    playBtn.addEventListener('click', () => {
+      playing = !playing;
+      playBtn.setAttribute('aria-pressed', String(playing)); playBtn.textContent = playing ? 'Flying' : 'Paused';
+      anim.kick();
+    });
+    resetBtn.addEventListener('click', () => { t = playing ? 0 : 6; hold = 0; draw(); });
+  }
+</script>

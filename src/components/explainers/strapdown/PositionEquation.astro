@@ -1,0 +1,159 @@
+---
+import M from '../../blog/M.astro';
+// Position equations on a globe: the same east speed sweeps longitude faster at high latitude,
+// because a degree of longitude is shorter there by the factor cos L.
+---
+
+<figure class="xp wide" data-xp="poseq">
+  <div class="xp-head"><span class="label fig-title">Latitude and longitude rates</span></div>
+  <div class="xp-row two">
+    <canvas class="c-globe" role="img" aria-label="A globe with a latitude and longitude grid; a vehicle at the chosen latitude and a reference vehicle on the equator travel with the same velocity for two hours"></canvas>
+    <canvas class="c-plot" role="img" aria-label="Plots of the latitude and longitude rates over latitude, and of the ground length of one degree of longitude"></canvas>
+  </div>
+  <ul class="xp-legend">
+    <li class="c-accent"><i></i><span>vehicle at latitude <M t={String.raw`L`} />, track over 2 h</span></li>
+    <li class="c-fg"><i></i><span>same velocity on the equator</span></li>
+    <li class="c-muted"><i></i><span>grid every <M t={String.raw`10^\circ`} /></span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Latitude <M t={String.raw`L`} /></span><output for="lat"></output></span><input type="range" name="lat" min="-80" max="80" step="1" value="60" /></label>
+    <label class="xp-ctl"><span><span>Speed <M t={String.raw`|\mathbf v^n|`} /></span><output for="spd"></output></span><input type="range" name="spd" min="0" max="300" step="5" value="250" /></label>
+    <label class="xp-ctl"><span><span>Course (from north)</span><output for="crs"></output></span><input type="range" name="crs" min="0" max="355" step="5" value="90" /></label>
+  </div>
+  <div class="xp-btns"><button class="btn btn-primary" type="button" data-act="play">Pause</button></div>
+  <p class="xp-readout" aria-live="polite">
+    <span><M t={String.raw`\dot L`} /> = <b data-o="ld"></b> °/h</span>
+    <span><M t={String.raw`\dot\lambda`} /> = <b class="hot" data-o="lmd"></b> °/h</span>
+    <span>on the equator <M t={String.raw`\dot\lambda`} /> = <b data-o="lm0"></b> °/h</span>
+    <span><M t={String.raw`1^\circ`} /> of longitude = <b data-o="klon"></b></span>
+    <span><M t={String.raw`1^\circ`} /> of latitude = <b data-o="klat"></b></span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, animate, label, slider, arrow, axes, series, reducedMotion, outputs } from '../../../lib/explainer';
+  import { camera, type V3 } from '../../../lib/rot';
+
+  const D2R = Math.PI / 180, A0 = 6378137, E2 = 6.69437999014e-3, TH = 2, DT = 60;
+  const radii = (L: number) => { const s = Math.sin(L), d = 1 - E2 * s * s; return { RN: (A0 * (1 - E2)) / d ** 1.5, RE: A0 / Math.sqrt(d) }; };
+  const ecef = (la: number, lo: number): V3 => [Math.cos(la) * Math.cos(lo), Math.cos(la) * Math.sin(lo), Math.sin(la)];
+  const NP = 171;
+  const latAx = new Float64Array(NP);
+  for (let i = 0; i < NP; i++) latAx[i] = -85 + i;
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="poseq"]')) {
+    const out = outputs(fig);
+    const playBtn = fig.querySelector<HTMLButtonElement>('[data-act="play"]')!;
+    let lat = 60, spd = 250, crs = 90, tau = TH, running = !reducedMotion();
+    const G = setupCanvas(fig.querySelector<HTMLCanvasElement>('.c-globe')!, (w) => Math.max(300, w * 0.85), () => draw());
+    const Pl = setupCanvas(fig.querySelector<HTMLCanvasElement>('.c-plot')!, (w) => Math.max(300, w * 0.85), () => draw());
+
+    // integrate the position equations with constant north and east velocity (h = 0)
+    function track(L0: number) {
+      const pts: [number, number][] = [];
+      const vN = spd * Math.cos(crs * D2R), vE = spd * Math.sin(crs * D2R);
+      let L = L0 * D2R, lo = 0;
+      for (let t = 0; t <= TH * 3600 + 1; t += DT) {
+        pts.push([L, lo]);
+        const { RN, RE } = radii(L);
+        L += (vN / RN) * DT; lo += (vE / (RE * Math.cos(L))) * DT;
+        if (Math.abs(L) > 88 * D2R) break;
+      }
+      return pts;
+    }
+
+    function drawGlobe() {
+      const P = palette(), { ctx, size } = G, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const tA = track(lat), tB = track(0);
+      const endLon = tA[tA.length - 1][1];
+      const lonEye = Math.max(-70 * D2R, Math.min(70 * D2R, endLon / 2));
+      const latEye = (lat < 0 ? -32 : 32) * D2R;
+      const R = Math.min(W, H) * 0.44;
+      const cam = camera(-lonEye, latEye, R, W / 2, H / 2 + 4);
+      const pr = (v: V3) => cam.project([v[0], -v[1], -v[2]]);
+      const c = pr([0, 0, 0]);
+      ctx.strokeStyle = P.strong; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(c.x, c.y, R, 0, Math.PI * 2); ctx.stroke();
+      const poly = (pts: V3[], col: string, w: number, dash: number[] = []) => {
+        ctx.strokeStyle = col; ctx.lineWidth = w; ctx.setLineDash(dash);
+        let pen = false; ctx.beginPath();
+        for (const p of pts) { const q = pr(p); if (q.z < 0) { pen = false; continue; } pen ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); pen = true; }
+        ctx.stroke(); ctx.setLineDash([]);
+      };
+      for (let la = -80; la <= 80; la += 10) { const pts: V3[] = []; for (let lo = -180; lo <= 180; lo += 3) pts.push(ecef(la * D2R, lo * D2R)); poly(pts, la === 0 ? P.strong : P.border, 1); }
+      for (let lo = -180; lo < 180; lo += 10) { const pts: V3[] = []; for (let la = -90; la <= 90; la += 3) pts.push(ecef(la * D2R, lo * D2R)); poly(pts, P.border, 1); }
+      // the parallel of the vehicle
+      { const pts: V3[] = []; for (let lo = -180; lo <= 180; lo += 2) pts.push(ecef(lat * D2R, lo * D2R)); poly(pts, P.accent, 1, [3, 4]); }
+      // pole marker
+      const pole = pr([0, 0, lat < 0 ? -1 : 1]);
+      if (pole.z > 0) { ctx.fillStyle = P.soft; ctx.beginPath(); ctx.arc(pole.x, pole.y, 2.5, 0, Math.PI * 2); ctx.fill(); label(ctx, lat < 0 ? 'south pole' : 'north pole', pole.x + 6, pole.y - 8, P.muted, { size: 10 }); }
+
+      const k = Math.round((tau * 3600) / DT);
+      const run = (pts: [number, number][], col: string, w: number, name: string) => {
+        const kk = Math.min(k, pts.length - 1);
+        poly(pts.map(([a, b]) => ecef(a, b)), col, 1, [2, 3]);
+        poly(pts.slice(0, kk + 1).map(([a, b]) => ecef(a, b)), col, w);
+        const [La, lo] = pts[kk], p = pr(ecef(La, lo));
+        if (p.z < 0) return;
+        const N: V3 = [-Math.sin(La) * Math.cos(lo), -Math.sin(La) * Math.sin(lo), Math.cos(La)], E: V3 = [-Math.sin(lo), Math.cos(lo), 0];
+        const cN = Math.cos(crs * D2R), cE = Math.sin(crs * D2R), base = ecef(La, lo), s = 0.22 * Math.min(1, spd / 150);
+        const q = pr([base[0] + s * (cN * N[0] + cE * E[0]), base[1] + s * (cN * N[1] + cE * E[1]), base[2] + s * (cN * N[2] + cE * E[2])]);
+        if (spd > 0) arrow(ctx, p.x, p.y, q.x, q.y, col, 2, 8);
+        ctx.fillStyle = col; ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2); ctx.fill();
+        const dl = (lo - pts[0][1]) / D2R;
+        label(ctx, `${name}: $\\Delta\\lambda$ = ${dl.toFixed(1)}°`, p.x + 8, p.y + 14, col, { size: 11 });
+      };
+      run(tB, P.fg, 2, 'equator');
+      run(tA, P.accent, 2.5, `$L$ = ${lat}°`);
+      label(ctx, `$t$ = ${tau.toFixed(2)} h`, 8, 12, P.soft, { size: 11 });
+    }
+
+    function drawPlot() {
+      const P = palette(), { ctx, size } = Pl, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const vN = spd * Math.cos(crs * D2R), vE = spd * Math.sin(crs * D2R);
+      const lamd = latAx.map((l) => (Math.abs((vE / (radii(l * D2R).RE * Math.cos(l * D2R))) * 3600) / D2R));
+      const Ld = latAx.map((l) => (Math.abs((vN / radii(l * D2R).RN) * 3600) / D2R));
+      const km = latAx.map((l) => (radii(l * D2R).RE * Math.cos(l * D2R) * D2R) / 1000);
+      let ymax = 0; for (let i = 0; i < NP; i++) if (Math.abs(latAx[i]) <= 80) ymax = Math.max(ymax, lamd[i], Ld[i]);
+      ymax = Math.max(1, ymax * 1.1);
+      const h1 = (H - 84) * 0.55, h2 = H - 84 - h1;
+      const b1 = { x: 44, y: 8, w: W - 54, h: h1 }, b2 = { x: 44, y: h1 + 44, w: W - 54, h: h2 };
+      const A1 = axes(ctx, P, b1, [-85, 85], [0, ymax], { ylabel: 'rate magnitude [°/h]', yfmt: (v) => v.toFixed(0), xfmt: (v) => `${v}°`, xticks: 6, yticks: 4 });
+      series(ctx, b1, latAx, Ld, A1.sx, A1.sy, P.fg, 1.75);
+      series(ctx, b1, latAx, lamd, A1.sx, A1.sy, P.accent, 2.25);
+      const x1 = A1.sx(lat);
+      ctx.strokeStyle = P.soft; ctx.lineWidth = 1; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(x1, b1.y); ctx.lineTo(x1, b2.y + b2.h); ctx.stroke(); ctx.setLineDash([]);
+      const i0 = Math.round(lat + 85);
+      for (const [arr, col] of [[lamd, P.accent], [Ld, P.fg]] as [Float64Array, string][]) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x1, A1.sy(Math.min(arr[i0], ymax)), 4, 0, Math.PI * 2); ctx.fill(); }
+      label(ctx, 'longitude rate', b1.x + b1.w / 2, b1.y + 12, P.accent, { size: 11, align: 'center' });
+      label(ctx, 'latitude rate', b1.x + b1.w / 2, b1.y + 26, P.fg, { size: 11, align: 'center' });
+      const A2 = axes(ctx, P, b2, [-85, 85], [0, 120], { ylabel: 'length of 1° of longitude [km]', yfmt: (v) => v.toFixed(0), xfmt: (v) => `${v}°`, xticks: 6, yticks: 3, xlabel: 'latitude $L$' });
+      series(ctx, b2, latAx, km, A2.sx, A2.sy, P.soft, 1.75);
+      ctx.fillStyle = P.accent; ctx.beginPath(); ctx.arc(x1, A2.sy(km[i0]), 4, 0, Math.PI * 2); ctx.fill();
+      label(ctx, `${km[i0].toFixed(1)} km`, x1 + (lat > 40 ? -8 : 8), A2.sy(km[i0]) - 12, P.accent, { size: 11, align: lat > 40 ? 'right' : 'left' });
+    }
+
+    function draw() {
+      drawGlobe(); drawPlot();
+      const L = lat * D2R, { RN, RE } = radii(L), { RE: RE0 } = radii(0);
+      const vN = spd * Math.cos(crs * D2R), vE = spd * Math.sin(crs * D2R);
+      const f = (x: number) => (Math.abs(x) < 0.005 ? 0 : x).toFixed(2);
+      out('ld', f(((vN / RN) * 3600) / D2R));
+      out('lmd', f(((vE / (RE * Math.cos(L))) * 3600) / D2R));
+      out('lm0', f(((vE / RE0) * 3600) / D2R));
+      out('klon', `${((RE * Math.cos(L) * D2R) / 1000).toFixed(1)} km`);
+      out('klat', `${((RN * D2R) / 1000).toFixed(1)} km`);
+    }
+
+    const anim = animate(fig, (dt) => { tau += dt * 0.4; if (tau > TH) tau = 0; draw(); }, () => running);
+    slider(fig, 'lat', (v) => `${v}°`, (v) => { lat = v; draw(); });
+    slider(fig, 'spd', (v) => `${v} m/s`, (v) => { spd = v; draw(); });
+    slider(fig, 'crs', (v) => `${v}°`, (v) => { crs = v; draw(); });
+    playBtn.addEventListener('click', () => { running = !running; playBtn.textContent = running ? 'Pause' : 'Play'; anim.kick(); });
+    if (!running) playBtn.textContent = 'Play';
+  }
+</script>

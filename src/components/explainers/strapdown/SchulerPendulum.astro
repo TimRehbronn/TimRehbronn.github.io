@@ -1,0 +1,143 @@
+---
+import M from '../../blog/M.astro';
+// Pendulum period T = 2 pi sqrt(L/g) from 1 m up to the Earth's radius, next to a satellite orbiting at ground level.
+// At L = R both share the Schuler period of 84.4 minutes.
+---
+
+<figure class="xp wide" data-xp="schpend">
+  <div class="xp-head"><span class="label fig-title">A pendulum as long as the Earth's radius</span></div>
+  <div class="xp-row two">
+    <canvas data-c="scene" role="img" aria-label="A pendulum of adjustable length swinging next to the Earth with a satellite orbiting just above the surface, both shown with the same time-lapse."></canvas>
+    <canvas data-c="plot" role="img" aria-label="Pendulum period against length on logarithmic axes, a straight line of slope one half that reaches 84.4 minutes at the Earth's radius."></canvas>
+  </div>
+  <ul class="xp-legend">
+    <li class="c-fg"><i></i><span>pendulum period <M t={String.raw`T = 2\pi\sqrt{L/g}`} /></span></li>
+    <li class="c-accent dash"><i></i><span>Schuler period <M t={String.raw`T_s`} /></span></li>
+    <li class="c-muted"><i></i><span>satellite and its shadow</span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Pendulum length <M t={String.raw`L`} /></span><output for="L"></output></span><input type="range" name="L" min="0" max="6.8042" step="0.0001" value="0" /></label>
+  </div>
+  <div class="xp-btns">
+    <button class="btn btn-primary" type="button" data-act="play">Play</button>
+    <button class="btn" type="button" data-act="R">Set <M t={String.raw`L = R`} /></button>
+  </div>
+  <p class="xp-readout" aria-live="polite">
+    <span>period <M t={String.raw`T`} /> = <b class="hot" data-o="T"></b></span>
+    <span><M t={String.raw`T/T_s`} /> = <b data-o="r"></b></span>
+    <span>time-lapse <b data-o="lapse"></b></span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<style>
+  [data-xp='schpend'] [data-act='R'] { text-transform: none; letter-spacing: 0.02em; }
+</style>
+
+<script>
+  import { palette, setupCanvas, animate, label, slider, axes, reducedMotion, outputs } from '../../../lib/explainer';
+
+  const G = 9.80665, R = 6.371e6, TS = 2 * Math.PI * Math.sqrt(R / G);
+  const LMAX = Math.log10(R);
+  const SHOW = 3; // displayed seconds per pendulum swing
+  const period = (L: number) => 2 * Math.PI * Math.sqrt(L / G);
+  const fmtL = (L: number) => (L >= 1000 ? `${(L / 1000).toFixed(L >= 1e5 ? 0 : 1)} km` : `${L.toFixed(L >= 10 ? 0 : 1)} m`);
+  const fmtT = (s: number) => (s < 120 ? `${s.toFixed(1)} s` : s < 7200 ? `${(s / 60).toFixed(1)} min` : `${(s / 3600).toFixed(1)} h`);
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="schpend"]')) {
+    const scene = fig.querySelector<HTMLCanvasElement>('[data-c="scene"]')!;
+    const plot = fig.querySelector<HTMLCanvasElement>('[data-c="plot"]')!;
+    const out = outputs(fig);
+    const playBtn = fig.querySelector<HTMLButtonElement>('[data-act="play"]')!;
+    let lg = 0, phP = 0, phS = Math.PI / 2, running = !reducedMotion();
+    const L = () => (lg >= LMAX - 1e-3 ? R : 10 ** lg);
+
+    const S1 = setupCanvas(scene, (w) => w * 0.75, drawScene);
+    const S2 = setupCanvas(plot, (w) => w * 0.75, drawPlot);
+    const draw = () => { drawScene(); drawPlot(); readout(); };
+
+    function drawScene() {
+      const { ctx, size } = S1, P = palette(), W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      // pendulum: drawn length grows with log L
+      const px = W * 0.25, py = 26, frac = lg / LMAX, Lp = (0.32 + 0.6 * frac) * (H - 80);
+      const th = (22 * Math.PI) / 180 * Math.cos(phP);
+      const bx = px + Lp * Math.sin(th), by = py + Lp * Math.cos(th);
+      ctx.strokeStyle = P.strong; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(px - 26, py); ctx.lineTo(px + 26, py); ctx.stroke();
+      ctx.save(); ctx.setLineDash([3, 4]); ctx.strokeStyle = P.border; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, py + Lp + 14); ctx.stroke(); ctx.restore();
+      ctx.strokeStyle = P.fg; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(bx, by); ctx.stroke();
+      ctx.fillStyle = P.fg; ctx.beginPath(); ctx.arc(bx, by, 7, 0, 2 * Math.PI); ctx.fill();
+      label(ctx, `$L$ = ${fmtL(L())}`, px + 34, py, P.soft, { size: 11 });
+      label(ctx, `$T$ = ${fmtT(period(L()))}`, px, H - 30, P.fg, { size: 12, align: 'center' });
+      label(ctx, 'pendulum (drawn length not to scale)', px, H - 12, P.muted, { size: 10, align: 'center' });
+
+      // Earth with a satellite at ground level, and the satellite's shadow on a diameter
+      const ex = W * 0.72, ey = H * 0.46, er = Math.min(W * 0.2, H * 0.3);
+      ctx.strokeStyle = P.strong; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(ex, ey, er, 0, 2 * Math.PI); ctx.stroke();
+      ctx.save(); ctx.setLineDash([3, 4]); ctx.strokeStyle = P.border; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(ex, ey, er + 6, 0, 2 * Math.PI); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(ex - er - 14, ey); ctx.lineTo(ex + er + 14, ey); ctx.stroke(); ctx.restore();
+      const sx = ex + (er + 6) * Math.sin(phS), sy = ey - (er + 6) * Math.cos(phS);
+      ctx.save(); ctx.setLineDash([2, 3]); ctx.strokeStyle = P.muted; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx, ey); ctx.stroke(); ctx.restore();
+      ctx.fillStyle = P.muted; ctx.beginPath(); ctx.arc(sx, ey, 4, 0, 2 * Math.PI); ctx.fill();
+      ctx.fillStyle = P.fg; ctx.beginPath(); ctx.arc(sx, sy, 5, 0, 2 * Math.PI); ctx.fill();
+      label(ctx, 'satellite at ground level', ex, ey + er + 26, P.soft, { size: 11, align: 'center' });
+      label(ctx, `orbit: ${fmtT(TS)}, $v = 7.9$ km/s`, ex, ey + er + 42, P.muted, { size: 10, align: 'center' });
+      const sync = L() >= R * 0.999;
+      if (sync) label(ctx, 'same period: they swing in step', ex, ey + er + 62, P.accent, { size: 11, align: 'center' });
+    }
+
+    function drawPlot() {
+      const { ctx, size } = S2, P = palette(), W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const box = { x: 56, y: 10, w: W - 68, h: H - 48 };
+      const units = ['1 m', '10 m', '100 m', '1 km', '10 km', '100 km', '1000 km', ''];
+      const ax = axes(ctx, P, box, [0, 7], [1, 3e4], {
+        logY: true, xlabel: 'pendulum length $L$', ylabel: 'period $T$', xticks: 7,
+        xfmt: (v) => units[Math.round(v)] ?? '', yfmt: (v) => (v < 120 ? `${v} s` : v < 7200 ? `${Math.round(v / 60)} min` : `${(v / 3600).toFixed(1)} h`),
+      });
+      // T = 2 pi sqrt(L/g)
+      ctx.save(); ctx.beginPath(); ctx.rect(box.x, box.y, box.w, box.h); ctx.clip();
+      ctx.strokeStyle = P.fg; ctx.lineWidth = 1.75; ctx.beginPath();
+      for (let i = 0; i <= 70; i++) { const v = (i / 70) * 7; const X = ax.sx(v), Y = ax.sy(period(10 ** v)); i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }
+      ctx.stroke();
+      // Schuler period and the Earth's radius
+      const yS = ax.sy(TS), xR = ax.sx(LMAX);
+      ctx.setLineDash([6, 4]); ctx.strokeStyle = P.accent; ctx.lineWidth = 1.25;
+      ctx.beginPath(); ctx.moveTo(box.x, yS); ctx.lineTo(box.x + box.w, yS); ctx.stroke();
+      ctx.strokeStyle = P.muted; ctx.beginPath(); ctx.moveTo(xR, box.y); ctx.lineTo(xR, box.y + box.h); ctx.stroke();
+      ctx.restore();
+      label(ctx, '$T_s$ = 84.4 min', box.x + 8, yS - 10, P.accent, { size: 11 });
+      label(ctx, '$L = R$', xR - 4, box.y + box.h - 12, P.muted, { size: 10, align: 'right' });
+      label(ctx, 'slope 1/2: 100 times longer,', ax.sx(2.6), ax.sy(period(10 ** 2.6)) + 30, P.muted, { size: 10 });
+      label(ctx, '10 times slower', ax.sx(2.6), ax.sy(period(10 ** 2.6)) + 44, P.muted, { size: 10 });
+      // current length
+      const X = ax.sx(Math.log10(L())), Y = ax.sy(period(L()));
+      ctx.save(); ctx.setLineDash([2, 3]); ctx.strokeStyle = P.accent; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(X, box.y + box.h); ctx.lineTo(X, Y); ctx.lineTo(box.x, Y); ctx.stroke(); ctx.restore();
+      ctx.fillStyle = P.accent; ctx.beginPath(); ctx.arc(X, Y, 5, 0, 2 * Math.PI); ctx.fill();
+    }
+
+    function readout() {
+      const T = period(L());
+      out('T', fmtT(T));
+      out('r', (T / TS).toPrecision(2));
+      const lapse = T / SHOW;
+      out('lapse', running ? `×${lapse < 10 ? lapse.toFixed(1) : Math.round(lapse).toLocaleString('en-US')}` : 'paused');
+    }
+
+    const anim = animate(fig, (dt) => {
+      const T = period(L());
+      phP += (dt * 2 * Math.PI) / SHOW;                 // one swing every SHOW seconds on screen
+      phS += (dt * (T / SHOW) * 2 * Math.PI) / TS;      // the satellite in the same time-lapse
+      draw();
+    }, () => running);
+    const setRun = (r: boolean) => { running = r; playBtn.textContent = r ? 'Pause' : 'Play'; anim.kick(); readout(); };
+    playBtn.addEventListener('click', () => setRun(!running));
+    const sL = slider(fig, 'L', (v) => fmtL(v >= LMAX - 1e-3 ? R : 10 ** v), (v) => { lg = v; phP = 0; phS = Math.PI / 2; draw(); });
+    fig.querySelector('[data-act="R"]')!.addEventListener('click', () => sL.set(LMAX));
+    setRun(running);
+  }
+</script>

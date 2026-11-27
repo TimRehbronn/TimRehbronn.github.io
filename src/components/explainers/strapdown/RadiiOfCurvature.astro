@@ -1,0 +1,154 @@
+---
+import M from '../../blog/M.astro';
+// Radii of curvature of the ellipsoid: the meridian radius R_N (osculating circle of the meridian ellipse)
+// and the transverse radius R_E (length of the normal from the surface to the spin axis), with true WGS 84 values.
+---
+
+<figure class="xp wide" data-xp="radii">
+  <div class="xp-head"><span class="label fig-title">Two radii of curvature</span></div>
+  <div class="xp-row two">
+    <canvas class="c-g" role="img" aria-label="Meridian section of a flattened ellipsoid with, at a chosen latitude, the circle that best fits the ellipse there (radius R_N) and the normal from the point to the spin axis (length R_E)"></canvas>
+    <canvas class="c-p" role="img" aria-label="Plot of the true WGS 84 radii R_N and R_E in kilometres against latitude, with the equatorial radius R_0 for comparison"></canvas>
+  </div>
+  <ul class="xp-legend">
+    <li class="c-accent"><i></i><span>best-fitting circle of the meridian, radius <M t="R_N" /> (north-south)</span></li>
+    <li class="c-fg"><i></i><span>normal from the point to the spin axis, length <M t="R_E" /> (east-west)</span></li>
+    <li class="c-muted dash"><i></i><span>radius of the circle of latitude <M t={String.raw`R_E\cos L`} /></span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Latitude <M t="L" /></span><output for="lat"></output></span><input type="range" name="lat" min="0" max="90" step="1" value="51" /></label>
+    <label class="xp-ctl"><span><span>Flattening, drawn exaggerated</span><output for="ex"></output></span><input type="range" name="ex" min="1" max="90" step="1" value="60" /></label>
+  </div>
+  <p class="xp-readout" aria-live="polite">
+    <span>WGS 84: <M t="R_N" /> = <b class="hot" data-o="rn"></b></span>
+    <span><M t="R_E" /> = <b data-o="re"></b></span>
+    <span><M t="R_E - R_N" /> = <b data-o="dr"></b></span>
+    <span><M t={String.raw`R_E\cos L`} /> = <b data-o="rc"></b></span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, label, slider, arrow, axes, series, outputs } from '../../../lib/explainer';
+
+  const D2R = Math.PI / 180, R0 = 6378137, E2 = 6.69437999014e-3, F = 1 / 298.257223563;
+  const RN = (L: number, e2 = E2, a = R0) => (a * (1 - e2)) / (1 - e2 * Math.sin(L) ** 2) ** 1.5;
+  const RE = (L: number, e2 = E2, a = R0) => a / Math.sqrt(1 - e2 * Math.sin(L) ** 2);
+  const km = (m: number, d = 1) => `${(m / 1000).toFixed(d).replace(/\B(?=(\d{3})+(?!\d))/, ' ')} km`;
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="radii"]')) {
+    const cg = fig.querySelector<HTMLCanvasElement>('.c-g')!, cp = fig.querySelector<HTMLCanvasElement>('.c-p')!;
+    const out = outputs(fig);
+    let lat = 51, ex = 60;
+    const G = setupCanvas(cg, 0.95, () => draw()), Pl = setupCanvas(cp, 0.95, () => draw());
+
+    const arcM = (ctx: CanvasRenderingContext2D, x: number, y: number, r: number, a0: number, a1: number) => {
+      ctx.beginPath();
+      for (let i = 0; i <= 48; i++) { const a = a0 + ((a1 - a0) * i) / 48; i ? ctx.lineTo(x + r * Math.cos(a), y - r * Math.sin(a)) : ctx.moveTo(x + r * Math.cos(a), y - r * Math.sin(a)); }
+      ctx.stroke();
+    };
+    // a dimension line parallel to a segment, offset sideways, with arrowheads at both ends
+    const dim = (ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, off: [number, number], col: string) => {
+      const ax = x0 + off[0], ay = y0 + off[1], bx = x1 + off[0], by = y1 + off[1];
+      ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.globalAlpha = 0.6;
+      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(ax + off[0] * 0.3, ay + off[1] * 0.3); ctx.moveTo(x1, y1); ctx.lineTo(bx + off[0] * 0.3, by + off[1] * 0.3); ctx.stroke();
+      ctx.globalAlpha = 1;
+      const mx = (ax + bx) / 2, my = (ay + by) / 2;
+      arrow(ctx, mx, my, ax, ay, col, 1.5, 7); arrow(ctx, mx, my, bx, by, col, 1.5, 7);
+    };
+
+    function drawSection() {
+      const P = palette(), { ctx, size } = G, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const a = Math.min(W * 0.36, H * 0.38), cx = W * 0.42, cy = H * 0.46;
+      const f = Math.min(0.3, F * ex), e2 = f * (2 - f), b = a * (1 - f);
+      const X = (x: number) => cx + x, Y = (z: number) => cy - z;
+      const L = lat * D2R, cL = Math.cos(L), sL = Math.sin(L);
+      const rn = RN(L, e2, a), re = RE(L, e2, a);
+      const px = re * cL, pz = re * (1 - e2) * sL; // point on the ellipse at geodetic latitude L
+      const Cx = px - rn * cL, Cz = pz - rn * sL; // centre of curvature of the meridian
+      const Qz = -re * e2 * sL; // where the normal meets the spin axis
+
+      // axes
+      ctx.strokeStyle = P.border; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(cx - a - 12, cy); ctx.lineTo(cx + a + 16, cy); ctx.moveTo(cx, cy + b + 12); ctx.lineTo(cx, cy - b - 22); ctx.stroke();
+      label(ctx, 'equator', cx - a - 10, cy + 11, P.muted, { size: 10 });
+      label(ctx, 'spin axis', cx - 6, cy - b - 16, P.muted, { size: 10, align: 'right' });
+
+      // osculating circle: solid near the point, faint elsewhere
+      ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.clip();
+      ctx.strokeStyle = P.accent; ctx.lineWidth = 1; ctx.globalAlpha = 0.3;
+      ctx.beginPath(); ctx.arc(X(Cx), Y(Cz), rn, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1; ctx.lineWidth = 2.25;
+      const span = Math.min(0.9, (0.55 * a) / rn);
+      arcM(ctx, X(Cx), Y(Cz), rn, L - span, L + span);
+      ctx.restore();
+      // ellipse (meridian section)
+      ctx.strokeStyle = P.fg; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(cx, cy, a, b, 0, 0, Math.PI * 2); ctx.stroke();
+
+      // normal line from beyond the point to the axis
+      ctx.strokeStyle = P.strong; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(X(px + cL * 0.12 * a), Y(pz + sL * 0.12 * a)); ctx.lineTo(X(Math.min(Cx, 0) - cL * 0.04 * a), Y(Math.min(Cz, Qz) - sL * 0.04 * a)); ctx.stroke();
+      // circle-of-latitude radius
+      if (cL > 0.03) {
+        const showLab = cL > 0.3 && lat >= 30;
+        ctx.strokeStyle = P.muted; ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.moveTo(cx, Y(pz)); ctx.lineTo(X(px), Y(pz)); ctx.stroke(); ctx.setLineDash([]);
+        if (showLab) label(ctx, '$R_E$ cos $L$', cx + px * 0.3, Y(pz) - 10, P.muted, { size: 11, align: 'center' });
+      }
+      // dimension lines for R_N (north side of the normal) and R_E (south side)
+      const tn: [number, number] = [-sL, cL], o = 9;
+      dim(ctx, X(px), Y(pz), X(Cx), Y(Cz), [tn[0] * o, -tn[1] * o], P.accent);
+      dim(ctx, X(px), Y(pz), X(0), Y(Qz), [-tn[0] * o, tn[1] * o], P.fg);
+      const lr = (x: number, z: number, side: number, s: string, col: string) =>
+        label(ctx, s, X(x) + side * tn[0] * 22, Y(z) - side * tn[1] * 22, col, { size: 14, align: 'center' });
+      const mN = 0.5, mE = 0.62;
+      lr(px + (Cx - px) * mN, pz + (Cz - pz) * mN, 1, '$R_N$', P.accent);
+      lr(px + (0 - px) * mE, pz + (Qz - pz) * mE, -1, '$R_E$', P.fg);
+
+      // centre of curvature and the axis crossing
+      const inside = (x: number, y: number) => x > 0 && x < W && y > 0 && y < H;
+      if (inside(X(Cx), Y(Cz))) {
+        ctx.fillStyle = P.accent; ctx.beginPath(); ctx.arc(X(Cx), Y(Cz), 3.5, 0, Math.PI * 2); ctx.fill();
+        if (lat < 75) label(ctx, 'centre of curvature', X(Cx) + tn[0] * 18 - 4, Y(Cz) - tn[1] * 18, P.accent, { size: 10, align: 'right' });
+      } else label(ctx, 'centre of curvature below the frame', W - 8, H - 26, P.accent, { size: 10, align: 'right' });
+      ctx.fillStyle = P.fg; ctx.beginPath(); ctx.arc(cx, Y(Qz), 3, 0, Math.PI * 2); ctx.fill();
+      if (lat > 4 && lat < 86) {
+        ctx.strokeStyle = P.soft; ctx.lineWidth = 1; arcM(ctx, cx, Y(Qz), 24, 0, L);
+        label(ctx, '$L$', cx + 34 * Math.cos(L / 2), Y(Qz) - 34 * Math.sin(L / 2), P.soft, { size: 12, align: 'center' });
+      }
+      ctx.fillStyle = P.fg; ctx.beginPath(); ctx.arc(X(px), Y(pz), 4.5, 0, Math.PI * 2); ctx.fill();
+      label(ctx, 'meridian ellipse', cx + a * 0.72 + 6, cy + b * 0.7 + 12, P.fg, { size: 10 });
+      label(ctx, `flattening drawn $${ex}\\times$ exaggerated`, 8, H - 10, P.muted, { size: 10 });
+    }
+
+    function drawPlot() {
+      const P = palette(), { ctx, size } = Pl, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const bx = { x: 50, y: 24, w: W - 62, h: H - 66 };
+      const { sx, sy } = axes(ctx, P, bx, [0, 90], [6330, 6410], { xfmt: (v) => `${v}°`, xticks: 6, yticks: 4, xlabel: 'latitude $L$', ylabel: 'km' });
+      const xs: number[] = [], yn: number[] = [], ye: number[] = [];
+      for (let i = 0; i <= 90; i++) { xs.push(i); yn.push(RN(i * D2R) / 1000); ye.push(RE(i * D2R) / 1000); }
+      ctx.strokeStyle = P.muted; ctx.setLineDash([4, 4]); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(bx.x, sy(R0 / 1000)); ctx.lineTo(bx.x + bx.w, sy(R0 / 1000)); ctx.stroke(); ctx.setLineDash([]);
+      label(ctx, '$R_0$', bx.x + bx.w - 6, sy(R0 / 1000) + 12, P.muted, { size: 12, align: 'right' });
+      series(ctx, bx, xs, ye, sx, sy, P.fg, 2);
+      series(ctx, bx, xs, yn, sx, sy, P.accent, 2);
+      label(ctx, '$R_E$', sx(14), sy(RE(14 * D2R) / 1000) - 12, P.fg, { size: 13, align: 'center' });
+      label(ctx, '$R_N$', sx(14), sy(RN(14 * D2R) / 1000) + 14, P.accent, { size: 13, align: 'center' });
+      label(ctx, 'equal at the pole', sx(89), sy(6399.6) - 10, P.muted, { size: 10, align: 'right' });
+      const x = sx(lat), vn = RN(lat * D2R) / 1000, ve = RE(lat * D2R) / 1000;
+      ctx.strokeStyle = P.strong; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, bx.y); ctx.lineTo(x, bx.y + bx.h); ctx.stroke();
+      ctx.fillStyle = P.accent; ctx.beginPath(); ctx.arc(x, sy(vn), 4.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = P.fg; ctx.beginPath(); ctx.arc(x, sy(ve), 4.5, 0, Math.PI * 2); ctx.fill();
+    }
+
+    function draw() {
+      drawSection(); drawPlot();
+      const L = lat * D2R, rn = RN(L), re = RE(L);
+      out('rn', km(rn)); out('re', km(re)); out('dr', km(re - rn)); out('rc', km(re * Math.cos(L)));
+    }
+    slider(fig, 'lat', (v) => `${v}°`, (v) => { lat = v; draw(); });
+    slider(fig, 'ex', (v) => `×${v}`, (v) => { ex = v; draw(); });
+  }
+</script>

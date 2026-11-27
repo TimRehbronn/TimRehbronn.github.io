@@ -1,0 +1,209 @@
+---
+import M from '../../blog/M.astro';
+// Schuler feedback: a computed position ahead of the truth sees a tilted "down"; the measured specific force,
+// resolved in the computed frame, gets a horizontal component that points back. Plus the resulting oscillation.
+---
+
+<figure class="xp wide" data-xp="schgeo">
+  <div class="xp-head"><span class="label fig-title">Why the round Earth pulls the error back</span></div>
+  <div class="xp-row two">
+    <canvas data-c="geo" role="img" aria-label="Cross-section of the Earth with the true and the computed position. The measured specific force, seen in the tilted frame of the computed position, has a horizontal component pointing back to the true position."></canvas>
+    <canvas data-c="plot" role="img" aria-label="Position error over three Schuler periods: on the round Earth it oscillates, on a flat Earth it stays or drifts away."></canvas>
+  </div>
+  <ul class="xp-legend">
+    <li class="c-accent"><i></i><span>round Earth: horizontal part of <M t={String.raw`\mathbf f`} /> and <M t={String.raw`\delta x`} /> with Schuler feedback</span></li>
+    <li class="c-fg dash"><i></i><span>flat Earth</span></li>
+    <li class="c-muted dash"><i></i><span>local down directions</span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Initial error <M t={String.raw`\delta x(0)`} /></span><output for="x0"></output></span><input type="range" name="x0" min="-10" max="10" step="0.5" value="6" /></label>
+    <label class="xp-ctl"><span><span>Accelerometer bias <M t={String.raw`b`} /></span><output for="ab"></output></span><input type="range" name="ab" min="0" max="0.5" step="0.01" value="0.2" /></label>
+  </div>
+  <div class="xp-btns">
+    <button class="btn btn-primary" type="button" data-act="play">Play</button>
+    <button class="btn" type="button" data-act="reset">Restart</button>
+    <button class="btn" type="button" data-earth="round" aria-pressed="true">Round Earth</button>
+    <button class="btn" type="button" data-earth="flat" aria-pressed="false">Flat Earth</button>
+  </div>
+  <p class="xp-readout" aria-live="polite">
+    <span><M t={String.raw`t`} /> = <b data-o="t"></b></span>
+    <span><M t={String.raw`\delta x`} /> = <b class="hot" data-o="x"></b></span>
+    <span>tilt of down <M t={String.raw`\delta x/R`} /> = <b data-o="a"></b></span>
+    <span>pull back <M t={String.raw`g\,\delta x/R`} /> = <b data-o="f"></b></span>
+    <span><M t={String.raw`T_s`} /> = <b>84.4 min</b></span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, animate, label, slider, arrow, axes, series, reducedMotion, outputs, niceStep } from '../../../lib/explainer';
+
+  const G = 9.80665, R = 6.371e6, WS = Math.sqrt(G / R), TS = (2 * Math.PI) / WS;
+  const TEND = 3 * TS;
+  const DEG_PER_KM = 4;   // drawing exaggeration: 10 km of error is drawn as 40 degrees
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="schgeo"]')) {
+    const geo = fig.querySelector<HTMLCanvasElement>('[data-c="geo"]')!;
+    const plot = fig.querySelector<HTMLCanvasElement>('[data-c="plot"]')!;
+    const out = outputs(fig);
+    const playBtn = fig.querySelector<HTMLButtonElement>('[data-act="play"]')!;
+    let x0 = 6000, ab = 0.2, round = true, now = 0, running = !reducedMotion();
+
+    const bias = () => ab * 1e-3 * G;
+    const dxRound = (t: number) => x0 * Math.cos(WS * t) + (bias() / WS ** 2) * (1 - Math.cos(WS * t));
+    const dxFlat = (t: number) => x0 + 0.5 * bias() * t * t;
+    const dx = (t: number) => (round ? dxRound(t) : dxFlat(t));
+
+    const G1 = setupCanvas(geo, (w) => w * 0.86, drawGeo);
+    const G2 = setupCanvas(plot, (w) => w * 0.86, drawPlot);
+    const draw = () => { drawGeo(); drawPlot(); readout(); };
+
+    function drawGeo() {
+      const { ctx, size } = G1, P = palette(), W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const e = dx(now);
+      const L = H * 0.25;                      // drawn length of g
+      const r = Math.min(H * 0.44, W * 0.42);  // drawn Earth radius
+      const kpx = (DEG_PER_KM * Math.PI / 180) * r / 1000; // pixels per metre along the surface
+      const fArrow = (x: number, y: number, dxp: number, dyp: number, col: string, w = 2) => arrow(ctx, x, y, x + dxp, y + dyp, col, w, 9);
+
+      if (round) {
+        const O = { x: W / 2, y: H * 0.34 + r }, a = (e / 1000) * DEG_PER_KM * Math.PI / 180;
+        const Tp = { x: O.x, y: O.y - r }, Cp = { x: O.x + r * Math.sin(a), y: O.y - r * Math.cos(a) };
+        // Earth
+        ctx.strokeStyle = P.strong; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(O.x, O.y, r, 0, 2 * Math.PI); ctx.stroke();
+        ctx.fillStyle = P.muted; ctx.beginPath(); ctx.arc(O.x, O.y, 2.5, 0, 2 * Math.PI); ctx.fill();
+        label(ctx, "Earth's centre", O.x, O.y + 13, P.muted, { size: 10, align: 'center' });
+        // local down directions
+        ctx.save(); ctx.setLineDash([4, 4]); ctx.strokeStyle = P.muted; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(Tp.x, Tp.y - L * 1.15); ctx.lineTo(O.x, O.y); ctx.lineTo(O.x + (Cp.x - O.x) * (1 + 1.15 * L / r), O.y + (Cp.y - O.y) * (1 + 1.15 * L / r)); ctx.stroke();
+        ctx.restore();
+        // angle at the centre
+        if (Math.abs(a) > 0.02) {
+          ctx.strokeStyle = P.soft; ctx.lineWidth = 1; ctx.beginPath();
+          ctx.arc(O.x, O.y, 34, -Math.PI / 2, -Math.PI / 2 + a, a < 0); ctx.stroke();
+          label(ctx, '$\\delta x/R$', O.x + 40 * Math.sin(a / 2) + (a > 0 ? 4 : -4), O.y - 44 * Math.cos(a / 2), P.soft, { size: 11, align: a > 0 ? 'left' : 'right' });
+        }
+        // the error along the surface
+        // the error along the surface, drawn as a dimension line just inside the surface
+        {
+          const rr = r - 36;
+          ctx.strokeStyle = P.soft; ctx.lineWidth = 1.25; ctx.beginPath(); ctx.arc(O.x, O.y, rr, -Math.PI / 2, -Math.PI / 2 + a, a < 0); ctx.stroke();
+          for (const q of [0, a]) { ctx.beginPath(); ctx.moveTo(O.x + (rr - 5) * Math.sin(q), O.y - (rr - 5) * Math.cos(q)); ctx.lineTo(O.x + (rr + 5) * Math.sin(q), O.y - (rr + 5) * Math.cos(q)); ctx.stroke(); }
+          if (Math.abs(a) > 0.05) label(ctx, '$\\delta x$', O.x + (rr - 14) * Math.sin(a / 2), O.y - (rr - 14) * Math.cos(a / 2), P.fg, { size: 12, align: 'center' });
+        }
+
+        // measured specific force at the true position: g along the true up
+        fArrow(Tp.x, Tp.y, 0, -L, P.fg);
+        label(ctx, 'true', Tp.x + (a >= 0 ? -8 : 8), Tp.y - 10, P.fg, { size: 11, align: a >= 0 ? 'right' : 'left' });
+        label(ctx, 'measured $\\mathbf f$', Tp.x + (a >= 0 ? -6 : 6), Tp.y - L + 8, P.soft, { size: 11, align: a >= 0 ? 'right' : 'left' });
+        ctx.fillStyle = P.fg; ctx.beginPath(); ctx.arc(Tp.x, Tp.y, 4.5, 0, 2 * Math.PI); ctx.fill();
+
+        // the same vector, seen in the computed frame
+        const up = { x: Math.sin(a), y: -Math.cos(a) }, no = { x: Math.cos(a), y: Math.sin(a) };
+        const fv = L * Math.cos(a), fh = -L * Math.sin(a);  // components of the screen vector (0, -L) along up and north
+        const hx = Cp.x + no.x * fh, hy = Cp.y + no.y * fh;
+        ctx.save(); ctx.setLineDash([2, 3]); ctx.strokeStyle = P.muted; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(Cp.x + up.x * fv, Cp.y + up.y * fv); ctx.lineTo(Cp.x, Cp.y - L); ctx.lineTo(hx, hy); ctx.stroke(); ctx.restore();
+        fArrow(Cp.x, Cp.y, up.x * fv, up.y * fv, P.muted, 1.25);
+        fArrow(Cp.x, Cp.y, 0, -L, P.fg);
+        fArrow(Cp.x, Cp.y, no.x * fh, no.y * fh, P.accent, 2.5);
+        if (Math.abs(fh) > 10) label(ctx, '$g\\,\\delta x/R$', hx, hy + 16, P.accent, { size: 12, align: 'center' });
+        // accelerometer bias along computed north
+        const bpx = (bias() * L * (DEG_PER_KM * Math.PI / 180 / 1000) * R) / G; // same exaggeration as the restoring part
+        if (bpx > 2) {
+          const ox = Cp.x + up.x * 12, oy = Cp.y + up.y * 12;
+          const bl = Math.max(bpx, 16);
+          fArrow(ox, oy, no.x * bl, no.y * bl, P.soft, 1.5);
+          label(ctx, '$b$', ox + no.x * (bl + 8), oy + no.y * (bl + 8), P.soft, { size: 11, align: 'center' });
+        }
+        ctx.fillStyle = P.accent; ctx.beginPath(); ctx.arc(Cp.x, Cp.y, 4.5, 0, 2 * Math.PI); ctx.fill();
+        label(ctx, 'computed', Cp.x + (a >= 0 ? 8 : -8), Cp.y + 12, P.accent, { size: 11, align: a >= 0 ? 'left' : 'right', base: 'top' });
+        label(ctx, 'computed up', Cp.x + up.x * L * 1.15 + (a >= 0 ? 6 : -6), Cp.y + up.y * L * 1.15, P.muted, { size: 10, align: a >= 0 ? 'left' : 'right' });
+      } else {
+        const gy = H * 0.62, Tp = { x: W / 2, y: gy };
+        let cx = Tp.x + e * kpx; const off = cx > W - 24 || cx < 24; cx = Math.max(24, Math.min(W - 24, cx));
+        ctx.strokeStyle = P.strong; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(8, gy); ctx.lineTo(W - 8, gy); ctx.stroke();
+        ctx.save(); ctx.setLineDash([4, 4]); ctx.strokeStyle = P.muted; ctx.lineWidth = 1;
+        for (const x of [Tp.x, cx]) { ctx.beginPath(); ctx.moveTo(x, gy - L * 1.15); ctx.lineTo(x, gy + 40); ctx.stroke(); }
+        ctx.restore();
+        ctx.strokeStyle = P.accent; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(Tp.x, gy); ctx.lineTo(cx, gy); ctx.stroke();
+        if (Math.abs(cx - Tp.x) > 30) label(ctx, '$\\delta x$', (Tp.x + cx) / 2, gy + 14, P.accent, { size: 12, align: 'center' });
+        fArrow(Tp.x, gy, 0, -L, P.fg); fArrow(cx, gy, 0, -L, P.fg);
+        ctx.fillStyle = P.fg; ctx.beginPath(); ctx.arc(Tp.x, gy, 4.5, 0, 2 * Math.PI); ctx.fill();
+        ctx.fillStyle = P.accent; ctx.beginPath(); ctx.arc(cx, gy, 4.5, 0, 2 * Math.PI); ctx.fill();
+        label(ctx, 'true', Tp.x + (e >= 0 ? -8 : 8), gy - L - 10, P.fg, { size: 11, align: e >= 0 ? 'right' : 'left' });
+        label(ctx, off ? 'computed (off the drawing)' : 'computed', cx + (e >= 0 ? -8 : 8), gy - L - 10, P.accent, { size: 11, align: e >= 0 ? 'right' : 'left' });
+        const bpx = (bias() * L * (DEG_PER_KM * Math.PI / 180 / 1000) * R) / G;
+        if (bpx > 2) {
+          arrow(ctx, cx, gy - 12, cx + (e >= 0 ? 1 : -1) * Math.max(bpx, 8), gy - 12, P.soft, 1.5, 9);
+          label(ctx, '$b$', cx + (e >= 0 ? 1 : -1) * (Math.max(bpx, 8) + 6), gy - 18, P.soft, { size: 11, align: e >= 0 ? 'left' : 'right' });
+        }
+        label(ctx, 'all down directions are parallel:', W / 2, H - 34, P.muted, { size: 11, align: 'center' });
+        label(ctx, ab > 0 ? 'nothing pulls back, the bias $b$ pushes the error away' : 'nothing pulls back, the error stays', W / 2, H - 18, P.muted, { size: 11, align: 'center' });
+      }
+      label(ctx, round ? 'angles exaggerated' : 'flat Earth', 6, 10, P.muted, { size: 10 });
+    }
+
+    function drawPlot() {
+      const { ctx, size } = G2, P = palette(), W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const n = 300, ts = new Float64Array(n + 1), yr = new Float64Array(n + 1), yf = new Float64Array(n + 1);
+      let A = 2;
+      for (let i = 0; i <= n; i++) {
+        const t = (i / n) * TEND; ts[i] = t / 60;
+        yr[i] = dxRound(t) / 1000; yf[i] = dxFlat(t) / 1000;
+        A = Math.max(A, Math.abs(yr[i]));
+      }
+      const st = niceStep(2 * A * 1.15, 5); A = Math.ceil((A * 1.15) / st) * st;
+      const box = { x: 46, y: 10, w: W - 56, h: H - 48 };
+      const ax = axes(ctx, P, box, [0, TEND / 60], [-A, A], { xlabel: 'time [min]', ylabel: '$\\delta x$ [km]', xfmt: (v) => `${v}`, yfmt: (v) => `${+v.toFixed(1)}`, zeroLine: true, xticks: 5 });
+      for (let k = 1; k <= 3; k++) {
+        const x = Math.round(ax.sx((k * TS) / 60)) + 0.5;
+        ctx.save(); ctx.setLineDash([2, 4]); ctx.strokeStyle = P.strong; ctx.beginPath(); ctx.moveTo(x, box.y); ctx.lineTo(x, box.y + box.h); ctx.stroke(); ctx.restore();
+        label(ctx, k === 1 ? '$T_s$' : `$${k}T_s$`, x - 4, box.y + box.h - 10, P.muted, { size: 10, align: 'right' });
+      }
+      const eq = (bias() * R) / G / 1000;
+      if (eq > 0.05 && eq < A) {
+        const y = ax.sy(eq);
+        ctx.save(); ctx.setLineDash([2, 3]); ctx.strokeStyle = P.muted; ctx.beginPath(); ctx.moveTo(box.x, y); ctx.lineTo(box.x + box.w, y); ctx.stroke(); ctx.restore();
+        label(ctx, '$bR/g$', box.x + 4, y - 8, P.muted, { size: 10 });
+      }
+      series(ctx, box, ts, yf, ax.sx, ax.sy, round ? P.soft : P.fg, round ? 1.25 : 2, [6, 4]);
+      series(ctx, box, ts, yr, ax.sx, ax.sy, P.accent, round ? 2.25 : 1.25);
+      const xc = ax.sx(now / 60);
+      ctx.strokeStyle = P.accent; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(Math.round(xc) + 0.5, box.y); ctx.lineTo(Math.round(xc) + 0.5, box.y + box.h); ctx.stroke();
+      const yv = dx(now) / 1000;
+      if (Math.abs(yv) <= A) { ctx.fillStyle = round ? P.accent : P.fg; ctx.beginPath(); ctx.arc(xc, ax.sy(yv), 4.5, 0, 2 * Math.PI); ctx.fill(); }
+      if (!round && dxFlat(TEND) / 1000 > A) label(ctx, 'flat Earth: drifts off the plot', box.x + 64, box.y + 12, P.fg, { size: 10 });
+    }
+
+    function readout() {
+      const e = dx(now);
+      out('t', `${(now / 60).toFixed(0)} min`);
+      out('x', `${(e / 1000).toFixed(2)} km`);
+      out('a', round ? `${((e / R) * 180 / Math.PI * 60).toFixed(2)} arcmin` : 'none (flat)');
+      out('f', round ? `${(((G * e) / R / G) * 1000).toFixed(2)} mg` : '0 (flat)');
+    }
+
+    const anim = animate(fig, (dt) => {
+      now += dt * (TS / 8);           // one Schuler period in 8 s
+      if (now > TEND) now = 0;
+      draw();
+    }, () => running);
+    const setRun = (r: boolean) => { running = r; playBtn.textContent = r ? 'Pause' : 'Play'; anim.kick(); };
+    playBtn.addEventListener('click', () => setRun(!running));
+    fig.querySelector('[data-act="reset"]')!.addEventListener('click', () => { now = 0; draw(); });
+    const eb = fig.querySelectorAll<HTMLButtonElement>('[data-earth]');
+    eb.forEach((btn) => btn.addEventListener('click', () => {
+      round = btn.dataset.earth === 'round';
+      eb.forEach((x) => x.setAttribute('aria-pressed', String(x === btn)));
+      draw();
+    }));
+    slider(fig, 'x0', (v) => `${v.toFixed(1)} km`, (v) => { x0 = v * 1000; draw(); });
+    slider(fig, 'ab', (v) => `${v.toFixed(2)} mg`, (v) => { ab = v; draw(); });
+    setRun(running);
+  }
+</script>

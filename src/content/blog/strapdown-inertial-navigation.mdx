@@ -41,6 +41,32 @@ import ScrewMotion from '../../components/explainers/strapdown/ScrewMotion.astro
 import PoseInterp from '../../components/explainers/strapdown/PoseInterp.astro';
 import AngularVelocity from '../../components/explainers/strapdown/AngularVelocity.astro';
 import CrossProduct from '../../components/explainers/strapdown/CrossProduct.astro';
+import ErrorChain from '../../components/explainers/strapdown/ErrorChain.astro';
+import SchulerGeometry from '../../components/explainers/strapdown/SchulerGeometry.astro';
+import SchulerPendulum from '../../components/explainers/strapdown/SchulerPendulum.astro';
+import VerticalChannel from '../../components/explainers/strapdown/VerticalChannel.astro';
+import SummaryMap from '../../components/explainers/strapdown/SummaryMap.astro';
+import EarthRateSection from '../../components/explainers/strapdown/EarthRateSection.astro';
+import TransportRate from '../../components/explainers/strapdown/TransportRate.astro';
+import RadiiOfCurvature from '../../components/explainers/strapdown/RadiiOfCurvature.astro';
+import GravityVectors from '../../components/explainers/strapdown/GravityVectors.astro';
+import ErrorGallery from '../../components/explainers/strapdown/ErrorGallery.astro';
+import SixPosition from '../../components/explainers/strapdown/SixPosition.astro';
+import TemperatureCal from '../../components/explainers/strapdown/TemperatureCal.astro';
+import LeverArm from '../../components/explainers/strapdown/LeverArm.astro';
+import AttitudeEquation from '../../components/explainers/strapdown/AttitudeEquation.astro';
+import VelocityEquation from '../../components/explainers/strapdown/VelocityEquation.astro';
+import PositionEquation from '../../components/explainers/strapdown/PositionEquation.astro';
+import DiscreteAlgorithm from '../../components/explainers/strapdown/DiscreteAlgorithm.astro';
+import Alignment from '../../components/explainers/strapdown/Alignment.astro';
+import BiasCauses from '../../components/explainers/strapdown/BiasCauses.astro';
+import BiasModels from '../../components/explainers/strapdown/BiasModels.astro';
+import AllanIntuition from '../../components/explainers/strapdown/AllanIntuition.astro';
+import AllanSlopes from '../../components/explainers/strapdown/AllanSlopes.astro';
+import SmallRotation from '../../components/explainers/strapdown/SmallRotation.astro';
+import AttitudeODE from '../../components/explainers/strapdown/AttitudeODE.astro';
+import MatrixExpPhase from '../../components/explainers/strapdown/MatrixExpPhase.astro';
+import ConingLoop from '../../components/explainers/strapdown/ConingLoop.astro';
 import FrameVector from '../../components/explainers/strapdown/FrameVector.astro';
 import NoiseWalk from '../../components/explainers/strapdown/NoiseWalk.astro';
 import Representations from '../../components/explainers/strapdown/Representations.astro';
@@ -829,6 +855,10 @@ $$
 
 So the matrix of a small rotation is $\mathbf I + [\delta\boldsymbol\theta\times]$, correct to first order in the angle.
 
+<SmallRotation>
+  Left: the vector $\mathbf x$ (white) at distance $r$ from an axis that points out of the screen, rotated exactly by $\delta\theta$ so that its tip moves on the circle, and the first-order step $\delta\boldsymbol\theta \times \mathbf x$ (orange). The step is perpendicular to $\mathbf x$ and to the axis and has length $\delta\theta\, r$. The first-order result $\mathbf x + \delta\boldsymbol\theta \times \mathbf x$ leaves the circle. Right: the step grows linearly with $\delta\theta$, while the gap between the two tips grows quadratically, about $\delta\theta^2 r/2$. **Try:** halve the angle from $20°$ to $10°$: the step halves, the gap shrinks by a factor of four. Move $\mathbf x$ closer to the axis: the step gets shorter in proportion.
+</SmallRotation>
+
 ### The attitude differential equation
 
 During a short time $\Delta t$ the body rotates, relative to the navigation frame, by the small rotation vector $\delta\boldsymbol\theta = \boldsymbol\omega_{nb}^b\,\Delta t$, expressed in body axes. A rotation about a *body* axis is applied on the *right* of the DCM (just as the Euler rotations were):
@@ -845,6 +875,10 @@ $$
 
 This is the three-dimensional version of $\dot\psi = \omega$. For now assume the navigation frame does not rotate (flat, non-rotating Earth); then $\boldsymbol\omega_{nb}^b$ is simply what the gyros measure. On the real Earth the navigation frame does rotate, and we will add that correction later.
 
+<AttitudeODE>
+  Left: a body rotating at the constant rate $\boldsymbol\omega_{nb}^b$ about a fixed, tilted axis (dashed). The white arrows are the body axes, the columns $\mathbf c_1, \mathbf c_2, \mathbf c_3$ of $\mathbf C_b^n$. The grey arrows at their tips are the velocities $\dot{\mathbf c}_i = \boldsymbol\omega \times \mathbf c_i$, perpendicular to the axis and to $\mathbf c_i$. The orange axes are computed with repeated first-order steps $\mathbf C_{k+1} = \mathbf C_k\,(\mathbf I + [\boldsymbol\omega_{nb}^b\times]\,\Delta t)$, and the dots mark the individual steps. Each step moves the tips along the tangent, so they spiral outwards, and $\mathbf C_k^\mathsf T \mathbf C_k$ drifts away from $\mathbf I$. Right: the lengths of the orange axes during one revolution; the exact axes keep length $1$. **Try:** halve the step size $\Delta t$: the excess length after one revolution roughly halves, because the error per step falls with $\Delta t^2$ while the number of steps doubles. Drag to look along the rotation axis.
+</AttitudeODE>
+
 ### Finite rotations: the matrix exponential
 
 The differential equation is exact, but we update in discrete steps. Within one IMU interval the body may rotate by a few degrees, and the first-order matrix $\mathbf I + [\delta\boldsymbol\theta\times]$ is then noticeably wrong: it is not even a rotation, because it lengthens vectors. We need the exact solution.
@@ -858,6 +892,10 @@ For a scalar, the equation $\dot x = a x$ has the solution $x(t) = e^{a t} x(0)$
   $$
   The series converges for every matrix. Its key property: the solution of the linear differential equation $\dot{\mathbf X} = \mathbf X \mathbf A$ for a matrix $\mathbf X(t)$ and a constant $\mathbf A$ is $\mathbf X(t) = \mathbf X(0)\,\exp(\mathbf A t)$.
 </Def>
+
+<MatrixExpPhase>
+  Left: the plane of a two-dimensional linear system $\dot{\mathbf x} = \mathbf A\mathbf x$. The grey arrows show the velocity $\mathbf A\mathbf x$ at each point. The orange curve is the solution $\mathbf x(t) = \exp(\mathbf A t)\,\mathbf x_0$ that starts at $\mathbf x_0$ (white), and the dashed curve is the unit circle after being mapped by $\exp(\mathbf A t)$. Right: the matrices $\mathbf A$ and $\exp(\mathbf A t)$, and the length $\lVert\mathbf x(t)\rVert / \lVert\mathbf x_0\rVert$ compared with the scalar solutions $e^{at}$ of $\dot x = a x$ (dashed) for the growth rates $a$ contained in $\mathbf A$. For the skew-symmetric $\mathbf A$ the velocity is always perpendicular to $\mathbf x$, the trajectories are circles and $\exp(\mathbf A t)$ is a rotation. **Try:** switch to the diagonal matrix: the circle becomes an ellipse and lengths are no longer preserved. With damping, the same rotation is multiplied by the shrinking factor $e^{-0.25t}$. Drag the start point anywhere.
+</MatrixExpPhase>
 
 If the angular velocity is constant during an interval, the attitude equation $\dot{\mathbf C} = \mathbf C\,[\boldsymbol\omega\times]$ is exactly of this form, and the body turns by the rotation vector $\boldsymbol\alpha = \boldsymbol\omega\,\Delta t$:
 
@@ -917,6 +955,10 @@ followed by a division by the norm to keep $\lVert\mathbf q\rVert = 1$. The quat
 Here is a puzzle. Take a body whose $z$-axis traces a cone: it wobbles around a fixed direction like a spinning top that is about to fall over, while the body does *not* spin about its own $z$-axis. Its attitude oscillates but never drifts. Yet the gyros on this body output signals whose naive integration says that the body slowly rotates about its $z$-axis. The integrated rates $\Delta\boldsymbol\theta$ are not the rotation of the body.
 
 The reason is non-commutativity. Within each interval the body rotates a little about $x$, then a little about $y$, then about $-x$, then about $-y$, and so on. Each small rotation sequence leaves a tiny net rotation about $z$ that the plain sum $\Delta\boldsymbol\theta$ does not contain. This motion is called **coning**, and it is common: vibration in two axes with a phase shift between them produces exactly this pattern.
+
+<ConingLoop>
+  Left: the body axes $x^b, y^b, z^b$ (white) after four small rotations about body axes: $+\varepsilon$ about $x^b$, $+\varepsilon$ about $y^b$, $-\varepsilon$ about $x^b$ and $-\varepsilon$ about $y^b$. The dashed arrows show the start attitude. The orange curve is the path of the $z^b$ tip, a small closed loop: the $z$-axis has traced a little cone. Right: the four gyro increments $\Delta\boldsymbol\theta_k$ added tip to tail. They form a closed square, so their sum is zero. Yet the body ends up turned about $z$ by about $\varepsilon^2$ (in rad), the area of the square. **Try:** step through the four rotations one by one, then halve $\varepsilon$: the net rotation drops to a quarter. At $\varepsilon = 2°$ it is only $0.07°$, but a vibrating body repeats the loop hundreds of times per second.
+</ConingLoop>
 
 <Def term="Coning correction">
   The **coning correction** turns the gyro increments of an interval into the true rotation vector $\boldsymbol\alpha$ of that interval. The classical **two-sample algorithm** (Miller, 1983) splits the interval into two halves with gyro increments $\Delta\boldsymbol\theta_1$ and $\Delta\boldsymbol\theta_2$ and computes
@@ -1060,6 +1102,10 @@ $$
 
 The down component is negative because on the northern hemisphere the vertical part of the spin axis points *up*. At $L = 51°$ (Aachen) this is $[9.5,\; 0,\; -11.7]^\mathsf T\,°/\text{h}$. Note that the east component is zero: the Earth rate never has an east component, which is how a gyrocompass finds north.
 
+<EarthRateSection>
+  Left: a cross-section through the poles. The Earth rate $\boldsymbol\omega_{ie}$ (orange) is the same vector everywhere on the Earth, parallel to the spin axis; here it is drawn at a point at latitude $L$. The local horizontal (towards north, N) and the local down direction (D) tilt with the point, so the spin axis makes the angle $L$ with the horizontal. The Earth rate therefore splits into a north part $\omega_{ie}\cos L$ (white) and a vertical part $\omega_{ie}\sin L$ (dashed). On the northern hemisphere the vertical part points up, so it enters the down component with a minus sign. Right: both components against latitude, with $\omega_{ie} \approx 15.04\,°/\text{h}$. **Try:** set $L = 51°$ and compare with the numbers in the text. Move to the equator, where the whole Earth rate is horizontal, and to a pole, where it is vertical. Cross into the southern hemisphere and watch the down component change sign.
+</EarthRateSection>
+
 ### The transport rate
 
 Moving north at velocity $v_N$ changes the latitude at the rate
@@ -1080,6 +1126,10 @@ $$
 R_N = \frac{R_0 (1 - e^2)}{(1 - e^2 \sin^2 L)^{3/2}}, \qquad R_E = \frac{R_0}{\sqrt{1 - e^2 \sin^2 L}} .
 $$
 
+<RadiiOfCurvature>
+  Left: a cross-section through the poles of an ellipsoid, flattened far more than the real Earth so the effect is visible. At the point at latitude $L$, the orange circle is the one that fits the meridian ellipse best. Its radius is the meridian radius $R_N$, which sets how fast the latitude changes when moving north. The white segment is the ellipsoid normal from the point to the spin axis. Its length is the transverse radius $R_E$, the radius of curvature in the east-west direction. The dashed horizontal segment, of length $R_E\cos L$, is the radius of the circle of latitude, which is why $\cos L$ appears in $\dot\lambda$. Right: the true WGS 84 values, with the equatorial radius $R_0$ for comparison. **Try:** move the point from the equator, where the meridian is most curved and $R_N$ is smallest, to the pole, where the ellipsoid is flattest and both radii become equal. Set the flattening to $\times 1$ to see how little of this is visible on the real Earth.
+</RadiiOfCurvature>
+
 Both lie between about $6\,335$ and $6\,400\,\text{km}$; the ellipsoid is only slightly flattened. A change of latitude tilts the NED frame about its east axis, and a change of longitude rotates it about the spin axis, which has north and down components just like the Earth rate. Together:
 
 $$
@@ -1088,6 +1138,10 @@ $$
 $$
 
 The minus sign in the second row: moving north tilts "down" towards the south, which is a negative rotation about east. For a car at $30\,\text{m/s}$ the transport rate is about $1\,°/\text{h}$; for an airliner at $250\,\text{m/s}$ it is about $8\,°/\text{h}$, half the Earth rate. The $\tan L$ term is why a north-east-down frame breaks down at the poles; polar navigation uses a so-called wander-azimuth frame instead.
+
+<TransportRate>
+  Two vehicles fly relative to the Earth (the Earth's own rotation is not shown), with simulated time running at about one hour per second. Left: flying north along a meridian, drawn to scale. Every hour a copy of the local north (N) and down (D) directions is left behind. D always points to the centre, so after a distance $s$ it has turned by $\Delta L = s/(R+h)$. The dashed line is the starting direction of D, carried along unchanged, to measure the turn against. The rotation is about the east axis, which points into the page, and it is negative: moving north tilts D towards the south. Right: flying east along a circle of latitude of radius $(R+h)\cos L$. Now the frame turns about the spin axis at $\dot\lambda$. Because the spin axis has a north and an up component, so does this rotation, which gives the first and third rows of $\boldsymbol\omega_{en}^n$. The drawing uses a sphere of radius $R = 6\,371\,\text{km}$; the readout uses the WGS 84 radii $R_N$ and $R_E$. **Try:** set the speed to a car's $30\,\text{m/s}$ and then to an airliner's $250\,\text{m/s}$ and compare $\dot L$. Raise the height to see the frame turn more slowly on a larger circle. Push the latitude of the eastward flight towards $80°$ and watch $\dot\lambda$ grow with $1/\cos L$ and the down component with $\tan L$.
+</TransportRate>
 
 ### Gravity and gravitation
 
@@ -1104,6 +1158,10 @@ g_0(L) = 9.7803253359\,\text{m/s}^2 \cdot \frac{1 + 0.001931852652\,\sin^2 L}{\s
 $$
 
 Gravity is $9.780\,\text{m/s}^2$ at the equator and $9.832\,\text{m/s}^2$ at the poles. Using a constant $9.81\,\text{m/s}^2$ everywhere would introduce errors of up to $3\,\text{mg}$, worse than the bias of a good accelerometer. The height term, which describes how gravity weakens as we move away from the Earth, will play a dramatic role in the error analysis.
+
+<GravityVectors>
+  Left: a cross-section of the rotating Earth with the effect of the rotation made up to $150$ times stronger. At the point, the gravitation $\boldsymbol\gamma$ points to the centre (in this sketch, the attraction of a point mass). The point moves on a circle around the spin axis, and part of the attraction is used up keeping it on that circle. The remainder is the gravity $\mathbf g = \boldsymbol\gamma - \boldsymbol\omega_{ie}\times(\boldsymbol\omega_{ie}\times\mathbf r)$ (orange): the sum of $\boldsymbol\gamma$ and the centrifugal term, which points away from the axis. The white curve is the surface of constant potential, the shape still water would take. Rotation flattens it, and it is perpendicular to $\mathbf g$ everywhere, which is why gravity points along the local down direction. Right: the magnitude of normal gravity from the Somigliana formula, including the height correction. **Try:** set the exaggeration to $\times 1$ and see that the real centrifugal part is invisible at this scale. Move the point from the equator to the pole and watch gravity grow. Raise the height to $10\,\text{km}$ and see how far gravity falls below the constant $9.81\,\text{m/s}^2$.
+</GravityVectors>
 
 ## The full strapdown equations
 
@@ -1131,6 +1189,10 @@ $$
 
 The first term is the body rotation measured by the gyros, applied on the right (body axes). The second term removes the rotation of the navigation frame, applied on the left (navigation axes). Without the second term, an INS lying still at $51°$ latitude would believe it was turning at $15\,°/\text{h}$.
 
+<AttitudeEquation>
+  An INS lies still and level at latitude $L$ with heading $\psi$. Its gyros measure only the Earth rate, $\boldsymbol\omega_{ib}^b$ (bars, in $°/\text{h}$), and the navigation frame turns at the same rate, $\boldsymbol\omega_{in}^n$, because the north-east-down axes are tied to the rotating Earth. If only the gyro term $\mathbf C_b^n\boldsymbol\Omega_{ib}^b$ is integrated, the computed attitude (orange needle and horizon) turns away from the true attitude (white) at $15\,°/\text{h}$. At first the heading drifts at $\omega_{ie}\sin L$ and the tilt at $\omega_{ie}\cos L$, where $\omega_{ie}$ is the Earth rotation rate. The full equation subtracts $\boldsymbol\Omega_{in}^n\mathbf C_b^n$, and the two rotations cancel exactly. **Try:** set $L = 90°$ (only the heading drifts) and $L = 0°$ (only the tilt drifts), then switch to the full equation.
+</AttitudeEquation>
+
 <Derivation title="Derivation of the attitude equation">
 
 Write the attitude as a chain through the inertial frame, $\mathbf C_b^n = \mathbf C_i^n\,\mathbf C_b^i$. The body rotates relative to inertial space at $\boldsymbol\omega_{ib}^b$, so by the kinematics derived above, $\dot{\mathbf C}_b^i = \mathbf C_b^i\,\boldsymbol\Omega_{ib}^b$. Likewise the navigation frame rotates relative to inertial space at $\boldsymbol\omega_{in}^n$, so $\dot{\mathbf C}_n^i = \mathbf C_n^i\,\boldsymbol\Omega_{in}^n$. Transposing (using $\mathbf C_i^n = (\mathbf C_n^i)^\mathsf T$ and $\boldsymbol\Omega^\mathsf T = -\boldsymbol\Omega$) gives $\dot{\mathbf C}_i^n = -\boldsymbol\Omega_{in}^n\,\mathbf C_i^n$. The product rule then yields
@@ -1153,6 +1215,10 @@ Read it term by term:
 2. $\mathbf g^n$: adds gravity back, undoing what the accelerometer cannot distinguish (the centrifugal part is included in $\mathbf g$).
 3. $2\,\boldsymbol\omega_{ie}^n \times \mathbf v^n$: the **Coriolis** acceleration, an apparent acceleration that appears because we describe motion relative to the rotating Earth. At $10\,\text{m/s}$ it is about $0.15\,\text{mg}$, irrelevant for a smartphone but significant for a navigation-grade IMU.
 4. $\boldsymbol\omega_{en}^n \times \mathbf v^n$: accounts for the rotation of the NED axes as the vehicle moves; without it, a vehicle driving along a great circle at constant speed would appear to accelerate.
+
+<VelocityEquation>
+  The four terms of $\dot{\mathbf v}^n = \mathbf C_b^n\mathbf f_{ib}^b + \mathbf g^n - (2\boldsymbol\omega_{ie}^n + \boldsymbol\omega_{en}^n)\times\mathbf v^n$ for a vehicle moving level over the ellipsoid at speed $\lVert\mathbf v^n\rVert$ on a course measured from north, while accelerating along its track. Here $\mathbf f_{ib}^b$ is the measured specific force, $\mathbf C_b^n$ the attitude, $\mathbf g^n$ gravity, $\boldsymbol\omega_{ie}^n$ the Earth rate and $\boldsymbol\omega_{en}^n$ the transport rate. Left, to scale: the specific force and gravity almost cancel, and what remains is the acceleration. Right: the Coriolis and transport terms, magnified by the stated factor. In the horizontal plane both are perpendicular to the velocity, and both also have small vertical parts. Bottom: the magnitudes on a logarithmic scale in $\text{m/s}^2$ (left) and in $\text{mg}$ (right), with $1\,\text{mg} = 9.81 \times 10^{-3}\,\text{m/s}^2$. **Try:** set the speed to $10\,\text{m/s}$ (a car) and compare the Coriolis term with $1\,\text{mg}$. Then set it to $300\,\text{m/s}$ (an airliner) and change the course.
+</VelocityEquation>
 
 <Derivation title="Derivation of the velocity equation">
 
@@ -1195,6 +1261,10 @@ $$
 
 The last equation has a minus sign because $v_D$ points down and $h$ counts up.
 
+<PositionEquation>
+  The position equations $\dot L = v_N/(R_N + h)$ and $\dot\lambda = v_E/((R_E + h)\cos L)$ on a globe, for a vehicle at latitude $L$ and longitude $\lambda$ with north and east velocity $v_N$ and $v_E$. Here $R_N$ and $R_E$ are the north-south and east-west radii of curvature, and the height is $h = 0$. The third equation, $\dot h = -v_D$, is zero here because the flight is level. Meridians converge towards the pole, so a degree of longitude is only $\cos L$ times as long as on the equator. The orange vehicle at latitude $L$ and the white one on the equator fly with the same velocity for two hours, and the orange one sweeps through more meridians. Right: both rates against latitude, and the ground length of one degree of longitude. **Try:** with the course east, move the latitude towards $80°$. Then turn the course to north: $\dot\lambda$ vanishes and $\dot L$ barely depends on latitude.
+</PositionEquation>
+
 These three groups of equations are the complete strapdown mechanization in the local navigation frame. The figure below shows how they are connected. Note the feedback loops through the Earth model: the computed position determines gravity and the frame rates, which in turn enter attitude and velocity. These loops will turn out to shape the error behaviour in a surprising way.
 
 <StrapdownDiagram>
@@ -1218,6 +1288,10 @@ At every IMU interval $k$ with increments $\Delta\boldsymbol\theta_k$ and $\Delt
    \mathbf v^n \leftarrow \mathbf v^n + \mathbf C_b^n\,\Delta\mathbf v_k' + \big(\mathbf g^n - (2\boldsymbol\omega_{ie}^n + \boldsymbol\omega_{en}^n) \times \mathbf v^n\big)\,\Delta t .
    $$
 3. **Position.** Integrate latitude, longitude and height with the average of old and new velocity (trapezoidal rule).
+
+<DiscreteAlgorithm>
+  One update of the strapdown algorithm for an aircraft pulling up, seen from the side, with the interval $\Delta t$ stretched to one second. The gyro delivers the angle increment $\Delta\theta_k$, a pitch rotation here (the planar version of $\boldsymbol\alpha_k$). The accelerometers deliver the velocity increment $\Delta\mathbf v_k$ in body axes, mostly lift along $-z^b$. Step 1 turns the attitude $\mathbf C_b^n$ by $\Delta\theta_k$. The frame rotation $\boldsymbol\omega_{in}^n\Delta t$ is far too small to see. Step 2 rotates the increment into the navigation frame with the attitude in the middle of the interval, which is what the rotation correction in $\Delta\mathbf v_k'$ achieves. It then adds gravity $\mathbf g^n\Delta t$, which turns the large lift increment into a modest change of velocity. Step 3 moves the position along the average of the old velocity $\mathbf v_{k-1}$ and the new velocity $\mathbf v_k$. **Try:** step through 1, 2 and 3. Then set the pitch increment to zero and the lift increment to about $9.8\,\text{m/s}$: lift now nearly balances gravity and the path becomes almost straight.
+</DiscreteAlgorithm>
 
 Here it is in Python, deliberately written for readability rather than speed. It omits coning and sculling corrections, which are easy to add once the structure is clear.
 
@@ -1301,6 +1375,10 @@ An INS integrates changes, so it needs an initial navigation state. Position and
 2. **Gyrocompassing.** At rest the gyros measure only the Earth rate, whose horizontal part points north. Rotating the gyro measurement into a levelled frame (with $\phi$ and $\theta$ from step 1) gives components $\omega_x'$ and $\omega_y'$, and the heading follows as $\psi = \operatorname{atan2}(-\omega_y',\; \omega_x')$.
 
 The horizontal Earth rate is $\omega_{ie}\cos L$, about $9.5\,°/\text{h}$ in Germany. A gyro bias $\varepsilon$ tilts the measured direction of north by roughly $\varepsilon / (\omega_{ie} \cos L)$ radians. With a $0.01\,°/\text{h}$ navigation-grade gyro this is a few hundredths of a degree. With a $1\,°/\text{h}$ tactical gyro it is already about $6°$, and with a MEMS gyro the method fails completely. Low-cost systems therefore obtain their heading from a magnetometer, from GNSS (for example from the direction of motion or two antennas) or by estimating it in a filter while moving. This is one of many reasons why low-cost inertial navigation is inseparable from aiding.
+
+<Alignment>
+  Alignment of an INS at rest with true roll $\phi$, pitch $\theta$ and heading $\psi$. Left, levelling: the accelerometers measure the specific force $\mathbf f_{ib}^b = -\mathbf g$ in the body axes $x^b, y^b, z^b$. This force points straight up, so its components $f_x, f_y, f_z$ give roll and pitch through the atan2 formulas, whatever the heading. Right, gyrocompassing, seen from above in the levelled frame: at latitude $L$ the horizontal part of the Earth rate, $\omega_{ie}\cos L$, points north and so gives the heading. A gyro bias $\varepsilon$, here on the $y^b$ gyro, adds a small vector. This vector turns the computed north by the heading error $\delta\psi$, at most about $\varepsilon/(\omega_{ie}\cos L)$. The circle marks the full Earth rate $\omega_{ie} = 15.04\,°/\text{h}$. **Try:** set $\varepsilon$ to $0.01\,°/\text{h}$ (navigation grade), then to $10\,°/\text{h}$, and move the latitude towards the pole. Also turn the heading until $y^b$ points north, where the error vanishes.
+</Alignment>
 
 ## Inside an IMU: how gyroscopes and accelerometers work
 
@@ -1490,6 +1568,10 @@ where the index $a$ stands for the accelerometers and $g$ for the gyros. The ter
 - **Noise** $\mathbf w$: white noise, causing angle and velocity random walk as discussed above.
 - **Temperature dependence**: all of the above change with temperature, often more than with anything else. Good IMUs contain a temperature sensor and compensate.
 
+<ErrorGallery>
+  Every term of the error model on its own, shown for a single gyro axis; accelerometers behave the same with the specific force $f$ as the input. The dashed line is an ideal sensor, the orange line is the output of the real one and the shaded area is the error. The sizes are exaggerated so that each effect is visible. **Try:** set a slider to zero to get the ideal sensor back. Then compare the tiles: bias, noise and temperature dependence are present even without any input, while scale factor error, misalignment and nonlinearity grow with the input and vanish at rest.
+</ErrorGallery>
+
 In matrix form for a triad:
 
 $$
@@ -1504,13 +1586,207 @@ The figure makes a practical point: errors that are proportional to the input (s
 
 ### Calibration, and what remains
 
-The deterministic parts are measured in a **calibration**: the IMU is placed in several known orientations (to compare the accelerometers against gravity) and rotated on a precise turntable (to compare the gyros against known rates), often at several temperatures. The estimated biases, scale factors, misalignments and temperature curves are then stored and subtracted from every measurement. Manufacturers of good IMUs do this in the factory.
+In inertial navigation the word **calibration** is used for two different tasks, and it is worth keeping them apart. Both determine unknown parameters by comparing measurements with something that is known, but the parameters describe different things.
 
-What cannot be calibrated away is random: the part of the turn-on bias that differs from one switch-on to the next, the slow wandering of the bias during operation, and the noise. These errors are the reason why an INS needs aiding, and the aiding filter needs a model of how they behave.
+<Def term="Intrinsic calibration">
+  Intrinsic calibration is the determination of the parameters of the error model of the IMU itself: the biases $\mathbf b_a$ and $\mathbf b_g$, the scale factor errors and axis misalignments in $\mathbf M_a$ and $\mathbf M_g$, the g-sensitivity $\mathbf G_g$, and how all of these change with temperature. These parameters belong to the sensor. They stay the same wherever the IMU is mounted, so they can be measured once on a test bench, typically by the manufacturer.
+</Def>
+
+<Def term="Extrinsic calibration">
+  Extrinsic calibration is the determination of where the IMU sits relative to the vehicle and to the other sensors on it: the rotation between the IMU axes and the vehicle axes, and the **lever arm**, the vector from a reference point (on the vehicle or on another sensor) to the IMU. These parameters belong to the installation. They change whenever the IMU is mounted somewhere else, so they have to be determined on the vehicle.
+</Def>
+
+A third kind, **temporal calibration**, determines the time offsets between the clocks of different sensors; it is treated briefly at the end of this section. The misalignment in the error model and the rotation in the extrinsic calibration are easy to confuse. The first is about the three sensor axes inside the IMU: they are not exactly perpendicular to each other and not exactly parallel to the edges of the IMU housing. The second is about the housing as a whole: it is bolted to the vehicle at a slightly different angle than intended.
+
+#### Intrinsic calibration: measuring the sensor against known inputs
+
+The idea of intrinsic calibration is to apply inputs that are known very precisely, record the outputs and fit the error model to the pairs of input and output. Two inputs are available in every laboratory for free: **gravity**, whose local value $g$ is known to many digits, and the **Earth rate** $\omega_{ie}$. For everything else there are machines.
+
+**Multi-position tests for the accelerometers.** An accelerometer at rest measures the specific force $\mathbf f = -\mathbf g$, which points up and has the magnitude $g$. If the sensitive axis of one accelerometer points straight up, its true input is $f = +g$; if it points straight down, $f = -g$. For one axis, with the bias $b$, the scale factor error $s$ and the noise $w$, the error model reads $\tilde f = b + (1 + s)\,f + w$. Ignoring the noise for a moment, the two readings $\tilde f_\text{up}$ and $\tilde f_\text{down}$ are
+
+$$
+\tilde f_\text{up} = b + (1 + s)\,g, \qquad \tilde f_\text{down} = b - (1 + s)\,g .
+$$
+
+Adding the two equations cancels the scale factor, and subtracting them cancels the bias. The estimates, marked with a hat, are
+
+$$
+\hat b = \frac{\tilde f_\text{up} + \tilde f_\text{down}}{2}, \qquad \hat s = \frac{\tilde f_\text{up} - \tilde f_\text{down}}{2g} - 1 .
+$$
+
+Turning each of the three axes up and down gives the classic **six-position test**. In each position the two accelerometers whose axes lie horizontal should read zero apart from their biases. Whatever they read in addition is a misalignment: if the $y$ accelerometer reads $\tilde f_y^{\,x\,\text{up}}$ with the $x$ axis up and $\tilde f_y^{\,x\,\text{down}}$ with it down, the off-diagonal element of $\mathbf M_a$ that couples $x$ into $y$ is
+
+$$
+\hat m_{yx} = \frac{\tilde f_y^{\,x\,\text{up}} - \tilde f_y^{\,x\,\text{down}}}{2g} .
+$$
+
+The noise is reduced by averaging: each reading is the mean of $N$ samples, which divides the noise standard deviation $\sigma_w$ of a single sample by $\sqrt N$. The accuracy of the test is limited by the fixture. If the IMU stands tilted by a small angle $\eta$, the input along the vertical axis is $g\cos\eta \approx g\,(1 - \eta^2/2)$, which hardly matters, but the horizontal axes receive $g\sin\eta \approx g\,\eta$, which looks exactly like a misalignment. Precise tests therefore use a machined cube or an indexing table, and more than six positions (12, 18 or more) combined by least squares, i.e. by choosing the parameters that minimize the sum of the squared differences between the measured and the predicted readings. Without any fixture, a user can still exploit the fact that the measured specific force must have the magnitude $g$ in every orientation; holding the IMU still in many random orientations and fitting the error model to that condition recovers the biases, the scale factors and the non-orthogonality of the axes, though not how the triad as a whole is turned relative to the housing.
+
+<SixPosition>
+  Left: an IMU in its six positions, each axis once up and once down, with the reading of the accelerometer along that axis in units of $g$. Right: the error $\tilde f - f$ of each accelerometer against its true input. The two measured points per axis define a straight line whose value at zero input is the bias estimate $\hat b_a$ and whose slope is the scale factor estimate $\hat s_a$. Bottom: a gyro on a rate table, measured at nine commanded rates and fitted with a straight line by least squares. For simplicity all three accelerometers have the same true errors. **Try:** raise the noise and press *New measurement* a few times. With only two points per axis, the accelerometer line passes exactly through them and every bit of noise goes straight into $\hat b_a$ and $\hat s_a$. The gyro line is fitted through nine points and scatters much less.
+</SixPosition>
+
+**Rate-table tests for the gyros.** Gravity does not help with gyros, and the Earth rate of about $15\,°/\text{h}$ is far too small to determine a scale factor. Gyros are therefore calibrated on a **rate table**, a precision turntable that rotates at a commanded angular rate $\omega_k$ with an error of a few parts per million. If the gyro axis is parallel to the table axis and the table axis is vertical, the gyro senses the table rate plus the vertical component of the Earth rate, $\omega_{ie}\sin L$ at the latitude $L$. With the gyro bias $b_g$ and scale factor error $s_g$, its reading at the rate $\omega_k$ is
+
+$$
+\tilde\omega_k = b_g + (1 + s_g)\,(\omega_k + \omega_{ie}\sin L) + w_k .
+$$
+
+This is a straight line in $\omega_k$. Fitting it by least squares through readings at many rates, positive and negative, gives the intercept (the bias) and the slope (one plus the scale factor error), as in the bottom panel of the figure. The outputs of the two gyros perpendicular to the table axis give the misalignments, just as the horizontal accelerometers did above. The g-sensitivity $\mathbf G_g$ is found from the gyro outputs at rest in different orientations: turning a gyro over changes the specific force along its axis from $+g$ to $-g$, while the bias stays the same. Half the difference of the two readings, after removing the known Earth rate, is therefore the sensitivity of the gyro to specific force along its own axis, times $g$.
+
+**Temperature.** Every parameter above changes with the temperature $T$, often more than with anything else, so the tests are repeated in a **temperature chamber** across the operating range, typically from $-40$ to $+85\,°\text{C}$. Between the measured temperatures, each parameter is described by a smooth function, usually a polynomial. For the bias, with a reference temperature $T_0$, coefficients $c_0, \dots, c_n$ and the polynomial order $n$, the model is
+
+$$
+\hat b(T) = c_0 + c_1\,(T - T_0) + c_2\,(T - T_0)^2 + \dots + c_n\,(T - T_0)^n .
+$$
+
+The coefficients are found by least squares and stored in the IMU. In operation, the IMU reads its internal temperature sensor and subtracts $\hat b(T)$ from every measurement; this is the **temperature compensation**. It cannot be perfect. The sensor may show **hysteresis**, meaning that its bias at a given temperature depends on whether it is warming up or cooling down. The temperature sensor measures the temperature at one spot, not inside each gyro and accelerometer, and temperature gradients inside the IMU change the errors as well.
+
+<TemperatureCal>
+  Left: the bias of a MEMS gyro measured in a temperature chamber from $-40$ to $85\,°\text{C}$, once while heating (filled dots) and once while cooling (open dots), and the polynomial of order $n$ fitted to all points. Right: what remains after the polynomial has been subtracted. The vertical line marks the temperature at which the IMU is used. **Try:** raise the order from $0$ to $3$ and watch the residual fall from tens of $°/\text{h}$ to about one. Higher orders gain little. Then increase the hysteresis: the gap between the heating and the cooling points stays, whatever the order, because a single curve cannot pass through both.
+</TemperatureCal>
+
+**Factory, field and in-run calibration.** The tests above need equipment and time, from hours to days for a navigation-grade IMU, and are done once in the **factory**; the result is a table of coefficients stored in the IMU, which corrects its output before the user ever sees it. Some parameters drift as the sensor ages, so high-end IMUs are recalibrated at fixed intervals. A **field calibration** repeats the simplest part of this with the means available on site, for example a multi-position test without fixture or averaging the gyro outputs while the vehicle stands still to estimate the turn-on bias. Finally, an **in-run calibration** estimates the remaining errors while navigating: the aiding filter carries the biases, and sometimes scale factors, as additional states and corrects them whenever an external measurement such as a GNSS position shows that the INS has drifted. This only works for errors that the motion makes visible; a scale factor error of a gyro, for example, cannot be estimated while the vehicle drives straight. Part 5 of this series builds such a filter.
+
+#### Extrinsic calibration: where the IMU sits on the vehicle
+
+So far the body frame $b$ had its origin at the IMU, and its axes were the axes of the vehicle. On a real vehicle the IMU is bolted somewhere convenient, while the navigation result is wanted for a defined point of the vehicle, and the other sensors sit elsewhere again.
+
+<Def term="Vehicle frame, v">
+  The **vehicle frame** $v$ has its origin at a chosen **reference point** of the vehicle, for example the centre of the rear axle of a car or the centre of gravity of an aircraft, and its $x$-, $y$- and $z$-axes point forward, right and down along the vehicle's construction axes. From now on the body frame $b$ is the frame of the IMU: its origin is the IMU's measurement point and its axes are the axes of the IMU housing.
+</Def>
+
+Two quantities connect the two frames. Both are constant as long as the IMU stays bolted in place.
+
+<Def term="Mounting rotation (boresight)">
+  The **mounting rotation** is the rotation matrix $\mathbf C_b^v$ that converts vectors from IMU axes to vehicle axes. For a carefully mounted IMU it is close to the identity matrix, and with the three small mounting angles $\delta\phi$, $\delta\theta$ and $\delta\psi$ about the forward, right and down axes, collected in the vector $\delta\boldsymbol\alpha = [\delta\phi,\; \delta\theta,\; \delta\psi]^\mathsf T$, it is approximately the small-rotation matrix from the section on attitude kinematics,
+  $$
+  \mathbf C_b^v \approx \mathbf I + [\delta\boldsymbol\alpha\times] .
+  $$
+  The three angles are also called the **boresight angles**, a term from aiming optics.
+</Def>
+
+<Def term="Lever arm">
+  A **lever arm** is the position of one point of a rigid body relative to another, as a vector of constant length. Following the index notation of this post, $\mathbf l_{vb}^v$ is the position of the IMU (origin of $b$) relative to the reference point (origin of $v$), resolved in vehicle axes, and $\mathbf l_{ba}^b$ is the position of a GNSS antenna $a$ relative to the IMU, resolved in IMU axes. Both are measured in metres.
+</Def>
+
+First, a point that is easy to miss: the strapdown algorithm itself does not care where or how the IMU is mounted. It integrates what the IMU measures and therefore computes the attitude, velocity and position *of the IMU*, correctly. The extrinsic parameters matter as soon as this result is connected to anything else: when it is reported for the reference point, when it is compared with a sensor mounted elsewhere, or when a model of the vehicle's motion is used.
+
+**Why the rotation matters.** The attitude of the vehicle follows from the attitude of the IMU, $\mathbf C_b^n$, by chaining the rotations, $\mathbf C_v^n = \mathbf C_b^n\,\mathbf C_v^b$, with $\mathbf C_v^b$ the transpose of the mounting rotation. If the mounting rotation is ignored, the reported heading of the vehicle is off by $\delta\psi$, its pitch by $\delta\theta$ and its roll by $\delta\phi$. The error does not stay in the attitude. Read as accelerations of the vehicle, the IMU outputs mix the axes: in a turn, the forward accelerometer picks up the fraction $\sin\delta\psi$ of the lateral (centripetal) acceleration. A wheel odometer measures speed along the vehicle's forward axis; if it is combined with the IMU's heading for dead reckoning, the position drifts sideways by $d\,\sin\delta\psi$ after the distance $d$, about $17\,\text{m}$ per kilometre for $\delta\psi = 1°$. The same holds for the constraints that later filters exploit, such as the fact that a car does not slide sideways: they are true in vehicle axes, not in IMU axes.
+
+**Why the lever arm matters.** When the vehicle rotates, points at different places on it move differently. Let $\boldsymbol\omega_{iv}^v$ be the angular velocity of the vehicle relative to inertial space, in vehicle axes, and $\dot{\boldsymbol\omega}_{iv}^v$ its rate of change, the angular acceleration. The specific force $\mathbf f_{iv}^v$ at the reference point and the specific force at the IMU are related by
+
+$$
+\mathbf f_{ib}^b = \mathbf C_v^b\,\Big(\mathbf f_{iv}^v + \dot{\boldsymbol\omega}_{iv}^v \times \mathbf l_{vb}^v + \boldsymbol\omega_{iv}^v \times \big(\boldsymbol\omega_{iv}^v \times \mathbf l_{vb}^v\big)\Big) .
+$$
+
+The term $\dot{\boldsymbol\omega} \times \mathbf l$ is the **tangential** acceleration, present while the turn rate changes. The term $\boldsymbol\omega \times (\boldsymbol\omega \times \mathbf l)$ is the **centripetal** acceleration of the IMU relative to the reference point; it has the magnitude $\omega^2\,l_\perp$, where $l_\perp$ is the part of the lever arm perpendicular to the rotation axis, and it points from the IMU back towards that axis. The gyros, by contrast, are not affected by the lever arm at all: every point of a rigid body rotates with the same angular velocity, so $\boldsymbol\omega_{ib}^b = \mathbf C_v^b\,\boldsymbol\omega_{iv}^v$, and only the mounting rotation enters.
+
+<Derivation title="Derivation: the specific force at a lever arm">
+
+Let $\mathbf r_{iv}^i$ and $\mathbf r_{ib}^i$ be the positions of the reference point and of the IMU relative to the origin of the inertial frame, in inertial axes. Because the IMU is rigidly mounted, the lever arm $\mathbf l_{vb}^v$ is constant in vehicle axes, and
+
+$$
+\mathbf r_{ib}^i = \mathbf r_{iv}^i + \mathbf C_v^i\,\mathbf l_{vb}^v .
+$$
+
+The rotation matrix changes according to the attitude kinematics, $\dot{\mathbf C}_v^i = \mathbf C_v^i\,[\boldsymbol\omega_{iv}^v \times]$. Differentiating once with respect to time, with $\dot{\mathbf l}_{vb}^v = \mathbf 0$:
+
+$$
+\dot{\mathbf r}_{ib}^i = \dot{\mathbf r}_{iv}^i + \mathbf C_v^i\,\big(\boldsymbol\omega_{iv}^v \times \mathbf l_{vb}^v\big) .
+$$
+
+Differentiating again with the product rule, once for $\mathbf C_v^i$ and once for $\boldsymbol\omega_{iv}^v$:
+
+$$
+\ddot{\mathbf r}_{ib}^i = \ddot{\mathbf r}_{iv}^i + \mathbf C_v^i\,\big(\boldsymbol\omega_{iv}^v \times (\boldsymbol\omega_{iv}^v \times \mathbf l_{vb}^v)\big) + \mathbf C_v^i\,\big(\dot{\boldsymbol\omega}_{iv}^v \times \mathbf l_{vb}^v\big) .
+$$
+
+The specific force is the acceleration minus the gravitational acceleration $\boldsymbol\gamma$, $\mathbf f = \ddot{\mathbf r} - \boldsymbol\gamma$. Over a few metres $\boldsymbol\gamma$ is the same at both points (it changes by about $3 \times 10^{-7}\,g$ per metre), so subtracting it from both sides gives
+
+$$
+\mathbf f_{ib}^i = \mathbf f_{iv}^i + \mathbf C_v^i\,\big(\dot{\boldsymbol\omega}_{iv}^v \times \mathbf l_{vb}^v + \boldsymbol\omega_{iv}^v \times (\boldsymbol\omega_{iv}^v \times \mathbf l_{vb}^v)\big) .
+$$
+
+Finally, resolve both sides in IMU axes by multiplying with $\mathbf C_i^b = \mathbf C_v^b\,\mathbf C_i^v$. Since $\mathbf C_i^v\,\mathbf f_{iv}^i = \mathbf f_{iv}^v$ and $\mathbf C_i^v\,\mathbf C_v^i = \mathbf I$, this is the equation above.
+
+</Derivation>
+
+Again, these terms are not an error of the INS: they are the true difference between the motion of the IMU and the motion of the reference point. They become an error when the two are mixed up, and the difference is not small. In a turn at $\omega = 20\,°/\text{s} = 0.35\,\text{rad/s}$, a lever arm of length $l = 1.5\,\text{m}$, perpendicular to the rotation axis, gives $\omega^2 l = 0.18\,\text{m/s}^2$, about $19\,\text{mg}$, twenty times the bias of a good MEMS accelerometer. A filter that ignores it blames the difference on the accelerometer biases and estimates them wrongly.
+
+<LeverArm>
+  Top view of a car in a steady left turn; the reference point on the rear axle moves on a circle of radius $R = 20\,\text{m}$ and feels the centripetal acceleration $\omega^2 R$. The IMU sits at the lever arm $\mathbf l$ ahead and to the right of it, moves on a slightly different circle and feels in addition $\boldsymbol\omega \times (\boldsymbol\omega \times \mathbf l)$, which points from the IMU back towards the reference point. Its housing is turned by the mounting angle $\delta\psi$, so if its outputs are read as vehicle accelerations, the forward accelerometer picks up the fraction $\sin\delta\psi$ of the lateral acceleration. Right: the errors that result if the lever arm or the mounting rotation is ignored, in milli-g against the turn rate, compared with the bias of a good MEMS accelerometer. **Try:** set the lever arm to $0.5\,\text{m}$: at $20\,°/\text{s}$ the error is still about $6\,\text{mg}$. Then set the lever arm to zero and keep $\delta\psi = 1°$: the lateral acceleration alone leaks about $4\,\text{mg}$ into the forward axis, and the heading is off by a full degree.
+</LeverArm>
+
+The same geometry applies to every other sensor. A GNSS receiver measures the position of its antenna, not of the IMU. With positions written in metres in a local north-east-down grid, the antenna position $\mathbf p_a^n$ and the IMU position $\mathbf p_b^n$ differ by the lever arm turned into navigation axes,
+
+$$
+\mathbf p_a^n = \mathbf p_b^n + \mathbf C_b^n\,\mathbf l_{ba}^b ,
+$$
+
+and the velocities differ by $\mathbf C_b^n\,(\boldsymbol\omega_{eb}^b \times \mathbf l_{ba}^b)$, where $\boldsymbol\omega_{eb}^b$ is the angular velocity of the IMU relative to the Earth. A filter that ignores a lever arm of one metre sees a position error of up to one metre that turns with the heading of the vehicle, and tries to explain it with wrong attitude and bias estimates.
+
+**How the extrinsic parameters are found.** There are three main approaches.
+
+1. **Measurement.** The lever arms are measured with a tape measure, taken from CAD drawings or surveyed with a total station, to millimetres or centimetres. The mounting rotation is harder, because a tenth of a degree is difficult to see; it is often measured against reference surfaces of the vehicle or determined with the next method.
+2. **Estimation in the filter.** The lever arm and the mounting angles become additional states of the navigation filter, like the biases. They become observable only when the motion excites them: a GNSS-to-IMU lever arm shows up in turns, where $\mathbf C_b^n\,\mathbf l_{ba}^b$ changes, but not while driving straight.
+3. **Hand-eye calibration.** If two sensors can each measure their own motion, for example the IMU by integration and a LiDAR or a camera by odometry, the unknown transformation $\mathbf X$ between them can be found from pairs of motions. With the motion $\mathbf A_k$ of the first sensor and the motion $\mathbf B_k$ of the second sensor over the same time interval $k$, both written as rotation plus translation in one $4 \times 4$ transformation matrix, rigid mounting implies $\mathbf A_k\,\mathbf X = \mathbf X\,\mathbf B_k$ for every $k$, an equation that is solved for $\mathbf X$. The name comes from robotics, where the "eye" is a camera on the robot's "hand".
+
+Part 10 of this series treats extrinsic calibration of a full multi-sensor system in detail, including which motions make which parameters observable.
+
+#### Temporal calibration
+
+Every sensor stamps its measurements with a time, but the stamps of different sensors rarely refer to the same clock, and each sensor has internal delays from filtering and data transfer. The **time offset** $t_d$ of a sensor is the difference between the time stamp of its measurement and the instant at which the measurement was actually taken, expressed on the IMU's clock. An uncorrected offset turns motion into error: a GNSS position that is $t_d = 10\,\text{ms}$ late, on a vehicle moving at $v = 20\,\text{m/s}$, is wrong by $v\,t_d = 0.2\,\text{m}$ along the direction of travel. Offsets are removed by hardware synchronization, for example with the pulse-per-second signal of a GNSS receiver, or estimated as one more state of the filter. Part 10 covers this as well.
+
+#### What remains
+
+After calibration, what remains is mostly random: the part of the turn-on bias that differs from one switch-on to the next, the slow wandering of the bias during operation, the noise, and the residuals of the calibration itself, such as hysteresis and slow ageing of the parameters. These errors cannot be removed in advance. They are the reason why an INS needs aiding, and the aiding filter needs a model of how they behave.
 
 ### Modelling the slowly changing errors
 
-We cannot predict how the bias will wander. But we can describe its *statistics*, and a filter can then estimate its current value from external measurements such as GNSS positions. Three simple models cover almost all practical cases. Each of them is driven by white noise, which is what makes them convenient.
+Calibration leaves a bias that still moves during a run. Before we write down models for it, it helps to ask what makes a bias move at all, and why it moves slowly. The bias of a gyro or an accelerometer is not a constant of nature. It is the sum of many small imperfections: a slight asymmetry of a vibrating structure, an offset in the electronics that read out the signal, a residual stress that bends the structure a little. Each of them depends on the physical state of the sensor, and that state changes over time. The most important causes are these:
+
+- **Temperature.** Almost every property of a sensor depends on temperature: the stiffness and the dimensions of the mechanical structure, the resonance frequency of a MEMS gyro, the length and the refractive index of the fiber in a FOG, the offsets of the amplifiers. Before compensation, the bias of a consumer MEMS gyro typically changes by $0.01$ to $0.05\,°/\text{s}$ for every kelvin of temperature change. The temperature inside the sensor follows its surroundings only with a delay, which we describe by a time constant.
+- **Warm-up.** After switch-on, the electronics dissipate power and heat the sensor from the inside until a new equilibrium is reached. During this **warm-up** the bias drifts, often roughly like a decaying exponential, until the sensor has settled.
+- **Thermal gradients.** Different parts of a sensor warm up at different rates, so there are temperature differences across it, called **thermal gradients**. They bend structures and stress joints. In a FOG, a gradient that changes with time produces a bias directly through the Shupe effect described above.
+- **Mechanical stress.** The sensor chip is glued or soldered into a package, and the package is soldered or screwed onto a circuit board. The materials expand differently with temperature, so the joints are under stress, which deforms the structure slightly and shifts the bias. This stress relaxes slowly over hours and days, because glues and solders creep, and it depends on how the IMU is mounted and on its thermal history.
+- **Ageing.** Over months and years, materials creep, the gas pressure inside a sealed MEMS package changes, and the light source of a FOG loses power. These changes are very slow, and they are the reason why calibrations are repeated.
+- **Electronics drift.** The readout electronics compare the sensor signal against a **reference voltage**, a voltage that is supposed to be exactly constant, and amplify the difference. Reference voltages, amplifier offsets and analog-to-digital converters drift with temperature and age as well.
+- **Charging (MEMS).** MEMS sensors drive their proof masses with electrostatic forces and read them out through capacitances. Electric charges can be trapped in thin insulating layers on the electrodes and build up or leak away slowly. A trapped charge acts like an additional voltage on the electrode and shifts the bias, with time constants from seconds to hours.
+
+<Def term="Thermal time constant">
+  The **thermal time constant** $\tau_{th}$ of a sensor is the time it needs to follow a sudden change of the ambient temperature by about $63\,\%$ of the change. If we call the ambient temperature $T_a$ and the temperature inside the sensor $T_s$, the simplest model is a first-order lag,
+  $$
+  \dot T_s = \frac{T_a - T_s}{\tau_{th}} .
+  $$
+  After a step of $T_a$, the remaining difference decays like $e^{-t/\tau_{th}}$, so after one time constant a fraction $1 - e^{-1} \approx 0.63$ of the step has arrived. For an IMU in its housing, $\tau_{th}$ is typically several minutes to tens of minutes.
+</Def>
+
+All of these causes act through physical quantities that cannot jump: temperatures, stresses and electric charges. Changing them requires heat, material or charge to flow, and that takes time. The bias therefore changes on time scales from seconds to hours, which is very slow compared with the sample interval of an IMU, typically $1$ to $10\,\text{ms}$.
+
+<BiasCauses>
+  Four hours of a simulated gyro at rest. The bias is the sum of a warm-up transient after switch-on, a part proportional to the sensor temperature $T_s$, a slow random wander and white noise. The lower plot shows the ambient temperature $T_a$ (the vehicle stands in the sun for a while) and the sensor temperature $T_s$, which follows it with the thermal time constant $\tau_{th}$. The readout shows how much of the white noise is left after a moving average over the window $T_w$. **Try:** set the window to $1\,\text{s}$: the white noise hides everything. Increase the window to a few minutes: the noise averages out and the slow part appears. Then switch the components off one by one, and increase $\tau_{th}$ to see the temperature part lag further behind the sun.
+</BiasCauses>
+
+Part of this slow change is deterministic. If we know the temperature, a calibrated temperature model removes most of the temperature part, which is why good IMUs contain a temperature sensor. What remains looks random. A useful way to describe a random signal is to ask how its variance is distributed over frequencies.
+
+<Def term="Power spectral density">
+  The **power spectral density** $S(f)$ of a random signal describes how the variance of the signal is distributed over the frequencies $f$: the frequencies in a narrow band from $f$ to $f + \Delta f$ contribute the variance $S(f)\,\Delta f$. White noise has a flat spectrum, $S(f) = \text{const}$, so every frequency contributes equally.
+</Def>
+
+<Def term="Flicker noise">
+  **Flicker noise**, also called $1/f$ noise, is a random signal whose power spectral density grows towards low frequencies like
+  $$
+  S(f) \propto \frac{1}{f} .
+  $$
+  It is found in almost every electronic and mechanical system. One way to produce it is to add up many slow processes whose time constants are spread over many decades, for example many trapped charges or many relaxing joints, each with its own time constant.
+</Def>
+
+The residual bias of real sensors has roughly such a spectrum. The difference to white noise matters as soon as we average. For white noise, the average over a time $T_w$ has a spread that falls like $1/\sqrt{T_w}$: longer averages are always better. For flicker noise, a longer average removes the fast fluctuations but includes more of the slow ones, because the power is concentrated at low frequencies. The average itself keeps wandering, and beyond some point averaging longer does not make it more accurate. The smallest spread that averaging can reach is what datasheets call the bias instability, and the Allan variance in the next section shows it as a flat floor.
+
+That the bias changes slowly is good news. White noise is new in every sample: no filter can predict it, it can only be averaged. A bias that changes slowly compared with the rate at which external measurements arrive, for example GNSS positions once per second, is almost the same from one measurement to the next. A filter can therefore estimate its current value from a series of measurements and subtract it. This works only if the filter has a model of how fast the bias may change.
+
+We cannot predict how the bias will wander, but we can describe its *statistics*. Three simple models cover almost all practical cases. Each of them is driven by white noise, which is what makes them convenient.
 
 <Def term="Random constant">
   A **random constant** is a bias $b$ that does not change during a run, $\dot b = 0$, but whose value is unknown, with a standard deviation $\sigma_{b,0}$ over many runs. It models the turn-on bias.
@@ -1532,6 +1808,20 @@ We cannot predict how the bias will wander. But we can describe its *statistics*
   The bias wanders like a random walk over times shorter than $\tau_c$, but in the long run it stays within about $\pm\sigma_b$.
 </Def>
 
+The three models differ in what they assume about the long run. The random constant assumes that the bias never moves during a run. The random walk assumes that it can drift arbitrarily far. The Gauss–Markov process assumes that it wanders, but only within a band of about $\pm\sigma_b$. For times much shorter than the correlation time, $t \ll \tau_c$, the variance of the Gauss–Markov process can be simplified with $e^{-x} \approx 1 - x$ for small $x$:
+
+$$
+\sigma_b^2\,\big(1 - e^{-2t/\tau_c}\big) \approx \sigma_b^2\,\frac{2t}{\tau_c} = \Big(\sigma_b\sqrt{2/\tau_c}\Big)^2\, t .
+$$
+
+This is the variance $K^2 t$ of a random walk with the coefficient $K = \sigma_b\sqrt{2/\tau_c}$. Over short times the two models cannot be told apart; only over times comparable with $\tau_c$ does the pull back towards zero become visible.
+
+<BiasModels>
+  Each model, simulated $300$ times over two hours. The grey lines are $40$ of the realizations, the orange line is one of them, and the dashed lines show the theoretical standard deviation $\pm\sigma(t)$: constant $\sigma_{b,0}$ for the random constant, $K\sqrt t$ for the random walk and $\sigma_b\sqrt{1 - e^{-2t/\tau_c}}$ for the Gauss–Markov process. In the Gauss–Markov view, the grey dashed curve is the random walk with $K = \sigma_b\sqrt{2/\tau_c}$ and the vertical line marks $t = \tau_c$. **Try:** in the Gauss–Markov view, set $\tau_c$ to $100\,\text{min}$ or more: within the plot it is a random walk. Set it to a few minutes: the spread reaches $\sigma_b$ quickly and stays there.
+</BiasModels>
+
+In practice the models are combined. A typical gyro bias in a navigation filter is a random constant for the turn-on bias plus a Gauss–Markov process for the in-run variation, and sometimes a random walk on top.
+
 Why are these models justified? First, they reproduce what we measure: the Allan variance (next section) shows which of these processes dominate a real sensor and how strong they are. Second, they are **linear and driven by white noise**. That is exactly the form a Kalman filter requires. In the filter, the biases simply become additional entries of the state vector: the filter predicts them with the model above, grows their uncertainty by the variance of $w_{b,k}$ at every step, and corrects them whenever an external measurement reveals that the INS has drifted. The coefficients $K$, $\sigma_b$ and $\tau_c$ set how quickly the filter allows the bias estimate to change. Part 5 of this series builds such a filter.
 
 ### The Allan variance
@@ -1546,6 +1836,12 @@ How do we find out which errors a real sensor has and how large they are? The st
   Its square root $\sigma(\tau)$ is the **Allan deviation**. It is computed for many cluster times $\tau$ and plotted on a log-log scale.
 </Def>
 
+Before we look at the general picture, let us carry out this computation for one kind of signal at a time and watch how $\sigma(\tau)$ develops as the cluster time grows.
+
+<AllanIntuition>
+  A $2000\,\text{s}$ recording at $10\,\text{Hz}$ of one of three signals. Left: the signal (grey), the averages $\bar\omega_k(\tau)$ over consecutive clusters of length $\tau$ (orange) and the differences $\bar\omega_{k+1} - \bar\omega_k$ between neighbouring averages (vertical lines). Right: the Allan deviation, the root mean square of these differences divided by $\sqrt2$, filled in point by point up to the selected $\tau$; the dashed line is the theory. **Try:** choose white noise and press "Sweep the cluster time": the averages become flatter and $\sigma(\tau)$ falls like $1/\sqrt\tau$. Switch to the random walk of the rate: longer clusters drift further apart, and $\sigma(\tau)$ rises like $\sqrt\tau$. With the constant bias and a step, the constant part cancels in every difference, so the Allan variance does not see a constant bias at all. The noise averages out at first, but the step produces one large difference whose weight grows as the number of clusters $M$ shrinks. Averaging longer helps against white noise and hurts against anything that wanders.
+</AllanIntuition>
+
 The idea: averaging over a cluster suppresses fast noise, and the difference between neighbouring clusters suppresses slow trends. Each cluster time $\tau$ therefore looks at errors on its own time scale. White noise averages out, so its Allan deviation falls as $\tau$ grows; a random walk wanders further apart between distant clusters, so its Allan deviation rises. On the log-log plot every error type appears as a straight line with its own slope, which allows the error terms to be separated and read off:
 
 <div class="table-wrap">
@@ -1559,6 +1855,10 @@ The idea: averaging over a cluster suppresses fast noise, and the difference bet
 | Rate ramp | $R$ | $R\,\tau/\sqrt2$ | $+1$ | $\tau = \sqrt2$ s |
 
 </div>
+
+<AllanSlopes>
+  The five error terms of the table, each simulated on its own for about $1.8$ hours at $10\,\text{Hz}$. Top of each panel: a stretch of the signal. Bottom: its Allan deviation for $\tau$ from $0.1$ to $1000\,\text{s}$ on log-log axes with equally long decades, so that each slope appears at its true angle. The flicker noise is approximated by a sum of seven Gauss–Markov processes with correlation times from $0.3$ to $4000\,\text{s}$. **Try:** hover over or click a panel to read why it has its slope. Compare quantization and white noise: both look like noise in the snippet, but their curves fall at different rates. A real sensor contains all five at once. For independent error terms the Allan variances add, so on the log-log plot the largest term dominates in each range of $\tau$.
+</AllanSlopes>
 
 The factor $0.664 = \sqrt{2\ln 2/\pi}$ comes from the theory of flicker noise, which is how bias instability is modelled. In practice the cluster averages are computed efficiently from the integrated signal $\theta_k = \sum_{j<k} \tilde\omega_j\,\Delta t$, using all overlapping clusters:
 
@@ -1588,6 +1888,10 @@ $$
 
 A gyro bias leads to a position error growing with the **third** power of time, because it is integrated three times: rate to angle, angle (times gravity) to velocity, velocity to position. With a $1\,°/\text{h}$ gyro this term alone reaches $370\,\text{km}$ after one hour.
 
+<ErrorChain>
+  The chain of integrations behind the flat-Earth formula for the north channel. Top row: a gyro bias $\varepsilon$ tilts the platform by $\delta\theta = \varepsilon t$, the tilt leaks the fraction $g\,\delta\theta$ of gravity into the north accelerometer, and two more integrations turn this false acceleration into a velocity error $\delta v$ and a position error $\delta x$. Bottom row: an accelerometer bias $b$ is already an acceleration and skips the first integration. Each integration raises the power of $t$ by one. The hollow dot marks the value at half the time, so doubling $t$ multiplies the error by $2$, $4$ or $8$. Plots in the same column share their scale. **Try:** press *Play* and watch the cursor run through all plots at once. Then switch to *1 min* and *1 h*: in the first minute the accelerometer term dominates, but after an hour the $t^3$ gyro term is about six times larger.
+</ErrorChain>
+
 ### Schuler: the Earth's curvature helps
 
 On the real, round Earth something remarkable happens. Suppose the computed position is ahead of the true position by $\delta x$, while the attitude relative to inertial space is correct. The computer believes it is at a different point on the globe, and "down" at that point is tilted by the angle $\delta x / R$ relative to the true down, where $R \approx 6371\,\text{km}$ is the Earth's radius. When the computer resolves the accelerometer reading in its (wrong) local frame, part of the true gravity reading leaks into the horizontal, and it points **back towards the true position**:
@@ -1602,7 +1906,17 @@ $$
 \omega_s = \sqrt{\frac{g}{R}} \approx 1.24 \times 10^{-3}\,\text{rad/s}, \qquad T_s = \frac{2\pi}{\omega_s} \approx 84.4\,\text{min} .
 $$
 
-Max Schuler found this period in 1923 while working on gyrocompasses that should not be disturbed by the ship's accelerations. It is the period of a pendulum whose length equals the Earth's radius, and also (not by coincidence) the period of a satellite orbiting at ground level. Physically, the navigation computer corrects its frame through the transport rate, and that feedback loop is the restoring force. With the bias terms added, the error equation becomes
+<SchulerGeometry>
+  Left: a cross-section of the Earth with the true position and a computed position that is ahead by $\delta x$ (angles strongly exaggerated). The local down directions at both points meet at the Earth's centre and differ by $\delta x/R$. The accelerometers measure the specific force $\mathbf f$ of size $g$ along the true up direction. Resolved in the computer's tilted frame, $\mathbf f$ has a horizontal component $g\,\delta x/R$ that points back towards the true position: the restoring force of the Schuler oscillation. An accelerometer bias $b$ pushes the other way. Right: the resulting position error $\delta x$ over three Schuler periods $T_s = 84.4$ minutes as a time-lapse; with a bias it oscillates around $bR/g$. **Try:** press *Play* and watch the orange component shrink and flip sign as the computed position swings past the truth. Switch to *Flat Earth*: all down directions are parallel, nothing pulls back, and the bias makes the error drift away. Set $b$ to zero to see a pure oscillation with amplitude $\delta x(0)$.
+</SchulerGeometry>
+
+Max Schuler found this period in 1923 while working on gyrocompasses that should not be disturbed by the ship's accelerations. It is the period of a pendulum whose length equals the Earth's radius, and also (not by coincidence) the period of a satellite orbiting at ground level.
+
+<SchulerPendulum>
+  The period of a simple pendulum, $T = 2\pi\sqrt{L/g}$, grows with the square root of its length $L$: a straight line of slope $1/2$ on logarithmic axes. A pendulum whose length equals the Earth's radius $R$ has the Schuler period $T_s = 84.4$ minutes. So does a satellite orbiting just above the ground, whose shadow on a diameter moves back and forth like a pendulum. The animation is a time-lapse in which the pendulum always takes three seconds per swing, and the satellite runs at the same time-lapse. As in the usual textbook statement, the figure assumes the same gravity $g$ along the whole pendulum. **Try:** drag $L$ to the right: the satellite moves faster on screen because each swing lasts longer in real time. Press *Set L = R*: the pendulum and the satellite's shadow now swing in step.
+</SchulerPendulum>
+
+Physically, the navigation computer corrects its frame through the transport rate, and that feedback loop is the restoring force. With the bias terms added, the error equation becomes
 
 $$
 \delta\ddot x + \omega_s^2\,\delta x = b - g\,\varepsilon\,t ,
@@ -1639,6 +1953,10 @@ $$
 
 Here $b_z$ is the vertical accelerometer bias and $\cosh$ the hyperbolic cosine. The error grows **exponentially** with a time constant $1/\omega_v$ of about $9.5$ minutes. No INS can compute height on its own for long; even the first inertial systems for aircraft used a barometric altimeter to stabilize the vertical channel. Today, GNSS or a barometer takes this role.
 
+<VerticalChannel>
+  The error dynamics drawn as a ball in a landscape. The error is on the horizontal axis, and in the plots below time runs downwards. Horizontal channel: the Schuler feedback forms a valley. A constant accelerometer bias $b$ tilts it, so the ball rolls from zero to $2bR/g$ and back within $T_s = 84.4$ minutes. Vertical channel: gravity weakens with height, so the feedback has the opposite sign and forms a hill. The same bias $b_z$ makes the height error run away as $\delta h = (b_z/\omega_v^2)(\cosh\omega_v t - 1)$ with $\omega_v = \sqrt{2g/R}$. Barometer aiding keeps pulling the computed height towards the barometric height; here this is a simple correction of height and vertical velocity with a period of 5 minutes, and a perfect barometer. It turns the hill into a steep valley. **Try:** press *Play*: after about half an hour the vertical error has left the plot while the horizontal error stays bounded. Then switch on *Barometer aiding*: the height error stays at a few tens of metres at most.
+</VerticalChannel>
+
 ### Putting numbers to it
 
 IMUs are grouped into rough performance classes. The figures below are orders of magnitude for the *residual* biases that remain after factory calibration; datasheets vary widely, and other errors (scale factor, misalignment, temperature effects, noise) add to them.
@@ -1671,6 +1989,10 @@ Here is what we have built:
 - On the real Earth the navigation frame rotates with the **Earth rate** and the **transport rate**, and gravity depends on latitude and height.
 - Real IMUs have biases, scale factor and misalignment errors, noise and more. Calibration removes the deterministic part; the random part is described by **white noise**, **random walk** and **Gauss–Markov** models, whose parameters the **Allan variance** reveals.
 - Sensor errors are integrated. Biases grow into position errors with $t^2$ and $t^3$ on short time scales. The Earth's curvature bounds the accelerometer part through the **Schuler oscillation** with an 84.4-minute period, while the vertical channel diverges exponentially.
+
+<SummaryMap>
+  The whole post on one page. Top: the gyros and accelerometers feed the strapdown algorithm. It propagates the attitude, resolves the specific force, adds gravity and the Coriolis terms, and integrates twice to velocity and position. An Earth model closes feedback loops from position back into the algorithm, and every quantity carries the frames $i$, $e$, $n$ and $b$. Bottom: the sensor errors pass through the same integrations and grow, at first with $t^2$ and $t^3$. After that they are bounded by the Schuler oscillation in the horizontal channel and grow exponentially in the vertical one. Aiding sensors and a fusion filter keep them bounded, and that is where the next parts of the series continue. **Try:** hover over or tap a block: everything upstream and downstream of it lights up, and a one-line summary appears below. Tap *Sensor errors* to see that they reach every output.
+</SummaryMap>
 
 An INS is precise over short times, works everywhere and needs no external signal, but it drifts. GNSS is the opposite: it does not drift, but it is noisy, slow and can be blocked or jammed, for example in harbours, urban canyons, tunnels or under bridges. Combining the two is the natural next step.
 

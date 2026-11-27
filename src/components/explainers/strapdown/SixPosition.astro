@@ -1,0 +1,177 @@
+---
+import M from '../../blog/M.astro';
+// Intrinsic calibration: six-position test of an accelerometer triad against gravity, and a rate-table test of a gyro.
+---
+
+<figure class="xp wide" data-xp="sixpos">
+  <div class="xp-head"><span class="label fig-title">Six-position test and rate table</span></div>
+  <div class="xp-row two">
+    <canvas class="c-pos" role="img" aria-label="An IMU box in six orientations: each of its three axes pointing up and pointing down, with the reading of the accelerometer along that axis"></canvas>
+    <canvas class="c-err" role="img" aria-label="Accelerometer error against the specific force along the axis: two measured points per axis at plus and minus one g, the straight line through them, its intercept (bias) and its slope (scale factor error)"></canvas>
+  </div>
+  <canvas class="c-rate" role="img" aria-label="Gyro error against the commanded rate of a rate table: nine measured points and the straight line fitted through them"></canvas>
+  <ul class="xp-legend">
+    <li class="c-muted dash"><i></i><span>ideal sensor (zero error)</span></li>
+    <li class="c-fg"><i></i><span>true error line and measured points</span></li>
+    <li class="c-accent"><i></i><span>line estimated from the measurements</span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Accelerometer bias <M t={String.raw`b_a`} /></span><output for="ba"></output></span><input type="range" name="ba" min="-20" max="20" step="0.5" value="8" /></label>
+    <label class="xp-ctl"><span><span>Accelerometer scale factor error <M t={String.raw`s_a`} /></span><output for="sa"></output></span><input type="range" name="sa" min="-1" max="1" step="0.02" value="0.4" /></label>
+    <label class="xp-ctl"><span><span>Gyro bias <M t={String.raw`b_g`} /></span><output for="bg"></output></span><input type="range" name="bg" min="-1" max="1" step="0.02" value="0.3" /></label>
+    <label class="xp-ctl"><span><span>Gyro scale factor error <M t={String.raw`s_g`} /></span><output for="sg"></output></span><input type="range" name="sg" min="-1" max="1" step="0.02" value="-0.3" /></label>
+    <label class="xp-ctl"><span><span>Noise of each averaged reading</span><output for="nz"></output></span><input type="range" name="nz" min="0" max="4" step="0.1" value="1" /></label>
+  </div>
+  <div class="xp-btns"><button class="btn" type="button" data-act="new">New measurement</button></div>
+  <p class="xp-readout" aria-live="polite">
+    <span>estimated <M t={String.raw`\hat b_a`} /> for <M t="x, y, z" />: <b class="hot" data-o="ba"></b> (true <b data-o="bat"></b>)</span>
+    <span>estimated <M t={String.raw`\hat s_a`} />: <b class="hot" data-o="sa"></b> (true <b data-o="sat"></b>)</span>
+    <span>gyro: <M t={String.raw`\hat b_g`} /> = <b class="hot" data-o="bg"></b>, <M t={String.raw`\hat s_g`} /> = <b class="hot" data-o="sg"></b></span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, label, slider, arrow, axes, rng, outputs, type Palette } from '../../../lib/explainer';
+  import { camera, mv, rx, ry, I3, type M3, type V3 } from '../../../lib/rot';
+
+  const G = 9.80665;
+  const AX = ['x', 'y', 'z'];
+  // body-to-world rotations (world NED, z down) that point body axis k up (+1) or down (-1)
+  const POSE: Record<string, M3> = {
+    'x+': ry(Math.PI / 2), 'x-': ry(-Math.PI / 2),
+    'y+': rx(-Math.PI / 2), 'y-': rx(Math.PI / 2),
+    'z+': rx(Math.PI), 'z-': I3,
+  };
+  const RATES = [-300, -225, -150, -75, 0, 75, 150, 225, 300];
+  const HALF: V3 = [0.95, 0.7, 0.42]; // half extents of the IMU box
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="sixpos"]')) {
+    const out = outputs(fig);
+    let ba = 8, sa = 0.4, bg = 0.3, sg = -0.3, nz = 1, seed = 3;
+    // readings[k][0] = axis up, [1] = axis down, in m/s²; gyro errors in °/s
+    let acc: number[][] = [], gyr: number[] = [];
+    const sigA = () => nz * 1e-3 * G, sigG = () => nz * 0.02;
+
+    function measure() {
+      const r = rng(seed);
+      acc = AX.map(() => [1, -1].map((sgn) => ba * 1e-3 * G + (1 + sa / 100) * sgn * G + sigA() * r.gauss()));
+      gyr = RATES.map((w) => bg + (sg / 100) * w + sigG() * r.gauss());
+    }
+
+    const Pp = setupCanvas(fig.querySelector<HTMLCanvasElement>('.c-pos')!, 0.82, draw);
+    const Pe = setupCanvas(fig.querySelector<HTMLCanvasElement>('.c-err')!, 0.82, draw);
+    const Pr = setupCanvas(fig.querySelector<HTMLCanvasElement>('.c-rate')!, (w) => (w < 560 ? w * 0.62 : w * 0.3), draw);
+
+    function box(ctx: CanvasRenderingContext2D, P: Palette, C: M3, cx: number, cy: number, sc: number, hot: number) {
+      const cam = camera(0.85, 0.42, sc, cx, cy);
+      const pt = (v: V3) => cam.project(mv(C, v));
+      const faces: { n: V3; c: V3[] }[] = [];
+      for (let k = 0; k < 3; k++) for (const sgn of [1, -1]) {
+        const i = (k + 1) % 3, j = (k + 2) % 3;
+        const corner = (a: number, b: number): V3 => { const v: V3 = [0, 0, 0]; v[k] = sgn * HALF[k]; v[i] = a * HALF[i]; v[j] = b * HALF[j]; return v; };
+        const n: V3 = [0, 0, 0]; n[k] = sgn;
+        faces.push({ n, c: [corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1)] });
+      }
+      // draw only faces turned towards the viewer
+      for (const f of faces) {
+        const nw = mv(C, f.n);
+        if (nw[0] * cam.view[0] + nw[1] * cam.view[1] + nw[2] * cam.view[2] <= 0) continue;
+        ctx.beginPath(); f.c.forEach((v, i) => { const p = pt(v); i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }); ctx.closePath();
+        ctx.fillStyle = P.bg; ctx.fill(); ctx.strokeStyle = P.strong; ctx.lineWidth = 1; ctx.stroke();
+      }
+      for (let k = 0; k < 3; k++) {
+        const e: V3 = [0, 0, 0]; e[k] = HALF[k] + 0.75;
+        const o = pt([0, 0, 0]), p = pt(e);
+        const col = k === hot ? P.accent : P.muted;
+        arrow(ctx, o.x, o.y, p.x, p.y, col, k === hot ? 2 : 1.25, 7);
+        label(ctx, `$${AX[k]}$`, p.x + (p.x >= o.x ? 4 : -10), p.y - 4, col, { size: 11 });
+      }
+    }
+
+    function draw() {
+      const P = palette();
+      { // six orientations
+        const { ctx, size } = Pp, W = size.w, H = size.h;
+        if (!W) return;
+        ctx.clearRect(0, 0, W, H);
+        const left = 26, cw = (W - left) / 3, ch = H / 2;
+        arrow(ctx, 10, H * 0.38, 10, H * 0.62, P.soft, 1.5, 7);
+        label(ctx, '$\\b{g}$', 14, H * 0.36, P.soft, { size: 12 });
+        AX.forEach((a, k) => [1, -1].forEach((sgn, row) => {
+          const cx = left + cw * (k + 0.5), cy = ch * row + ch * 0.4;
+          box(ctx, P, POSE[a + (sgn > 0 ? '+' : '-')], cx, cy, Math.min(cw, ch) * 0.22, k);
+          label(ctx, `$${a}$ ${sgn > 0 ? 'up' : 'down'}`, cx, ch * row + ch * 0.8, P.soft, { size: 11, align: 'center' });
+          const val = acc[k][row] / G;
+          label(ctx, `$\\tilde f_${a}$ = ${val >= 0 ? '+' : '−'}${Math.abs(val).toFixed(4)} g`, cx, ch * row + ch * 0.93, P.fg, { size: 11, align: 'center' });
+        }));
+      }
+      { // accelerometer error against input
+        const { ctx, size } = Pe, W = size.w, H = size.h;
+        if (!W) return;
+        ctx.clearRect(0, 0, W, H);
+        const errs = acc.map((r) => [r[0] / G * 1000 - 1000, r[1] / G * 1000 + 1000]);
+        let lim = Math.abs(ba) + Math.abs(sa) * 10;
+        for (const e of errs) lim = Math.max(lim, Math.abs(e[0]), Math.abs(e[1]));
+        lim = Math.max(5, lim * 1.3);
+        const b = { x: 40, y: 22, w: W - 50, h: H - 56 };
+        label(ctx, 'Accelerometers: six positions', b.x, 8, P.fg, { size: 11 });
+        const A = axes(ctx, P, b, [-1.4, 1.4], [-lim, lim], { xlabel: 'specific force along the axis [g]', ylabel: 'error $\\tilde f - f$ [mg]', xfmt: (v) => `${v}`, yfmt: (v) => v.toFixed(0), xticks: 6 });
+        const seg = (x0: number, y0: number, x1: number, y1: number, col: string, w: number, dash: number[] = []) => {
+          ctx.save(); ctx.beginPath(); ctx.rect(b.x, b.y, b.w, b.h); ctx.clip();
+          ctx.strokeStyle = col; ctx.lineWidth = w; ctx.setLineDash(dash); ctx.beginPath(); ctx.moveTo(A.sx(x0), A.sy(y0)); ctx.lineTo(A.sx(x1), A.sy(y1)); ctx.stroke(); ctx.restore();
+        };
+        seg(-1.4, 0, 1.4, 0, P.muted, 1.25, [5, 4]);
+        seg(-1.4, ba - 14 * sa, 1.4, ba + 14 * sa, P.fg, 1.25);
+        errs.forEach((e, k) => {
+          const bh = (e[0] + e[1]) / 2, sl = (e[0] - e[1]) / 2;
+          seg(-1.4, bh - 1.4 * sl, 1.4, bh + 1.4 * sl, P.accent, 1.5);
+          ctx.fillStyle = P.accent; ctx.beginPath(); ctx.arc(A.sx(0), A.sy(bh), 3, 0, 2 * Math.PI); ctx.fill();
+          ctx.fillStyle = P.fg;
+          for (const [f, y] of [[1, e[0]], [-1, e[1]]]) { ctx.beginPath(); ctx.arc(A.sx(f), A.sy(y), 3.5, 0, 2 * Math.PI); ctx.fill(); }
+          label(ctx, `$${AX[k]}$`, A.sx(1) + 7 + 9 * k, A.sy(e[0]), P.soft, { size: 10 });
+        });
+        label(ctx, 'intercept $\\hat b_a$', A.sx(0) + 6, A.sy(errs[0][0] / 2 + errs[0][1] / 2) - 12, P.accent, { size: 11 });
+        { const e = errs[0], bh = (e[0] + e[1]) / 2, sl = (e[0] - e[1]) / 2; label(ctx, 'slope $\\hat s_a$', A.sx(-0.55), A.sy(bh - 0.55 * sl) - 14, P.accent, { size: 11 }); }
+        const est = errs.map((e) => ({ b: (e[0] + e[1]) / 2, s: (e[0] - e[1]) / 2 / 10 }));
+        out('ba', est.map((e) => e.b.toFixed(1)).join(', ') + ' mg');
+        out('bat', `${ba.toFixed(1)} mg`);
+        out('sa', est.map((e) => e.s.toFixed(2)).join(', ') + ' %');
+        out('sat', `${sa.toFixed(2)} %`);
+      }
+      { // gyro on a rate table
+        const { ctx, size } = Pr, W = size.w, H = size.h;
+        if (!W) return;
+        ctx.clearRect(0, 0, W, H);
+        const n = RATES.length, mx = RATES.reduce((s, v) => s + v, 0) / n, my = gyr.reduce((s, v) => s + v, 0) / n;
+        let sxy = 0, sxx = 0;
+        RATES.forEach((w, i) => { sxy += (w - mx) * (gyr[i] - my); sxx += (w - mx) ** 2; });
+        const slope = sxy / sxx, icpt = my - slope * mx;
+        let lim = 0.3;
+        for (const e of gyr) lim = Math.max(lim, Math.abs(e));
+        lim *= 1.3;
+        const b = { x: 40, y: 22, w: W - 50, h: H - 56 };
+        label(ctx, 'Gyro on a rate table', b.x, 8, P.fg, { size: 11 });
+        const A = axes(ctx, P, b, [-330, 330], [-lim, lim], { xlabel: 'commanded rate $\\omega$ [°/s]', ylabel: 'error $\\tilde\\omega - \\omega$ [°/s]', xfmt: (v) => `${v}`, yfmt: (v) => v.toFixed(lim < 1 ? 1 : 0), xticks: 8 });
+        ctx.save(); ctx.beginPath(); ctx.rect(b.x, b.y, b.w, b.h); ctx.clip();
+        ctx.setLineDash([5, 4]); ctx.strokeStyle = P.muted; ctx.lineWidth = 1.25; ctx.beginPath(); ctx.moveTo(b.x, A.sy(0)); ctx.lineTo(b.x + b.w, A.sy(0)); ctx.stroke(); ctx.setLineDash([]);
+        ctx.strokeStyle = P.fg; ctx.beginPath(); ctx.moveTo(A.sx(-330), A.sy(bg - 3.3 * sg)); ctx.lineTo(A.sx(330), A.sy(bg + 3.3 * sg)); ctx.stroke();
+        ctx.strokeStyle = P.accent; ctx.lineWidth = 1.75; ctx.beginPath(); ctx.moveTo(A.sx(-330), A.sy(icpt - 330 * slope)); ctx.lineTo(A.sx(330), A.sy(icpt + 330 * slope)); ctx.stroke();
+        ctx.restore();
+        ctx.fillStyle = P.fg;
+        RATES.forEach((w, i) => { ctx.beginPath(); ctx.arc(A.sx(w), A.sy(gyr[i]), 3.5, 0, 2 * Math.PI); ctx.fill(); });
+        ctx.fillStyle = P.accent; ctx.beginPath(); ctx.arc(A.sx(0), A.sy(icpt), 3, 0, 2 * Math.PI); ctx.fill();
+        out('bg', `${icpt.toFixed(3)} °/s`);
+        out('sg', `${(slope * 100).toFixed(3)} %`);
+      }
+    }
+
+    const upd = () => { measure(); draw(); };
+    slider(fig, 'ba', (v) => `${v.toFixed(1)} mg`, (v) => { ba = v; upd(); });
+    slider(fig, 'sa', (v) => `${v.toFixed(2)} %`, (v) => { sa = v; upd(); });
+    slider(fig, 'bg', (v) => `${v.toFixed(2)} °/s`, (v) => { bg = v; upd(); });
+    slider(fig, 'sg', (v) => `${v.toFixed(2)} %`, (v) => { sg = v; upd(); });
+    slider(fig, 'nz', (v) => (v ? `${v.toFixed(1)} mg, ${(v * 0.02).toFixed(3)} °/s` : 'off'), (v) => { nz = v; upd(); });
+    fig.querySelector('[data-act="new"]')!.addEventListener('click', () => { seed++; upd(); });
+  }
+</script>

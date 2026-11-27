@@ -1,0 +1,191 @@
+---
+import M from '../../blog/M.astro';
+// Non-commutativity behind coning: four small body rotations (+x, +y, -x, -y by ε) whose increments sum to zero
+// leave a net rotation of about ε² about z, equal to the area enclosed by the path of the increments.
+---
+
+<figure class="xp wide" data-xp="coneloop">
+  <div class="xp-head"><span class="label fig-title">Four rotations that add up to zero, but do not cancel</span><span class="label" style="color:var(--muted)">drag to orbit</span></div>
+  <div class="xp-row two">
+    <canvas class="c3d drag" role="img" aria-label="Body axes after a sequence of four small rotations about the body x and y axes; the tip of the z-axis traces a small loop and the body ends up turned about z"></canvas>
+    <canvas class="c-inc" role="img" aria-label="The four angle increments added tip to tail form a closed square; its area equals the net rotation about z"></canvas>
+  </div>
+  <ul class="xp-legend">
+    <li class="c-fg"><i></i><span>body axes <M t={String.raw`x^b, y^b, z^b`} /></span></li>
+    <li class="c-muted dash"><i></i><span>start attitude</span></li>
+    <li class="c-accent"><i></i><span>path of the <M t={String.raw`z^b`} /> tip and the net rotation about <M t="z" /></span></li>
+  </ul>
+  <div class="xp-btns">
+    <button class="btn" type="button" data-st="0" aria-pressed="false">start</button>
+    <button class="btn" type="button" data-st="1" aria-pressed="false" style="text-transform:none;letter-spacing:0.02em">1: <M t={String.raw`+\varepsilon`} /> about <M t="x^b" /></button>
+    <button class="btn" type="button" data-st="2" aria-pressed="false" style="text-transform:none;letter-spacing:0.02em">2: <M t={String.raw`+\varepsilon`} /> about <M t="y^b" /></button>
+    <button class="btn" type="button" data-st="3" aria-pressed="false" style="text-transform:none;letter-spacing:0.02em">3: <M t={String.raw`-\varepsilon`} /> about <M t="x^b" /></button>
+    <button class="btn" type="button" data-st="4" aria-pressed="true" style="text-transform:none;letter-spacing:0.02em">4: <M t={String.raw`-\varepsilon`} /> about <M t="y^b" /></button>
+    <button class="btn" type="button" data-act="play">play all</button>
+  </div>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Step angle <M t={String.raw`\varepsilon`} /></span><output for="eps"></output></span><input type="range" name="eps" min="1" max="30" step="0.5" value="20" /></label>
+  </div>
+  <p class="xp-readout" aria-live="polite">
+    <span>sum of the increments <M t={String.raw`\textstyle\sum_k \Delta\boldsymbol\theta_k`} /> = <b data-o="sum"></b></span>
+    <span>true net rotation <b class="hot" data-o="net"></b></span>
+    <span><M t={String.raw`\varepsilon^2`} /> = <b data-o="e2"></b></span>
+    <span>ratio net angle / <M t={String.raw`\varepsilon^2`} /> = <b data-o="ratio"></b></span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, animate, label, slider, arrow, outputs, reducedMotion } from '../../../lib/explainer';
+  import { camera, rexp, mm, mv, matq, I3, type M3, type V3 } from '../../../lib/rot';
+
+  const D2R = Math.PI / 180, R2D = 180 / Math.PI;
+  const STEPS: [V3, number][] = [[[1, 0, 0], 1], [[0, 1, 0], 1], [[1, 0, 0], -1], [[0, 1, 0], -1]];
+  const col = (C: M3, i: number): V3 => [C[i], C[3 + i], C[6 + i]];
+  const NAMES = ['$x^b$', '$y^b$', '$z^b$'];
+  const STEP_TXT = ['start attitude', 'step 1: $+\\varepsilon$ about $x^b$', 'step 2: $+\\varepsilon$ about $y^b$', 'step 3: $-\\varepsilon$ about $x^b$', 'step 4: $-\\varepsilon$ about $y^b$'];
+
+  /** Attitude after progress p in [0, 4] through the four body rotations (applied on the right). */
+  function attitude(p: number, e: number): M3 {
+    let C = I3;
+    for (let k = 0; k < 4; k++) {
+      const f = Math.max(0, Math.min(1, p - k));
+      if (f <= 0) break;
+      const [ax, s] = STEPS[k];
+      C = mm(C, rexp([ax[0] * s * e * f, ax[1] * s * e * f, ax[2] * s * e * f]));
+    }
+    return C;
+  }
+  /** Increments accumulated up to progress p (plain sum, as a gyro would integrate them). */
+  function incSum(p: number, e: number): V3 {
+    const r: V3 = [0, 0, 0];
+    for (let k = 0; k < 4; k++) { const f = Math.max(0, Math.min(1, p - k)); const [ax, s] = STEPS[k]; for (let i = 0; i < 3; i++) r[i] += ax[i] * s * e * f; }
+    return r;
+  }
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="coneloop"]')) {
+    const c3 = fig.querySelector<HTMLCanvasElement>('.c3d')!, ci = fig.querySelector<HTMLCanvasElement>('.c-inc')!;
+    const out = outputs(fig);
+    const playBtn = fig.querySelector<HTMLButtonElement>('[data-act="play"]')!;
+    const sb = fig.querySelectorAll<HTMLButtonElement>('[data-st]');
+    let eps = 20, p = 4, target = 4, az = 0.6, el = 0.75;
+
+    const A = setupCanvas(c3, 0.9, () => draw3d());
+    const B = setupCanvas(ci, 0.9, () => drawInc());
+
+    function draw3d() {
+      const P = palette(), { ctx, size } = A, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const cam = camera(az, el, Math.min(W, H) * 0.42, W / 2, H / 2 + 30);
+      const pr = (v: V3) => cam.project([v[0], -v[1], -v[2]]);         // z up on screen
+      const o = pr([0, 0, 0]), e = eps * D2R;
+      const C = attitude(p, e);
+      // start attitude
+      ctx.setLineDash([4, 4]);
+      for (let i = 0; i < 3; i++) { const q = pr(col(I3, i)); arrow(ctx, o.x, o.y, q.x, q.y, P.muted, 1.25, 7); }
+      ctx.setLineDash([]);
+      // path of the z tip (and, faint, the x tip)
+      for (const [i, c, wd] of [[0, P.soft, 1], [2, P.accent, 2]] as [number, string, number][]) {
+        ctx.strokeStyle = c; ctx.lineWidth = wd; ctx.beginPath();
+        const n = Math.max(2, Math.ceil(p * 40));
+        for (let k = 0; k <= n; k++) { const q = pr(col(attitude((k / n) * p, e), i)); k ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); }
+        ctx.stroke();
+      }
+      // current rotation axis
+      const k = Math.min(3, Math.floor(p - 1e-9));
+      if (p > 0 && p < 4) {
+        const ax = mv(C, STEPS[k][0]), a1 = pr([ax[0] * 1.45, ax[1] * 1.45, ax[2] * 1.45]), a0 = pr([-ax[0] * 0.6, -ax[1] * 0.6, -ax[2] * 0.6]);
+        ctx.strokeStyle = P.soft; ctx.lineWidth = 1; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(a0.x, a0.y); ctx.lineTo(a1.x, a1.y); ctx.stroke(); ctx.setLineDash([]);
+      }
+      // net rotation about z: arc from the start x-axis to the projection of the current x-axis
+      const xb = col(C, 0), ang = Math.atan2(xb[1], xb[0]);
+      if (p >= 4 && Math.abs(ang) > 1e-4) {
+        const rA = 1;
+        ctx.strokeStyle = P.accent; ctx.lineWidth = 2; ctx.beginPath();
+        for (let j = 0; j <= 30; j++) { const a = (j / 30) * ang, q = pr([rA * Math.cos(a), rA * Math.sin(a), 0]); j ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); }
+        ctx.stroke();
+        const q = pr([rA * Math.cos(ang / 2), rA * Math.sin(ang / 2), 0]);
+        label(ctx, 'net turn $\\approx\\varepsilon^2$ about $z$', Math.max(90, Math.min(W - 90, q.x)), q.y + 40, P.accent, { size: 12, align: 'center' });
+      }
+      // body axes
+      for (let i = 0; i < 3; i++) {
+        const c = col(C, i), q = pr(c);
+        arrow(ctx, o.x, o.y, q.x, q.y, P.fg, 2.5, 10);
+        label(ctx, NAMES[i], q.x + (q.x >= o.x ? 8 : -8), q.y - 10, P.fg, { size: 14, align: q.x >= o.x ? 'left' : 'right' });
+      }
+      ctx.fillStyle = P.accent; { const q = pr(col(C, 2)); ctx.beginPath(); ctx.arc(q.x, q.y, 3.5, 0, Math.PI * 2); ctx.fill(); }
+      label(ctx, STEP_TXT[p >= 4 ? 4 : p <= 0 ? 0 : k + 1], 8, 14, P.soft, { size: 12 });
+    }
+
+    function drawInc() {
+      const P = palette(), { ctx, size } = B, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const e = eps * D2R, side = Math.min(W, H) * 0.5, ox = W / 2 - side / 2, oy = H / 2 + side / 2 + 6;
+      const X = (v: number) => ox + (v / e) * side, Y = (v: number) => oy - (v / e) * side;
+      label(ctx, 'the increments added tip to tail', 8, 14, P.soft, { size: 12 });
+      // axes of the increment plane
+      ctx.strokeStyle = P.border; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(ox - side * 0.35, oy + 0.5); ctx.lineTo(ox + side * 1.45, oy + 0.5); ctx.moveTo(ox + 0.5, oy + side * 0.3); ctx.lineTo(ox + 0.5, oy - side * 1.4); ctx.stroke();
+      label(ctx, '$\\Delta\\theta_x$', ox + side * 1.45, oy + 14, P.muted, { size: 12, align: 'right' });
+      label(ctx, '$\\Delta\\theta_y$', ox - 8, oy - side * 1.35, P.muted, { size: 12, align: 'right' });
+      // enclosed area (as far as the path has come)
+      const s = incSum(p, e);
+      ctx.fillStyle = P.accent; ctx.globalAlpha = 0.18; ctx.beginPath(); ctx.moveTo(X(0), Y(0));
+      const corners = [[e, 0], [e, e], [0, e], [0, 0]];
+      for (let k = 0; k < Math.min(4, Math.floor(p)); k++) ctx.lineTo(X(corners[k][0]), Y(corners[k][1]));
+      ctx.lineTo(X(s[0]), Y(s[1])); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
+      // the increments
+      let cur = [0, 0];
+      const lbl = ['$\\Delta\\boldsymbol\\theta_1$', '$\\Delta\\boldsymbol\\theta_2$', '$\\Delta\\boldsymbol\\theta_3$', '$\\Delta\\boldsymbol\\theta_4$'];
+      const off = [[0, 16], [12, 0], [0, -14], [-12, 0]];
+      for (let k = 0; k < 4; k++) {
+        const f = Math.max(0, Math.min(1, p - k));
+        const [ax, sg] = STEPS[k], nx = cur[0] + ax[0] * sg * e, ny = cur[1] + ax[1] * sg * e;
+        ctx.globalAlpha = f > 0 ? 1 : 0.25;
+        const ex = cur[0] + (nx - cur[0]) * (f > 0 ? f : 1), ey = cur[1] + (ny - cur[1]) * (f > 0 ? f : 1);
+        if (f > 0) arrow(ctx, X(cur[0]), Y(cur[1]), X(ex), Y(ey), P.fg, 2.25, 10);
+        else { ctx.strokeStyle = P.strong; ctx.setLineDash([3, 4]); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(X(cur[0]), Y(cur[1])); ctx.lineTo(X(nx), Y(ny)); ctx.stroke(); ctx.setLineDash([]); }
+        label(ctx, lbl[k], (X(cur[0]) + X(nx)) / 2 + off[k][0], (Y(cur[1]) + Y(ny)) / 2 + off[k][1], P.fg, { size: 13, align: k === 3 ? 'right' : k === 1 ? 'left' : 'center' });
+        ctx.globalAlpha = 1;
+        cur = [nx, ny];
+      }
+      ctx.fillStyle = P.fg; ctx.beginPath(); ctx.arc(X(s[0]), Y(s[1]), 4, 0, Math.PI * 2); ctx.fill();
+      if (p >= 4) {
+        label(ctx, 'area $\\varepsilon^2$', X(e / 2), Y(e / 2), P.accent, { size: 14, align: 'center' });
+        label(ctx, 'the path closes: the sum is zero', 8, H - 30, P.soft, { size: 11 });
+        label(ctx, 'the enclosed area is the net rotation about $z$', 8, H - 12, P.accent, { size: 11 });
+      } else label(ctx, `side length $\\varepsilon$ = ${eps.toFixed(1)}°`, 8, H - 12, P.muted, { size: 11 });
+    }
+
+    function readout() {
+      const e = eps * D2R, s = incSum(p, e), q = matq(attitude(p, e));
+      const vn = Math.hypot(q[1], q[2], q[3]), ang = 2 * Math.atan2(vn, Math.abs(q[0])), sg = q[0] < 0 ? -1 : 1;
+      const axis = vn > 1e-12 ? [q[1] * sg / vn, q[2] * sg / vn, q[3] * sg / vn] : [0, 0, 0];
+      const f = (v: number) => (Math.abs(v) < 5e-4 ? '0' : v.toFixed(2));
+      const sd = s.map((v) => v * R2D);
+      out('sum', `(${sd.map((v) => (Math.abs(v) < 0.05 ? '0' : v.toFixed(1))).join(', ')})°`);
+      out('net', `${(ang * R2D).toFixed(2)}° about (${axis.map(f).join(', ')})`);
+      out('e2', `${(e * e).toFixed(4)} rad = ${(e * e * R2D).toFixed(2)}°`);
+      out('ratio', p >= 4 ? (ang / (e * e)).toFixed(3) : '(after step 4)');
+    }
+    const draw = () => { draw3d(); drawInc(); readout(); };
+    const press = (st: number) => sb.forEach((x) => x.setAttribute('aria-pressed', String(Number(x.dataset.st) === st)));
+
+    const anim = animate(fig, (d) => {
+      const sp = 0.9 * d;
+      p = target > p ? Math.min(target, p + sp) : Math.max(target, p - sp * 3);
+      draw();
+    }, () => Math.abs(p - target) > 1e-9 && !reducedMotion());
+    const go = (st: number, from?: number) => {
+      target = st; press(st);
+      if (from !== undefined) p = from;
+      if (reducedMotion()) p = target;
+      draw(); anim.kick();
+    };
+    sb.forEach((b) => b.addEventListener('click', () => { const st = Number(b.dataset.st); go(st, st < p ? Math.max(0, st - 1) : undefined); }));
+    playBtn.addEventListener('click', () => go(4, 0));
+    slider(fig, 'eps', (v) => `${v.toFixed(1)}°`, (v) => { eps = v; draw(); });
+  }
+</script>

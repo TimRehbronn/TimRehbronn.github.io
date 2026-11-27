@@ -1,0 +1,213 @@
+---
+import M from '../../blog/M.astro';
+// One strapdown update step by step for an aircraft pulling up, seen from the side:
+// (1) attitude with the gyro increment, (2) velocity with the rotated velocity increment plus gravity,
+// (3) position with the trapezoidal rule.
+---
+
+<figure class="xp wide" data-xp="discalg">
+  <div class="xp-head"><span class="label fig-title">One strapdown update, step by step</span></div>
+  <ol class="da-steps">
+    <li data-s="1"><span class="da-n">1</span> attitude: <M t={String.raw`\mathbf C_b^n \leftarrow \exp(-[\boldsymbol\omega_{in}^n\times]\,\Delta t)\;\mathbf C_b^n\;\exp([\boldsymbol\alpha_k\times])`} /></li>
+    <li data-s="2"><span class="da-n">2</span> velocity: <M t={String.raw`\mathbf v^n \leftarrow \mathbf v^n + \mathbf C_b^n\,\Delta\mathbf v_k' + \big(\mathbf g^n - (2\boldsymbol\omega_{ie}^n + \boldsymbol\omega_{en}^n)\times\mathbf v^n\big)\,\Delta t`} /></li>
+    <li data-s="3"><span class="da-n">3</span> position: <M t={String.raw`\Delta\mathbf p = \tfrac12\big(\mathbf v^n_{k-1} + \mathbf v^n_k\big)\,\Delta t \;\Rightarrow\; L,\ \lambda,\ h`} /></li>
+  </ol>
+  <div class="xp-row two">
+    <canvas class="c-pos" role="img" aria-label="Side view of an aircraft pulling up, with its positions at the previous samples and the current update"></canvas>
+    <canvas class="c-vel" role="img" aria-label="Velocity diagram: the old velocity, the rotated velocity increment and the gravity increment added tip to tail give the new velocity"></canvas>
+  </div>
+  <div class="xp-btns">
+    <button class="btn" type="button" data-st="0" aria-pressed="false">start of interval</button>
+    <button class="btn" type="button" data-st="1" aria-pressed="false">1 attitude</button>
+    <button class="btn" type="button" data-st="2" aria-pressed="false">2 velocity</button>
+    <button class="btn" type="button" data-st="3" aria-pressed="true">3 position</button>
+    <button class="btn" type="button" data-act="next">next interval</button>
+    <button class="btn btn-primary" type="button" data-act="play">Play</button>
+  </div>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Pitch increment <M t={String.raw`\Delta\theta_k`} /></span><output for="dth"></output></span><input type="range" name="dth" min="-10" max="20" step="1" value="10" /></label>
+    <label class="xp-ctl"><span><span>Lift increment <M t={String.raw`-\Delta v_{k,z}`} /></span><output for="dvz"></output></span><input type="range" name="dvz" min="0" max="30" step="0.5" value="16" /></label>
+  </div>
+  <p class="xp-readout" aria-live="polite">
+    <span>interval <M t={String.raw`k`} /> = <b data-o="k"></b></span>
+    <span>pitch <M t={String.raw`\theta`} /> = <b class="hot" data-o="th"></b></span>
+    <span><M t={String.raw`[v_N,\ v_D]`} /> = <b data-o="v"></b> m/s</span>
+    <span>height gain <M t={String.raw`\Delta h`} /> = <b data-o="dh"></b></span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<style>
+  [data-xp='discalg'] .da-steps { list-style: none; margin: 0 0 0.8rem; padding: 0; display: grid; gap: 0.3rem; color: var(--muted); }
+  [data-xp='discalg'] .da-steps li { margin: 0; text-align: left; overflow-x: auto; overflow-y: hidden; transition: color 0.2s; }
+  [data-xp='discalg'] .da-steps li.on { color: var(--accent); }
+  [data-xp='discalg'] .da-steps li.done { color: var(--fg-soft); }
+  [data-xp='discalg'] .da-n { display: inline-block; width: 1.3rem; height: 1.3rem; line-height: 1.2rem; margin-right: 0.4rem; text-align: center; border: 1px solid currentColor; border-radius: 50%; font-size: 0.72rem; }
+  @media (prefers-reduced-motion: reduce) { [data-xp='discalg'] .da-steps li { transition: none; } }
+</style>
+
+<script>
+  import { palette, setupCanvas, animate, label, slider, arrow, reducedMotion, outputs } from '../../../lib/explainer';
+
+  const D2R = Math.PI / 180, G = 9.81, DT = 1, K = 5, DVX = 1;
+  type S = { th: number; v: [number, number]; p: [number, number] }; // pitch, velocity (north, up), position (north, up)
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="discalg"]')) {
+    const out = outputs(fig);
+    const playBtn = fig.querySelector<HTMLButtonElement>('[data-act="play"]')!;
+    const stBtns = fig.querySelectorAll<HTMLButtonElement>('[data-st]');
+    const lis = fig.querySelectorAll<HTMLLIElement>('.da-steps li');
+    let dth = 10, dvz = 16, k = 3, st = 3, running = false, clock = 0;
+    let S: S[] = [];
+    let dvn: [number, number][] = [];
+
+    // the strapdown algorithm in 2-D (frame rotation and Coriolis are far too small to matter here)
+    function simulate() {
+      S = [{ th: 5 * D2R, v: [40, 3], p: [0, 0] }];
+      dvn = [[0, 0]];
+      for (let i = 1; i <= K; i++) {
+        const o = S[i - 1], th = o.th + dth * D2R, tm = o.th + 0.5 * dth * D2R;
+        // body x forward = (cos, sin), body z down = (sin, -cos) in (north, up); lift is a negative body-z increment
+        const d: [number, number] = [DVX * Math.cos(tm) - dvz * Math.sin(tm), DVX * Math.sin(tm) + dvz * Math.cos(tm)];
+        const v: [number, number] = [o.v[0] + d[0], o.v[1] + d[1] - G * DT];
+        const p: [number, number] = [o.p[0] + 0.5 * (o.v[0] + v[0]) * DT, o.p[1] + 0.5 * (o.v[1] + v[1]) * DT];
+        S.push({ th, v, p }); dvn.push(d);
+      }
+    }
+
+    const A = setupCanvas(fig.querySelector<HTMLCanvasElement>('.c-pos')!, (w) => Math.max(300, w * 0.75), () => draw());
+    const B = setupCanvas(fig.querySelector<HTMLCanvasElement>('.c-vel')!, (w) => Math.max(300, w * 0.75), () => draw());
+
+    function plane(ctx: CanvasRenderingContext2D, x: number, y: number, th: number, col: string, fill: boolean, sz = 30) {
+      const c = Math.cos(th), s = -Math.sin(th); // screen y down
+      const pts: [number, number][] = [[1.2, 0], [-0.8, -0.32], [-1.0, -0.75], [-1.05, -0.2], [-0.9, 0.28]];
+      ctx.beginPath();
+      pts.forEach(([a, b], i) => { const X = x + (a * c - b * s) * sz, Y = y + (a * s + b * c) * sz; i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); });
+      ctx.closePath(); ctx.lineWidth = 1.5; ctx.strokeStyle = col; ctx.fillStyle = col; fill ? ctx.fill() : ctx.stroke();
+    }
+
+    function drawPos() {
+      const P = palette(), { ctx, size } = A, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      // frame the current interval, its two predecessors and the velocity arrows of the trapezoidal rule
+      const o0 = S[k - 1];
+      const fit: [number, number][] = [o0.p, S[k].p, [o0.p[0] + o0.v[0] * DT, o0.p[1] + o0.v[1] * DT], [o0.p[0] + S[k].v[0] * DT, o0.p[1] + S[k].v[1] * DT]];
+      for (const q of fit) { x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]); }
+      const pad = 60, sc = Math.min((W - 2 * pad) / Math.max(x1 - x0, 1), (H - 2 * pad - 30) / Math.max(y1 - y0, 1), 12);
+      const ox = W / 2 - ((x0 + x1) / 2) * sc, oy = H / 2 + 10 + ((y0 + y1) / 2) * sc;
+      const X = (n: number) => ox + n * sc, Y = (u: number) => oy - u * sc;
+      label(ctx, 'position, side view (north right, up)', 8, 12, P.soft, { size: 11 });
+      ctx.save(); ctx.beginPath(); ctx.rect(0, 20, W, H - 40); ctx.clip();
+      // trail through the earlier samples
+      ctx.strokeStyle = P.border; ctx.lineWidth = 1; ctx.setLineDash([3, 4]); ctx.beginPath();
+      S.forEach((s, i) => (i ? ctx.lineTo(X(s.p[0]), Y(s.p[1])) : ctx.moveTo(X(s.p[0]), Y(s.p[1])))); ctx.stroke(); ctx.setLineDash([]);
+      ctx.strokeStyle = P.soft; ctx.lineWidth = 1.5; ctx.beginPath();
+      for (let i = 0; i < k; i++) (i ? ctx.lineTo(X(S[i].p[0]), Y(S[i].p[1])) : ctx.moveTo(X(S[i].p[0]), Y(S[i].p[1]))); ctx.stroke();
+      for (let i = 0; i < k - 1; i++) { ctx.globalAlpha = 0.35; plane(ctx, X(S[i].p[0]), Y(S[i].p[1]), S[i].th, P.soft, false, 22); ctx.globalAlpha = 1; ctx.fillStyle = P.soft; ctx.beginPath(); ctx.arc(X(S[i].p[0]), Y(S[i].p[1]), 2.5, 0, 7); ctx.fill(); }
+      const o = S[k - 1], n = S[k], px = X(o.p[0]), py = Y(o.p[1]);
+      ctx.fillStyle = P.fg; ctx.beginPath(); ctx.arc(px, py, 3, 0, 7); ctx.fill();
+      label(ctx, `$k-1$`, px - 6, py + 26, P.muted, { size: 11, align: 'right' });
+      if (st === 0) {
+        plane(ctx, px, py, o.th, P.fg, true);
+      } else if (st <= 2) {
+        ctx.globalAlpha = 0.4; plane(ctx, px, py, o.th, P.muted, false); ctx.globalAlpha = 1;
+        plane(ctx, px, py, n.th, st === 1 ? P.accent : P.fg, true);
+        // arc showing the gyro increment
+        const r = 78; ctx.strokeStyle = P.accent; ctx.lineWidth = 1.75; ctx.beginPath(); ctx.arc(px, py, r, -o.th, -n.th, n.th > o.th); ctx.stroke();
+        if (st === 1) label(ctx, '$\\Delta\\theta_k$', px + Math.cos((o.th + n.th) / 2) * (r + 12), py - Math.sin((o.th + n.th) / 2) * (r + 12), P.accent, { size: 14 });
+        if (st === 2) {
+          // body axes at the mid-interval attitude, used to rotate the velocity increment
+          const tm = (o.th + n.th) / 2, L = 70;
+          arrow(ctx, px, py, px + Math.cos(tm) * L, py - Math.sin(tm) * L, P.soft, 1.25, 7);
+          arrow(ctx, px, py, px + Math.sin(tm) * L * 0.8, py + Math.cos(tm) * L * 0.8, P.soft, 1.25, 7);
+          label(ctx, '$x^b$', px + Math.cos(tm) * (L + 10), py - Math.sin(tm) * (L + 10), P.soft, { size: 12 });
+          label(ctx, '$z^b$', px + Math.sin(tm) * L * 0.8 + 6, py + Math.cos(tm) * L * 0.8 + 6, P.soft, { size: 12 });
+          label(ctx, 'body axes at mid-interval attitude', 8, 28, P.muted, { size: 10 });
+        } else {
+          label(ctx, 'frame rotation $\\omega_{in}\\Delta t \\approx$ 0.004°: too small to see', 8, 28, P.muted, { size: 10 });
+        }
+      } else {
+        // trapezoidal rule: the step follows the average of old and new velocity
+        const e1 = { x: px + o.v[0] * DT * sc, y: py - o.v[1] * DT * sc }, e2 = { x: px + n.v[0] * DT * sc, y: py - n.v[1] * DT * sc };
+        ctx.setLineDash([4, 4]); arrow(ctx, px, py, e1.x, e1.y, P.muted, 1.25, 7); arrow(ctx, px, py, e2.x, e2.y, P.muted, 1.25, 7); ctx.setLineDash([]);
+        const lo1 = e1.y >= e2.y;
+        label(ctx, '$\\mathbf{v}_{k-1}\\Delta t$', e1.x + 6, e1.y + (lo1 ? 10 : -10), P.muted, { size: 12 });
+        label(ctx, '$\\mathbf{v}_k\\Delta t$', e2.x + 6, e2.y + (lo1 ? -10 : 10), P.muted, { size: 12 });
+        const qx = X(n.p[0]), qy = Y(n.p[1]);
+        plane(ctx, qx, qy, n.th, P.fg, false);
+        arrow(ctx, px, py, qx, qy, P.accent, 2.5, 9);
+        ctx.globalAlpha = 0.4; plane(ctx, px, py, o.th, P.muted, false); ctx.globalAlpha = 1;
+        label(ctx, 'average', (px + qx) / 2 + 6, (py + qy) / 2 + 16, P.accent, { size: 11 });
+      }
+      ctx.restore();
+      label(ctx, 'interval stretched to 1 s for visibility', 8, H - 10, P.muted, { size: 10 });
+    }
+
+    function drawVel() {
+      const P = palette(), { ctx, size } = B, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const o = S[k - 1], n = S[k], d = dvn[k];
+      label(ctx, 'velocity (north right, up)', 8, 12, P.soft, { size: 11 });
+      // fit the drawing: origin, old tip, intermediate tip, new tip
+      const pts = [[0, 0], o.v, [o.v[0] + d[0], o.v[1] + d[1]], n.v];
+      let x0 = 0, x1 = 0, y0 = 0, y1 = 0;
+      for (const [a, b] of pts) { x0 = Math.min(x0, a); x1 = Math.max(x1, a); y0 = Math.min(y0, b); y1 = Math.max(y1, b); }
+      const pad = 34, sc = Math.min((W - 2 * pad) / Math.max(x1 - x0, 1), (H - 2 * pad - 30) / Math.max(y1 - y0, 1));
+      const ox = W / 2 - ((x0 + x1) / 2) * sc, oy = H / 2 + 6 + ((y0 + y1) / 2) * sc;
+      const X = (a: number) => ox + a * sc, Y = (b: number) => oy - b * sc;
+      ctx.strokeStyle = P.border; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(8, Y(0) + 0.5); ctx.lineTo(W - 8, Y(0) + 0.5); ctx.stroke();
+      const changed = st >= 2;
+      arrow(ctx, X(0), Y(0), X(o.v[0]), Y(o.v[1]), changed ? P.soft : P.fg, 2, 9);
+      label(ctx, '$\\mathbf{v}_{k-1}$', X(o.v[0] / 2) - 4, Y(o.v[1] / 2) + 16, changed ? P.soft : P.fg, { size: 13, align: 'center' });
+      if (changed) {
+        const m = { x: X(o.v[0] + d[0]), y: Y(o.v[1] + d[1]) };
+        const a0 = { x: X(o.v[0]), y: Y(o.v[1]) }, nk = { x: X(n.v[0]), y: Y(n.v[1]) };
+        const gc = { x: (X(0) + a0.x + m.x + nk.x) / 4, y: (Y(0) + a0.y + m.y + nk.y) / 4 };
+        // put a label beside the middle of a segment, on the side facing away from the centre of the figure
+        const out2 = (a: { x: number; y: number }, b: { x: number; y: number }, txt: string, col: string, sz: number, f = 0.5) => {
+          const dx = b.x - a.x, dy = b.y - a.y, l = Math.hypot(dx, dy) || 1;
+          let nx = -dy / l, ny = dx / l;
+          const mx = a.x + dx * f, my = a.y + dy * f;
+          if ((mx - gc.x) * nx + (my - gc.y) * ny < 0) { nx = -nx; ny = -ny; }
+          label(ctx, txt, mx + nx * 14, my + ny * 14, col, { size: sz, align: Math.abs(nx) < 0.35 ? 'center' : nx > 0 ? 'left' : 'right' });
+        };
+        arrow(ctx, a0.x, a0.y, m.x, m.y, P.accent, 2.25, 9);
+        out2(a0, m, '$\\mathbf{C}_b^n\\Delta\\mathbf{v}_k\'$', P.accent, 13);
+        ctx.setLineDash([5, 4]); arrow(ctx, m.x, m.y, nk.x, nk.y, P.soft, 1.75, 9); ctx.setLineDash([]);
+        // gravity label on the other side than the label of the rotated increment
+        const gs = m.x > a0.x ? 1 : -1;
+        label(ctx, '$\\mathbf{g}^n\\Delta t$', m.x + gs * 10, (m.y + nk.y) / 2, P.soft, { size: 13, align: gs > 0 ? 'left' : 'right' });
+        arrow(ctx, X(0), Y(0), nk.x, nk.y, P.accent, 3, 10);
+        const dd = Math.hypot(nk.x - X(0), nk.y - Y(0)) || 1;
+        label(ctx, '$\\mathbf{v}_k$', X(0) + (nk.x - X(0)) * 0.55 + ((nk.y - Y(0)) / dd) * 16, Y(0) + (nk.y - Y(0)) * 0.55 - ((nk.x - X(0)) / dd) * 16, P.accent, { size: 14, align: 'center' });
+        label(ctx, 'Coriolis and transport: a few mm/s, too small to draw', 8, H - 10, P.muted, { size: 10 });
+      } else {
+        label(ctx, st === 1 ? 'velocity not yet updated' : 'state at the start of the interval', 8, H - 10, P.muted, { size: 10 });
+      }
+    }
+
+    function draw() {
+      drawPos(); drawVel();
+      lis.forEach((li) => { const s = Number(li.dataset.s); li.classList.toggle('on', s === st); li.classList.toggle('done', s < st); });
+      stBtns.forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.st) === st)));
+      const o = S[k - 1], n = S[k];
+      const th = st >= 1 ? n.th : o.th, v = st >= 2 ? n.v : o.v;
+      out('k', `${k} of ${K}`);
+      out('th', `${(th / D2R).toFixed(0)}°`);
+      out('v', `[${v[0].toFixed(1)}, ${(-v[1]).toFixed(1)}]`);
+      out('dh', st >= 3 ? `${(n.p[1] - o.p[1]).toFixed(1)} m` : 'not yet');
+    }
+
+    const next = () => { if (st < 3) st++; else { st = 0; k = k >= K ? 1 : k + 1; } draw(); };
+    stBtns.forEach((b) => b.addEventListener('click', () => { st = Number(b.dataset.st); draw(); }));
+    fig.querySelector('[data-act="next"]')!.addEventListener('click', () => { k = k >= K ? 1 : k + 1; st = 0; draw(); });
+    const anim = animate(fig, (dt) => { clock += dt; if (clock > 1.3) { clock = 0; next(); } }, () => running);
+    playBtn.addEventListener('click', () => { running = !running; playBtn.textContent = running ? 'Pause' : 'Play'; clock = 0; anim.kick(); });
+    slider(fig, 'dth', (v) => `${v}°`, (v) => { dth = v; simulate(); draw(); });
+    slider(fig, 'dvz', (v) => `${v.toFixed(1)} m/s`, (v) => { dvz = v; simulate(); draw(); });
+    if (!reducedMotion()) { running = true; playBtn.textContent = 'Pause'; k = 1; st = 0; anim.kick(); draw(); }
+  }
+</script>

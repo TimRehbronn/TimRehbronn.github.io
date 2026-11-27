@@ -1,0 +1,168 @@
+---
+import M from '../../blog/M.astro';
+// Stationary alignment: levelling from the accelerometer reading (roll and pitch via atan2), then gyrocompassing
+// from the horizontal Earth rate (heading), with the heading error caused by a gyro bias.
+---
+
+<figure class="xp wide" data-xp="align">
+  <div class="xp-head"><span class="label fig-title">Alignment: levelling and gyrocompassing</span><span class="label" style="color:var(--muted)">drag to orbit</span></div>
+  <div class="xp-row two">
+    <canvas class="c-lev drag" role="img" aria-label="An IMU block at a chosen roll, pitch and heading; the measured specific force points straight up and fixes roll and pitch"></canvas>
+    <canvas class="c-gc" role="img" aria-label="Top view with north up: the horizontal Earth rate points north; a gyro bias adds a small vector and turns the computed north direction"></canvas>
+  </div>
+  <ul class="xp-legend">
+    <li class="c-accent"><i></i><span>measured: specific force (left), horizontal angular rate (right)</span></li>
+    <li class="c-fg"><i></i><span>true horizontal Earth rate <M t={String.raw`\omega_{ie}\cos L`} />, body axes</span></li>
+    <li class="c-accent dash"><i></i><span>computed north</span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>True roll <M t={String.raw`\phi`} /></span><output for="roll"></output></span><input type="range" name="roll" min="-40" max="40" step="1" value="12" /></label>
+    <label class="xp-ctl"><span><span>True pitch <M t={String.raw`\theta`} /></span><output for="pitch"></output></span><input type="range" name="pitch" min="-40" max="40" step="1" value="-8" /></label>
+    <label class="xp-ctl"><span><span>True heading <M t={String.raw`\psi`} /></span><output for="yaw"></output></span><input type="range" name="yaw" min="0" max="355" step="5" value="40" /></label>
+    <label class="xp-ctl"><span><span>Latitude <M t={String.raw`L`} /></span><output for="lat"></output></span><input type="range" name="lat" min="-85" max="85" step="1" value="51" /></label>
+    <label class="xp-ctl"><span><span>Gyro bias <M t={String.raw`\varepsilon`} /> (on the <M t={String.raw`y^b`} /> gyro)</span><output for="eps"></output></span><input type="range" name="eps" min="-3" max="1" step="0.05" value="0" /></label>
+  </div>
+  <p class="xp-readout" aria-live="polite">
+    <span><M t={String.raw`\mathbf f_{ib}^b`} /> = <b data-o="f"></b> m/s²</span>
+    <span>computed <M t={String.raw`\phi, \theta`} /> = <b data-o="rp"></b></span>
+    <span><M t={String.raw`\omega_{ie}\cos L`} /> = <b data-o="wh"></b> °/h</span>
+    <span>computed <M t={String.raw`\psi`} /> = <b data-o="psi"></b></span>
+    <span>heading error <b class="hot" data-o="dpsi"></b></span>
+    <span><M t={String.raw`\varepsilon/(\omega_{ie}\cos L)`} /> = <b data-o="approx"></b></span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, label, slider, arrow, outputs } from '../../../lib/explainer';
+  import { camera, euler, mv, tr, rx, ry, rz, mm, add, type V3 } from '../../../lib/rot';
+
+  const D2R = Math.PI / 180, WIE = 7.292115e-5, G = 9.81, DEGH = (3600 * 180) / Math.PI;
+  const wrap = (a: number) => ((a + 540) % 360) - 180;
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="align"]')) {
+    const out = outputs(fig);
+    const cL = fig.querySelector<HTMLCanvasElement>('.c-lev')!, cG = fig.querySelector<HTMLCanvasElement>('.c-gc')!;
+    let roll = 12, pitch = -8, yaw = 40, lat = 51, eps = 1, az = 2.45, el = 0.6;
+    const A = setupCanvas(cL, (w) => Math.max(300, w * 0.85), () => draw());
+    const B = setupCanvas(cG, (w) => Math.max(300, w * 0.85), () => draw());
+
+    function solve() {
+      const C = euler(roll * D2R, pitch * D2R, yaw * D2R), Cnb = tr(C);
+      const f = mv(Cnb, [0, 0, -G]);                                    // at rest: specific force = −g (up)
+      const th = Math.atan2(f[0], Math.hypot(f[1], f[2])), ph = Math.atan2(-f[1], -f[2]);
+      const wie: V3 = [WIE * Math.cos(lat * D2R), 0, -WIE * Math.sin(lat * D2R)];
+      const w = add(mv(Cnb, wie), [0, (eps * D2R) / 3600, 0]);           // gyro reading with a bias on y
+      const wl = mv(mm(ry(th), rx(ph)), w);                             // levelled frame (heading still unknown)
+      const psi = Math.atan2(-wl[1], wl[0]);
+      const mNav = mv(rz(yaw * D2R), wl);                                // the same vector drawn in north-east axes
+      return { C, f, th, ph, wie, psi, mNav };
+    }
+
+    function drawLevel(s: ReturnType<typeof solve>) {
+      const P = palette(), { ctx, size } = A, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const cam = camera(az, el, Math.min(W, H) * 0.3, W / 2, H * 0.56);
+      const pr = (v: V3) => cam.project(v);
+      label(ctx, '1 levelling', 8, 12, P.soft, { size: 11, weight: 700 });
+      // ground grid in the N-E plane, slightly below the IMU
+      ctx.strokeStyle = P.border; ctx.lineWidth = 1;
+      for (let i = -2; i <= 2; i++) {
+        const a = pr([i * 0.5, -1, 0.6]), b = pr([i * 0.5, 1, 0.6]), c = pr([-1, i * 0.5, 0.6]), d = pr([1, i * 0.5, 0.6]);
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.moveTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.stroke();
+      }
+      for (const [v, n] of [[[1.25, 0, 0.6], 'N'], [[0, 1.25, 0.6], 'E']] as [V3, string][]) { const p = pr(v), o = pr([0, 0, 0.6]); arrow(ctx, o.x, o.y, p.x, p.y, P.muted, 1, 6); label(ctx, n, p.x + 4, p.y + 8, P.muted, { size: 11, weight: 700 }); }
+      // the IMU block, painter's algorithm
+      const hx = 0.55, hy = 0.38, hz = 0.14;
+      const corner = (i: number, j: number, k: number) => mv(s.C, [i * hx, j * hy, k * hz]);
+      const faces: [V3[], boolean][] = [
+        [[corner(1, -1, -1), corner(1, 1, -1), corner(1, 1, 1), corner(1, -1, 1)], true],
+        [[corner(-1, -1, -1), corner(-1, 1, -1), corner(-1, 1, 1), corner(-1, -1, 1)], false],
+        [[corner(-1, 1, -1), corner(1, 1, -1), corner(1, 1, 1), corner(-1, 1, 1)], false],
+        [[corner(-1, -1, -1), corner(1, -1, -1), corner(1, -1, 1), corner(-1, -1, 1)], false],
+        [[corner(-1, -1, -1), corner(1, -1, -1), corner(1, 1, -1), corner(-1, 1, -1)], false],
+        [[corner(-1, -1, 1), corner(1, -1, 1), corner(1, 1, 1), corner(-1, 1, 1)], false],
+      ];
+      faces.map(([f, nose]) => ({ q: f.map(pr), nose })).sort((a, b) => a.q.reduce((x, p) => x + p.z, 0) - b.q.reduce((x, p) => x + p.z, 0)).forEach(({ q, nose }) => {
+        ctx.beginPath(); q.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y))); ctx.closePath();
+        ctx.globalAlpha = 0.85; ctx.fillStyle = P.bg; ctx.fill(); ctx.globalAlpha = 1;
+        if (nose) { ctx.globalAlpha = 0.25; ctx.fillStyle = P.soft; ctx.fill(); ctx.globalAlpha = 1; }
+        ctx.strokeStyle = P.fg; ctx.lineWidth = 1.25; ctx.stroke();
+      });
+      const o = pr([0, 0, 0]);
+      for (const [v, n] of [[[0.95, 0, 0], 'x^b'], [[0, 0.75, 0], 'y^b'], [[0, 0, 0.6], 'z^b']] as [V3, string][]) {
+        const p = pr(mv(s.C, v)); arrow(ctx, o.x, o.y, p.x, p.y, P.fg, 1.5, 7); label(ctx, `$${n}$`, p.x + 5, p.y - 5, P.fg, { size: 12 });
+      }
+      // specific force (up) and gravity (down)
+      const up = pr([0, 0, -1.05]), dn = pr([0, 0, 0.95]);
+      ctx.setLineDash([4, 4]); arrow(ctx, o.x, o.y, dn.x, dn.y, P.muted, 1.25, 7); ctx.setLineDash([]);
+      label(ctx, '$\\mathbf{g}$', dn.x + 6, dn.y, P.muted, { size: 12 });
+      arrow(ctx, o.x, o.y, up.x, up.y, P.accent, 2.75, 10);
+      label(ctx, '$\\mathbf{f}_{ib}^b = -\\mathbf{g}$', up.x + 8, up.y + 4, P.accent, { size: 13 });
+      label(ctx, `roll = atan2($-f_y, -f_z$) = ${(s.ph / D2R).toFixed(1)}°`, 8, H - 26, P.fg, { size: 11 });
+      label(ctx, `pitch = atan2($f_x$, horizontal part) = ${(s.th / D2R).toFixed(1)}°`, 8, H - 10, P.fg, { size: 11 });
+    }
+
+    function drawGyro(s: ReturnType<typeof solve>) {
+      const P = palette(), { ctx, size } = B, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      label(ctx, '2 gyrocompassing (top view, north up)', 8, 12, P.soft, { size: 11, weight: 700 });
+      const cx = W / 2, cy = H / 2 + 6, R = Math.min(W, H) * 0.4, sc = (R * 0.9) / WIE; // px per rad/s: full Earth rate = 0.9 R
+      const S = (n: number, e: number) => ({ x: cx + e * sc, y: cy - n * sc });
+      ctx.strokeStyle = P.border; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx, cy, R * 0.9, 0, Math.PI * 2); ctx.stroke();
+      for (let a = 0; a < 360; a += 30) { const s1 = Math.sin(a * D2R), c1 = Math.cos(a * D2R); ctx.strokeStyle = P.strong; ctx.beginPath(); ctx.moveTo(cx + s1 * R * 0.9, cy - c1 * R * 0.9); ctx.lineTo(cx + s1 * R * 0.97, cy - c1 * R * 0.97); ctx.stroke(); }
+      ['N', 'E', 'S', 'W'].forEach((n, i) => { const a = i * 90 * D2R; label(ctx, n, cx + Math.sin(a) * R * 1.07, cy - Math.cos(a) * R * 1.07, P.muted, { size: 11, weight: 700, align: 'center' }); });
+      label(ctx, 'circle: full Earth rate 15.04 °/h', W - 8, H - 10, P.muted, { size: 10, align: 'right' });
+      // levelled body axes (true heading)
+      const ps = yaw * D2R, bx = { n: Math.cos(ps), e: Math.sin(ps) }, by = { n: -Math.sin(ps), e: Math.cos(ps) };
+      const ax = (d: { n: number; e: number }, n: string) => { const q = { x: cx + d.e * R * 0.55, y: cy - d.n * R * 0.55 }; arrow(ctx, cx, cy, q.x, q.y, P.soft, 1.25, 7); label(ctx, n, q.x + 5, q.y - 6, P.soft, { size: 12 }); };
+      ax(bx, '$x^b$'); ax(by, '$y^b$');
+      // true horizontal Earth rate, bias and measured vector
+      const h = s.wie[0], tip = S(h, 0), m = S(s.mNav[0], s.mNav[1]);
+      arrow(ctx, cx, cy, tip.x, tip.y, P.fg, 2, 9);
+      label(ctx, 'horizontal Earth rate', tip.x - 10, tip.y + 4, P.fg, { size: 11, align: 'right' });
+      if (Math.hypot(m.x - tip.x, m.y - tip.y) > 1.5) arrow(ctx, tip.x, tip.y, m.x, m.y, P.accent, 1.75, 7);
+      if (Math.hypot(m.x - tip.x, m.y - tip.y) > 8) label(ctx, '$\\varepsilon$', (tip.x + m.x) / 2 + 6, (tip.y + m.y) / 2 - 8, P.accent, { size: 13 });
+      arrow(ctx, cx, cy, m.x, m.y, P.accent, 2.75, 10);
+      // computed north direction and the error angle
+      const al = Math.atan2(s.mNav[1], s.mNav[0]);
+      ctx.strokeStyle = P.accent; ctx.lineWidth = 1.25; ctx.setLineDash([5, 4]);
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.sin(al) * R, cy - Math.cos(al) * R); ctx.stroke(); ctx.setLineDash([]);
+      if (Math.abs(al) > 0.5 * D2R) {
+        ctx.beginPath(); ctx.arc(cx, cy, R * 0.75, -Math.PI / 2, -Math.PI / 2 + al, al < 0); ctx.stroke();
+        label(ctx, '$\\delta\\psi$', cx + Math.sin(al / 2) * R * 0.75 + (al > 0 ? 8 : -8), cy - Math.cos(al / 2) * R * 0.75 - 6, P.accent, { size: 13, align: al > 0 ? 'left' : 'right' });
+      }
+      label(ctx, 'computed north', cx + Math.sin(al) * R + (al >= 0 ? 4 : -4), cy - Math.cos(al) * R - 8, P.accent, { size: 10, align: al >= 0 ? 'left' : 'right' });
+      // vehicle outline at the true heading
+      ctx.strokeStyle = P.fg; ctx.lineWidth = 1.25; ctx.beginPath();
+      const v = (a: number, b: number) => ({ x: cx + (a * bx.e + b * by.e) * 14, y: cy - (a * bx.n + b * by.n) * 14 });
+      const pts = [v(1.2, 0), v(-0.8, 0.6), v(-0.4, 0), v(-0.8, -0.6)];
+      pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y))); ctx.closePath(); ctx.stroke();
+    }
+
+    function draw() {
+      const s = solve();
+      drawLevel(s); drawGyro(s);
+      out('f', `[${s.f.map((x) => (Math.abs(x) < 0.005 ? 0 : x).toFixed(2)).join(', ')}]`);
+      out('rp', `${(s.ph / D2R).toFixed(1)}°, ${(s.th / D2R).toFixed(1)}°`);
+      out('wh', (WIE * Math.cos(lat * D2R) * DEGH).toFixed(2));
+      out('psi', `${((s.psi / D2R + 360) % 360).toFixed(2)}°`);
+      const d = wrap(s.psi / D2R - yaw);
+      out('dpsi', `${(Math.abs(d) < 0.005 ? 0 : d).toFixed(2)}°`);
+      out('approx', `${((((eps * D2R) / 3600) / (WIE * Math.cos(lat * D2R))) / D2R).toFixed(2)}°`);
+    }
+
+    slider(fig, 'roll', (v) => `${v}°`, (v) => { roll = v; draw(); });
+    slider(fig, 'pitch', (v) => `${v}°`, (v) => { pitch = v; draw(); });
+    slider(fig, 'yaw', (v) => `${v}°`, (v) => { yaw = v; draw(); });
+    slider(fig, 'lat', (v) => `${v}°`, (v) => { lat = v; draw(); });
+    slider(fig, 'eps', (v) => { const e = 10 ** v; return `${e < 0.1 ? e.toFixed(3) : e < 1 ? e.toFixed(2) : e.toFixed(1)} °/h`; }, (v) => { eps = 10 ** v; draw(); });
+
+    let drag: { x: number; y: number; az: number; el: number } | null = null;
+    cL.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, az, el }; cL.setPointerCapture(e.pointerId); });
+    cL.addEventListener('pointermove', (e) => { if (!drag) return; az = drag.az - (e.clientX - drag.x) * 0.01; el = Math.max(0.05, Math.min(1.4, drag.el + (e.clientY - drag.y) * 0.01)); draw(); });
+    cL.addEventListener('pointerup', () => (drag = null));
+  }
+</script>

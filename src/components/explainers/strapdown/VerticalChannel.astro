@@ -1,0 +1,164 @@
+---
+import M from '../../blog/M.astro';
+// Stable vs. unstable error feedback: the horizontal channel is a ball in a valley (Schuler), the vertical channel
+// a ball on a hill (gravity weakens with height). Below each landscape the error is traced over time, time running down.
+---
+
+<figure class="xp wide" data-xp="vchan">
+  <div class="xp-head"><span class="label fig-title">A valley and a hill</span></div>
+  <div class="xp-row two">
+    <canvas data-c="h" role="img" aria-label="Horizontal channel: a ball rolling back and forth in a valley, with the position error traced below as an oscillation."></canvas>
+    <canvas data-c="v" role="img" aria-label="Vertical channel: a ball rolling off a hill, with the height error traced below as an exponential growth. With barometer aiding the hill becomes a valley and the error stays small."></canvas>
+  </div>
+  <ul class="xp-legend">
+    <li class="c-fg"><i></i><span>effective landscape for the error</span></li>
+    <li class="c-accent"><i></i><span>error over time (time runs downwards)</span></li>
+    <li class="c-muted dash"><i></i><span>hill without aiding</span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Vertical accelerometer bias <M t={String.raw`b_z`} /> (same <M t={String.raw`b`} /> horizontally)</span><output for="bz"></output></span><input type="range" name="bz" min="0.05" max="1" step="0.05" value="0.5" /></label>
+  </div>
+  <div class="xp-btns">
+    <button class="btn btn-primary" type="button" data-act="play">Play</button>
+    <button class="btn" type="button" data-act="reset">Restart</button>
+    <button class="btn" type="button" data-act="baro" aria-pressed="false">Barometer aiding</button>
+  </div>
+  <p class="xp-readout" aria-live="polite">
+    <span><M t={String.raw`t`} /> = <b data-o="t"></b></span>
+    <span><M t={String.raw`\delta x`} /> = <b data-o="x"></b></span>
+    <span><M t={String.raw`\delta h`} /> = <b class="hot" data-o="h"></b></span>
+    <span><M t={String.raw`1/\omega_v`} /> = <b>9.5 min</b></span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, animate, label, slider, arrow, axes, series, reducedMotion, outputs, fmtLen } from '../../../lib/explainer';
+
+  const G = 9.80665, R = 6.371e6, WS2 = G / R, WV2 = (2 * G) / R, WV = Math.sqrt(WV2);
+  const TEND = 90 * 60, DT = 0.5, EVERY = 20, NS = Math.round(TEND / DT / EVERY) + 1;
+  // barometer loop: closed-loop natural period 5 min, damping 0.7
+  const W0 = (2 * Math.PI) / 300, K1 = 2 * 0.7 * W0, K2 = W0 * W0 + WV2;
+  const XR: [number, number] = [-5, 15]; // km, shared by landscape and trace
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="vchan"]')) {
+    const cH = fig.querySelector<HTMLCanvasElement>('[data-c="h"]')!;
+    const cV = fig.querySelector<HTMLCanvasElement>('[data-c="v"]')!;
+    const out = outputs(fig);
+    const playBtn = fig.querySelector<HTMLButtonElement>('[data-act="play"]')!;
+    const baroBtn = fig.querySelector<HTMLButtonElement>('[data-act="baro"]')!;
+    let bz = 0.5, baro = false, now = reducedMotion() ? TEND : 0, running = !reducedMotion();
+    const tm = new Float64Array(NS), dxs = new Float64Array(NS), dhs = new Float64Array(NS);
+
+    function simulate() {
+      const b = bz * 1e-3 * G;
+      let h = 0, v = 0;
+      for (let k = 0, i = 0; i < NS; k++) {
+        if (k % EVERY === 0) {
+          const t = k * DT;
+          tm[i] = -t / 60;
+          dxs[i] = ((b / WS2) * (1 - Math.cos(Math.sqrt(WS2) * t))) / 1000;
+          dhs[i] = (baro ? h : (b / WV2) * (Math.cosh(WV * t) - 1)) / 1000;
+          i++;
+        }
+        // semi-implicit Euler for the aided loop
+        v += ((WV2 - K2) * h + b) * DT;
+        h += (v - K1 * h) * DT;
+      }
+    }
+    const at = (arr: Float64Array, t: number) => {
+      const f = (t / TEND) * (NS - 1), i = Math.min(NS - 2, Math.floor(f)), u = f - i;
+      return arr[i] * (1 - u) + arr[i + 1] * u;
+    };
+
+    const ratio = (w: number) => Math.max(340, w * 1.0);
+    const SH = setupCanvas(cH, ratio, () => panel(SH, false));
+    const SV = setupCanvas(cV, ratio, () => panel(SV, true));
+    const draw = () => { panel(SH, false); panel(SV, true); readout(); };
+
+    function panel(S: { ctx: CanvasRenderingContext2D; size: { w: number; h: number } }, vert: boolean) {
+      const { ctx, size } = S, P = palette(), W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const b = bz * 1e-3 * G;
+      const box = { x: 44, y: H * 0.4, w: W - 56, h: H * 0.6 - 30 };
+      const land = { x: box.x, y: 26, w: box.w, h: box.y - 26 - 22 };
+      const sx = (km: number) => box.x + ((km - XR[0]) / (XR[1] - XR[0])) * box.w;
+
+      // effective potential of the error dynamics (bias included, so the ball starts on a slope)
+      const U = (m: number, mode: 'valley' | 'hill' | 'baro') =>
+        mode === 'valley' ? 0.5 * WS2 * m * m - b * m : mode === 'hill' ? -0.5 * WV2 * m * m - b * m : 0.5 * W0 * W0 * m * m - b * m;
+      const curve = (mode: 'valley' | 'hill' | 'baro') => {
+        const n = 160, xs: number[] = [], us: number[] = [];
+        for (let i = 0; i <= n; i++) { const km = XR[0] + (i / n) * (XR[1] - XR[0]); xs.push(km); us.push(U(km * 1000, mode)); }
+        const lo = Math.min(...us), hi = Math.max(...us);
+        const y = (u: number) => land.y + land.h - ((u - lo) / (hi - lo || 1)) * (land.h - 14);
+        return { xs, us, y };
+      };
+      const stroke = (c: ReturnType<typeof curve>, col: string, w: number, dash: number[] = []) => {
+        ctx.save(); ctx.setLineDash(dash); ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath();
+        c.xs.forEach((km, i) => (i ? ctx.lineTo(sx(km), c.y(c.us[i])) : ctx.moveTo(sx(km), c.y(c.us[i]))));
+        ctx.stroke(); ctx.restore();
+      };
+      const mode = !vert ? 'valley' : baro ? 'baro' : 'hill';
+      const main = curve(mode);
+      if (vert && baro) stroke(curve('hill'), P.muted, 1.25, [5, 4]);
+      stroke(main, P.fg, 2);
+      label(ctx, !vert ? 'horizontal: a valley (Schuler)' : baro ? 'vertical + barometer: a valley again' : 'vertical: a hill', 4, 10, P.fg, { size: 12 });
+
+      // ball at the current error
+      const e = at(vert ? dhs : dxs, now);
+      const off = e > XR[1] || e < XR[0];
+      const ek = Math.max(XR[0], Math.min(XR[1], e));
+      const by = main.y(U(ek * 1000, mode)) - 8;
+      ctx.fillStyle = P.accent; ctx.beginPath(); ctx.arc(sx(ek), by, 7, 0, 2 * Math.PI); ctx.fill();
+      if (off) {
+        const dir = e > XR[1] ? 1 : -1;
+        arrow(ctx, sx(ek) - dir * 26, by - 22, sx(ek) + dir * 2, by - 22, P.accent, 1.5, 7);
+        label(ctx, 'off scale', sx(ek) - dir * 30, by - 22, P.accent, { size: 10, align: dir > 0 ? 'right' : 'left' });
+      }
+      // trace: error horizontally (same axis as the landscape), time downwards
+      const ax = axes(ctx, P, box, XR, [-TEND / 60, 0], {
+        xlabel: vert ? '$\\delta h$ [km]' : '$\\delta x$ [km]', xfmt: (v) => `${v}`, yfmt: (v) => `${-v}`, xticks: 4, yticks: 3,
+      });
+      label(ctx, 't [min]', box.x - 6, box.y - 12, P.muted, { size: 10, align: 'right' });
+      const x0 = Math.round(sx(0)) + 0.5;
+      ctx.strokeStyle = P.strong; ctx.beginPath(); ctx.moveTo(x0, box.y); ctx.lineTo(x0, box.y + box.h); ctx.stroke();
+      if (!vert) {
+        const xm = sx((2 * b) / WS2 / 1000);
+        ctx.save(); ctx.setLineDash([2, 3]); ctx.strokeStyle = P.muted; ctx.beginPath(); ctx.moveTo(xm, box.y); ctx.lineTo(xm, box.y + box.h); ctx.stroke(); ctx.restore();
+        label(ctx, '$2bR/g$', xm + 4, box.y + box.h - 10, P.muted, { size: 10 });
+      }
+      const upTo = Math.min(NS, Math.floor((now / TEND) * (NS - 1)) + 2);
+      series(ctx, box, vert ? dhs : dxs, tm, ax.sx, ax.sy, P.accent, 2, [], upTo);
+      // link from the ball to the trace
+      const yNow = ax.sy(-now / 60);
+      ctx.save(); ctx.setLineDash([2, 3]); ctx.strokeStyle = P.muted; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(sx(ek), by + 8); ctx.lineTo(sx(ek), yNow); ctx.stroke(); ctx.restore();
+      if (vert && !baro) {
+        // time at which the error leaves the plot
+        const tOut = Math.acosh(1 + (XR[1] * 1000 * WV2) / b) / WV / 60;
+        if (tOut < TEND / 60) label(ctx, `leaves the plot after ${tOut.toFixed(0)} min`, box.x + box.w - 6, ax.sy(-tOut) + 14, P.soft, { size: 10, align: 'right' });
+      }
+    }
+
+    function readout() {
+      out('t', `${(now / 60).toFixed(0)} min`);
+      out('x', fmtLen(at(dxs, now) * 1000));
+      const h = at(dhs, now) * 1000;
+      out('h', h > 1e7 ? '> 10 000 km' : fmtLen(h));
+    }
+
+    const anim = animate(fig, (dt) => {
+      now += dt * (TEND / 12); // 90 minutes in 12 s
+      if (now >= TEND) { now = TEND; running = false; playBtn.textContent = 'Play'; }
+      draw();
+    }, () => running);
+    const setRun = (r: boolean) => { running = r; playBtn.textContent = r ? 'Pause' : 'Play'; anim.kick(); };
+    playBtn.addEventListener('click', () => { if (now >= TEND) now = 0; setRun(!running); });
+    fig.querySelector('[data-act="reset"]')!.addEventListener('click', () => { now = 0; draw(); setRun(true); });
+    baroBtn.addEventListener('click', () => { baro = !baro; baroBtn.setAttribute('aria-pressed', String(baro)); simulate(); draw(); });
+    slider(fig, 'bz', (v) => `${v.toFixed(2)} mg`, (v) => { bz = v; simulate(); draw(); });
+    setRun(running);
+  }
+</script>

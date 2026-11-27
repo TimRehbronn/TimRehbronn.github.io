@@ -1,0 +1,189 @@
+---
+import M from '../../blog/M.astro';
+// An INS at rest on the ground. The gyros measure the Earth rate. Integrating only C·Ω_ib makes the computed
+// attitude turn with the Earth; subtracting the navigation-frame rotation Ω_in·C keeps it constant.
+---
+
+<figure class="xp wide" data-xp="atteq">
+  <div class="xp-head"><span class="label fig-title">An INS at rest and the frame-rotation term</span></div>
+  <div class="xp-row two">
+    <canvas class="c-ins" role="img" aria-label="A compass and an attitude indicator showing the true and the computed attitude of an INS at rest, and bars for the three gyro readings"></canvas>
+    <canvas class="c-plot" role="img" aria-label="Computed attitude error over several hours, with and without the term that removes the rotation of the navigation frame"></canvas>
+  </div>
+  <ul class="xp-legend">
+    <li class="c-fg"><i></i><span>total attitude error</span></li>
+    <li class="c-accent"><i></i><span>heading error</span></li>
+    <li class="c-muted dash"><i></i><span>tilt error (roll and pitch)</span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Latitude <M t={String.raw`L`} /></span><output for="lat"></output></span><input type="range" name="lat" min="-90" max="90" step="1" value="51" /></label>
+    <label class="xp-ctl"><span><span>Heading <M t={String.raw`\psi`} /></span><output for="psi"></output></span><input type="range" name="psi" min="0" max="355" step="5" value="0" /></label>
+    <label class="xp-ctl"><span><span>Time <M t={String.raw`t`} /></span><output for="t"></output></span><input type="range" name="t" min="0" max="6" step="0.05" value="0" /></label>
+  </div>
+  <div class="xp-btns">
+    <button class="btn" type="button" data-mode="0" aria-pressed="true" style="text-transform:none;letter-spacing:0.02em">only <M t={String.raw`\mathbf C_b^n\boldsymbol\Omega_{ib}^b`} /></button>
+    <button class="btn" type="button" data-mode="1" aria-pressed="false" style="text-transform:none;letter-spacing:0.02em">full: <M t={String.raw`\mathbf C_b^n\boldsymbol\Omega_{ib}^b - \boldsymbol\Omega_{in}^n\mathbf C_b^n`} /></button>
+    <button class="btn btn-primary" type="button" data-act="play">Play</button>
+  </div>
+  <p class="xp-readout" aria-live="polite">
+    <span>gyros <M t={String.raw`\boldsymbol\omega_{ib}^b`} /> = <b data-o="wib"></b> °/h</span>
+    <span>frame <M t={String.raw`\boldsymbol\omega_{in}^n`} /> = <b data-o="win"></b> °/h</span>
+    <span>heading error <b class="hot" data-o="dh"></b></span>
+    <span>tilt error <b data-o="dt"></b></span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, animate, label, slider, axes, series, reducedMotion, outputs } from '../../../lib/explainer';
+  import { euler, rexp, mm, mv, tr, scale, norm, type M3, type V3 } from '../../../lib/rot';
+
+  const D2R = Math.PI / 180, WIE = 7.292115e-5, TMAX = 6, NS = 241;
+  const degh = (w: number) => (w * 3600) / D2R;
+  const wrap = (a: number) => ((a + 540) % 360) - 180;
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="atteq"]')) {
+    const cI = fig.querySelector<HTMLCanvasElement>('.c-ins')!, cP = fig.querySelector<HTMLCanvasElement>('.c-plot')!;
+    const out = outputs(fig);
+    const playBtn = fig.querySelector<HTMLButtonElement>('[data-act="play"]')!;
+    let lat = 51, psi = 0, t = 0, full = false, running = false;
+    const ts = new Float64Array(NS), eTot = new Float64Array(NS), eHead = new Float64Array(NS), eTilt = new Float64Array(NS);
+    const zeros = new Float64Array(NS);
+    for (let i = 0; i < NS; i++) ts[i] = (i / (NS - 1)) * TMAX;
+
+    const wie = (): V3 => [WIE * Math.cos(lat * D2R), 0, -WIE * Math.sin(lat * D2R)];
+    const C0 = () => euler(0, 0, psi * D2R);
+    // computed attitude after t hours when only the gyro term is integrated: C(t) = exp([w_ie^n x] t) C0
+    function computed(th: number, withTerm: boolean): M3 {
+      if (withTerm) return C0();
+      return mm(rexp(scale(wie(), th * 3600)), C0());
+    }
+    const eul = (C: M3) => ({ roll: Math.atan2(C[7], C[8]) / D2R, pitch: Math.asin(Math.max(-1, Math.min(1, -C[6]))) / D2R, yaw: Math.atan2(C[3], C[0]) / D2R });
+    const errs = (C: M3) => {
+      const e = eul(C);
+      return { head: wrap(e.yaw - psi), tilt: Math.acos(Math.max(-1, Math.min(1, C[8]))) / D2R, roll: e.roll, pitch: e.pitch };
+    };
+    function recompute() {
+      for (let i = 0; i < NS; i++) {
+        const C = computed(ts[i], false), e = errs(C);
+        eTot[i] = norm(wie()) * ts[i] * 3600 / D2R; eHead[i] = e.head; eTilt[i] = e.tilt;
+        if (i > 0 && Math.abs(eHead[i] - eHead[i - 1]) > 180) eHead[i - 1] = NaN; // break the line at the wrap
+      }
+    }
+
+    const A = setupCanvas(cI, (w) => Math.max(300, w * 0.78), () => draw());
+    const B = setupCanvas(cP, (w) => Math.max(300, w * 0.78), () => draw());
+
+    function drawInstruments() {
+      const P = palette(), { ctx, size } = A, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const C = computed(t, full), e = errs(C);
+      const r = Math.min(W * 0.21, H * 0.3), cy = r + 30;
+      // compass dial (north up)
+      const cx1 = W * 0.27;
+      ctx.strokeStyle = P.strong; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx1, cy, r, 0, Math.PI * 2); ctx.stroke();
+      for (let a = 0; a < 360; a += 10) {
+        const s = Math.sin(a * D2R), c = -Math.cos(a * D2R), l = a % 90 === 0 ? 9 : a % 30 === 0 ? 6 : 3;
+        ctx.strokeStyle = a % 30 === 0 ? P.soft : P.border;
+        ctx.beginPath(); ctx.moveTo(cx1 + s * r, cy + c * r); ctx.lineTo(cx1 + s * (r - l), cy + c * (r - l)); ctx.stroke();
+      }
+      ['N', 'E', 'S', 'W'].forEach((n, i) => { const a = i * 90 * D2R; label(ctx, n, cx1 + Math.sin(a) * (r - 18), cy - Math.cos(a) * (r - 18), P.soft, { align: 'center', size: 11, weight: 700 }); });
+      const needle = (ang: number, col: string, w: number, len: number) => {
+        const s = Math.sin(ang * D2R), c = -Math.cos(ang * D2R);
+        ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(cx1 - s * len * 0.25, cy - c * len * 0.25); ctx.lineTo(cx1 + s * len, cy + c * len); ctx.stroke();
+        ctx.fillStyle = col; ctx.beginPath(); ctx.arc(cx1 + s * len, cy + c * len, 3.5, 0, Math.PI * 2); ctx.fill();
+      };
+      needle(psi, P.fg, 2, r * 0.82);
+      needle(psi + e.head, P.accent, 2.5, r * 0.68);
+      label(ctx, 'heading', cx1, cy + r + 16, P.soft, { align: 'center', size: 11 });
+
+      // attitude indicator: computed horizon (orange) against the true, level horizon
+      const cx2 = W * 0.73;
+      ctx.save(); ctx.beginPath(); ctx.arc(cx2, cy, r, 0, Math.PI * 2); ctx.clip();
+      const pxDeg = r / 50;
+      ctx.strokeStyle = P.fg; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.moveTo(cx2 - r, cy); ctx.lineTo(cx2 + r, cy); ctx.stroke(); ctx.setLineDash([]);
+      ctx.translate(cx2, cy); ctx.rotate(-e.roll * D2R); ctx.translate(0, e.pitch * pxDeg);
+      ctx.strokeStyle = P.accent; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(-2 * r, 0); ctx.lineTo(2 * r, 0); ctx.stroke();
+      ctx.lineWidth = 1;
+      for (let p = -40; p <= 40; p += 10) { if (!p) continue; const y = -p * pxDeg, l = p % 20 === 0 ? r * 0.3 : r * 0.15; ctx.beginPath(); ctx.moveTo(-l, y); ctx.lineTo(l, y); ctx.stroke(); }
+      ctx.restore();
+      ctx.strokeStyle = P.strong; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx2, cy, r, 0, Math.PI * 2); ctx.stroke();
+      // aircraft symbol (fixed)
+      ctx.strokeStyle = P.fg; ctx.lineWidth = 2.5; ctx.beginPath();
+      ctx.moveTo(cx2 - r * 0.45, cy); ctx.lineTo(cx2 - r * 0.15, cy); ctx.lineTo(cx2 - r * 0.07, cy + 6);
+      ctx.moveTo(cx2 + r * 0.45, cy); ctx.lineTo(cx2 + r * 0.15, cy); ctx.lineTo(cx2 + r * 0.07, cy + 6); ctx.stroke();
+      ctx.fillStyle = P.fg; ctx.beginPath(); ctx.arc(cx2, cy, 2.5, 0, Math.PI * 2); ctx.fill();
+      label(ctx, 'roll and pitch', cx2, cy + r + 16, P.soft, { align: 'center', size: 11 });
+      label(ctx, 'true (dashed, level)', 8, 12, P.fg, { size: 10 });
+      label(ctx, 'computed', 8, 26, P.accent, { size: 10 });
+
+      // gyro readings: the Earth rate seen in body axes
+      const wb = mv(tr(C0()), wie()).map(degh);
+      const by = cy + r + 40, bh = (H - by - 8) / 3, bx = 62, bw = W - bx - 70, mid = bx + bw / 2, sc = bw / 2 / 16;
+      label(ctx, 'gyro readings [°/h]', bx, by - 6, P.muted, { size: 10 });
+      ctx.strokeStyle = P.strong; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(mid + 0.5, by); ctx.lineTo(mid + 0.5, by + 3 * bh); ctx.stroke();
+      ['x', 'y', 'z'].forEach((ax, i) => {
+        const y = by + i * bh + bh / 2, v = wb[i];
+        label(ctx, `$\\omega_{ib,${ax}}^b$`, bx - 8, y, P.soft, { align: 'right', size: 12 });
+        ctx.fillStyle = P.soft; ctx.fillRect(Math.min(mid, mid + v * sc), y - Math.min(5, bh * 0.25), Math.abs(v * sc), Math.min(10, bh * 0.5));
+        label(ctx, (Math.abs(v) < 0.005 ? 0 : v).toFixed(2), bx + bw + 8, y, P.fg, { size: 11 });
+      });
+    }
+
+    function drawPlot() {
+      const P = palette(), { ctx, size } = B, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const b = { x: 44, y: 8, w: W - 54, h: H - 44 };
+      const ax = axes(ctx, P, b, [0, TMAX], [-100, 100], { xlabel: 'time [h]', ylabel: 'computed minus true attitude [°]', yfmt: (v) => v.toFixed(0), xfmt: (v) => v.toFixed(0), zeroLine: true, yticks: 4 });
+      if (full) {
+        ctx.globalAlpha = 0.35;
+        series(ctx, b, ts, eTot, ax.sx, ax.sy, P.muted, 1.25, [4, 4]);
+        series(ctx, b, ts, eHead, ax.sx, ax.sy, P.muted, 1.25, [4, 4]);
+        ctx.globalAlpha = 1;
+        series(ctx, b, ts, zeros, ax.sx, ax.sy, P.accent, 2.5);
+        label(ctx, 'errors stay exactly zero', b.x + b.w - 8, ax.sy(0) - 12, P.accent, { align: 'right', size: 11 });
+        label(ctx, 'faint: without the term', b.x + b.w - 8, b.y + b.h - 12, P.muted, { align: 'right', size: 10 });
+      } else {
+        const k = Math.round((t / TMAX) * (NS - 1)) + 1;
+        series(ctx, b, ts, eTot, ax.sx, ax.sy, P.fg, 1.75, [], k);
+        series(ctx, b, ts, eTilt, ax.sx, ax.sy, P.soft, 1.5, [5, 4], k);
+        series(ctx, b, ts, eHead, ax.sx, ax.sy, P.accent, 2.25, [], k);
+        const rate = norm(wie()) * 3600 / D2R;
+        label(ctx, `slope ${rate.toFixed(1)} °/h`, ax.sx(TMAX * 0.5), ax.sy(rate * TMAX * 0.5) - 14, P.fg, { align: 'right', size: 10 });
+      }
+      const x = Math.round(ax.sx(t)) + 0.5;
+      ctx.strokeStyle = P.accent; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, b.y); ctx.lineTo(x, b.y + b.h); ctx.stroke();
+    }
+
+    function draw() {
+      drawInstruments(); drawPlot();
+      const w = wie(), wb = mv(tr(C0()), w);
+      const f = (v: number[]) => `[${v.map((x) => (Math.abs(degh(x)) < 0.005 ? 0 : degh(x)).toFixed(2)).join(', ')}]`;
+      const e = errs(computed(t, full));
+      out('wib', f(wb)); out('win', f(w));
+      out('dh', `${(Math.abs(e.head) < 0.005 ? 0 : e.head).toFixed(2)}°`); out('dt', `${e.tilt.toFixed(2)}°`);
+    }
+
+    const tSl = slider(fig, 't', (v) => `${v.toFixed(2)} h`, (v) => { t = v; draw(); });
+    const anim = animate(fig, (dt) => {
+      t = Math.min(TMAX, t + dt * 1.2);
+      tSl.input.value = String(t); fig.querySelector<HTMLOutputElement>('output[for="t"]')!.textContent = `${t.toFixed(2)} h`;
+      if (t >= TMAX) { running = false; playBtn.textContent = 'Play'; }
+      draw();
+    }, () => running);
+    slider(fig, 'lat', (v) => `${v}°`, (v) => { lat = v; recompute(); draw(); });
+    slider(fig, 'psi', (v) => `${v}°`, (v) => { psi = v; recompute(); draw(); });
+    const mb = fig.querySelectorAll<HTMLButtonElement>('[data-mode]');
+    mb.forEach((b) => b.addEventListener('click', () => { full = b.dataset.mode === '1'; mb.forEach((x) => x.setAttribute('aria-pressed', String(x === b))); draw(); }));
+    playBtn.addEventListener('click', () => {
+      if (running) { running = false; playBtn.textContent = 'Play'; return; }
+      if (t >= TMAX) t = 0;
+      running = true; playBtn.textContent = 'Pause'; anim.kick();
+    });
+    if (reducedMotion()) tSl.set(4);
+    else { running = true; playBtn.textContent = 'Pause'; anim.kick(); }
+  }
+</script>

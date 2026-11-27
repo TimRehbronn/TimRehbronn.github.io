@@ -1,0 +1,185 @@
+---
+import M from '../../blog/M.astro';
+// The four terms of the velocity equation as vectors, tip to tail: rotated specific force, gravity, Coriolis and
+// transport term. Side view to scale, top view with the small terms magnified, magnitudes on a log scale.
+---
+
+<figure class="xp wide" data-xp="veleq">
+  <div class="xp-head"><span class="label fig-title">The velocity equation term by term</span></div>
+  <div class="xp-row two">
+    <canvas class="c-side" role="img" aria-label="Side view in the vertical plane along the track: the rotated specific force and gravity, tip to tail, nearly cancel and leave the vehicle acceleration"></canvas>
+    <canvas class="c-top" role="img" aria-label="Top view with north up: the horizontal Coriolis and transport terms, magnified, next to the direction of the velocity, plus their vertical parts"></canvas>
+  </div>
+  <canvas class="c-bar" role="img" aria-label="Bar chart on a logarithmic scale comparing the magnitudes of gravity, specific force, vehicle acceleration, Coriolis and transport term"></canvas>
+  <ul class="xp-legend">
+    <li class="c-fg"><i></i><span><M t={String.raw`\mathbf C_b^n\mathbf f_{ib}^b`} /></span></li>
+    <li class="c-muted dash"><i></i><span><M t={String.raw`\mathbf g^n`} /></span></li>
+    <li class="c-accent"><i></i><span><M t={String.raw`-2\boldsymbol\omega_{ie}^n\times\mathbf v^n`} /> (Coriolis)</span></li>
+    <li class="c-accent dash"><i></i><span><M t={String.raw`-\boldsymbol\omega_{en}^n\times\mathbf v^n`} /> (transport)</span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Speed <M t={String.raw`|\mathbf v^n|`} /></span><output for="spd"></output></span><input type="range" name="spd" min="0" max="300" step="5" value="250" /></label>
+    <label class="xp-ctl"><span><span>Course (from north)</span><output for="crs"></output></span><input type="range" name="crs" min="0" max="355" step="5" value="45" /></label>
+    <label class="xp-ctl"><span><span>Latitude <M t={String.raw`L`} /></span><output for="lat"></output></span><input type="range" name="lat" min="-85" max="85" step="1" value="51" /></label>
+    <label class="xp-ctl"><span><span>Vehicle acceleration along track</span><output for="acc"></output></span><input type="range" name="acc" min="-3" max="3" step="0.1" value="1" /></label>
+  </div>
+  <p class="xp-readout" aria-live="polite">
+    <span><M t={String.raw`|\mathbf g^n|`} /> = <b data-o="g"></b></span>
+    <span>Coriolis <b class="hot" data-o="cor"></b></span>
+    <span>transport <b class="hot" data-o="tra"></b></span>
+    <span><M t={String.raw`\dot{\mathbf v}^n`} /> = <b data-o="vd"></b> m/s²</span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, label, slider, arrow, axes, outputs } from '../../../lib/explainer';
+  import { cross, scale, add, sub, norm, type V3 } from '../../../lib/rot';
+
+  const D2R = Math.PI / 180, WIE = 7.292115e-5, A0 = 6378137, E2 = 6.69437999014e-3, MG = 9.80665e-3;
+  const sig = (x: number) => (Math.abs(x) >= 100 ? x.toFixed(0) : Math.abs(x) >= 1 ? x.toFixed(2) : x.toPrecision(2));
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="veleq"]')) {
+    const out = outputs(fig);
+    let spd = 250, crs = 45, lat = 51, acc = 1;
+    const cS = fig.querySelector<HTMLCanvasElement>('.c-side')!, cT = fig.querySelector<HTMLCanvasElement>('.c-top')!, cB = fig.querySelector<HTMLCanvasElement>('.c-bar')!;
+    const S = setupCanvas(cS, (w) => Math.max(300, w * 0.8), () => draw());
+    const T = setupCanvas(cT, (w) => Math.max(300, w * 0.8), () => draw());
+    const B = setupCanvas(cB, (w) => Math.max(260, w < 700 ? w * 0.6 : w * 0.3), () => draw());
+
+    function terms() {
+      const L = lat * D2R, sL = Math.sin(L), cL = Math.cos(L), den = 1 - E2 * sL * sL;
+      const RN = (A0 * (1 - E2)) / den ** 1.5, RE = A0 / Math.sqrt(den);
+      const u: V3 = [Math.cos(crs * D2R), Math.sin(crs * D2R), 0];
+      const v = scale(u, spd);
+      const g0 = (9.7803253359 * (1 + 0.001931852652 * sL * sL)) / Math.sqrt(den);
+      const g: V3 = [0, 0, g0];
+      const wie: V3 = [WIE * cL, 0, -WIE * sL];
+      const wen: V3 = [v[1] / RE, -v[0] / RN, (-v[1] * Math.tan(L)) / RE];
+      const cor = scale(cross(wie, v), -2), tra = scale(cross(wen, v), -1);
+      const vd = scale(u, acc);
+      const f = sub(sub(sub(vd, g), cor), tra); // the specific force the vehicle must feel to get this acceleration
+      return { u, v, g, cor, tra, vd, f };
+    }
+
+    function drawSide(k: ReturnType<typeof terms>) {
+      const P = palette(), { ctx, size } = S, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      // vertical plane along the track: x = along-track component, y = up (= -D)
+      const s = (H - 70) / 10.5, ox = W * 0.42, oy = H - 34;
+      const P2 = (p: V3) => ({ x: ox + (p[0] * k.u[0] + p[1] * k.u[1]) * s, y: oy + p[2] * s });
+      ctx.strokeStyle = P.border; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(10, oy + 0.5); ctx.lineTo(W - 10, oy + 0.5); ctx.stroke();
+      label(ctx, 'side view along the track, to scale', 8, 12, P.soft, { size: 11 });
+      label(ctx, 'up', 10, 30, P.muted, { size: 10 });
+      label(ctx, 'along track', W - 10, oy + 14, P.muted, { size: 10, align: 'right' });
+      const o = P2([0, 0, 0]), a = P2(k.f), b = P2(add(k.f, k.g)), c = P2(k.vd);
+      arrow(ctx, o.x, o.y, a.x, a.y, P.fg, 2.25, 10);
+      ctx.setLineDash([5, 4]); arrow(ctx, a.x + 0.5, a.y, b.x + 0.5, b.y, P.muted, 1.75, 10); ctx.setLineDash([]);
+      arrow(ctx, o.x, o.y, c.x, c.y, P.accent, 3, 10);
+      label(ctx, '$\\mathbf{C}_b^n\\mathbf{f}_{ib}^b$', (o.x + a.x) / 2 - 10, (o.y + a.y) / 2, P.fg, { size: 13, align: 'right' });
+      label(ctx, '$\\mathbf{g}^n$', (a.x + b.x) / 2 + 12, (a.y + b.y) / 2 - 30, P.soft, { size: 13 });
+      label(ctx, Math.abs(acc) < 0.05 ? 'sum: no acceleration' : 'sum = vehicle acceleration', c.x + (acc >= 0 ? 6 : -6), c.y - 14, P.accent, { size: 11, align: acc >= 0 ? 'left' : 'right' });
+      label(ctx, 'Coriolis and transport: too small to see here', 8, H - 10, P.muted, { size: 10 });
+      label(ctx, `scale: 1 m/s² = ${s.toFixed(0)} px`, W - 8, 12, P.muted, { size: 10, align: 'right' });
+    }
+
+    function drawTop(k: ReturnType<typeof terms>) {
+      const P = palette(), { ctx, size } = T, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const sBase = (S.size.h - 70) / 10.5;
+      const cx = W * 0.42, cy = H * 0.55, R = Math.min(W * 0.36, H * 0.38);
+      label(ctx, 'top view, north up', 8, 12, P.soft, { size: 11 });
+      ctx.strokeStyle = P.border; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(cx - R * 1.1, cy + 0.5); ctx.lineTo(cx + R * 1.1, cy + 0.5); ctx.moveTo(cx + 0.5, cy - R * 1.1); ctx.lineTo(cx + 0.5, cy + R * 1.1); ctx.stroke();
+      label(ctx, 'N', cx + 6, cy - R * 1.1 + 4, P.muted, { size: 11, weight: 700 });
+      label(ctx, 'E', cx + R * 1.1 - 4, cy - 10, P.muted, { size: 11, weight: 700 });
+      if (spd < 1) { label(ctx, 'at rest: no Coriolis, no transport term', cx, cy + R * 0.5, P.muted, { size: 11, align: 'center' }); return; }
+      // velocity direction (not to scale)
+      const vx = cx + k.u[1] * R * 0.55, vy = cy - k.u[0] * R * 0.55;
+      arrow(ctx, cx, cy, vx, vy, P.fg, 1.5, 8);
+      label(ctx, '$\\mathbf{v}^n$', vx + 6, vy - 8, P.fg, { size: 13 });
+      // magnification: a power of ten so that the small terms fill the plot
+      const big = Math.max(Math.hypot(k.cor[0], k.cor[1]) + Math.hypot(k.tra[0], k.tra[1]), Math.abs(k.cor[2]) + Math.abs(k.tra[2]), 1e-9);
+      const want = (R * 0.95) / (big * sBase), e10 = 10 ** Math.floor(Math.log10(want));
+      const K = [5, 2, 1].map((m) => m * e10).find((x) => x <= want) ?? e10;
+      const s = sBase * K;
+      const p1 = { x: cx + k.cor[1] * s, y: cy - k.cor[0] * s };
+      const p2 = { x: p1.x + k.tra[1] * s, y: p1.y - k.tra[0] * s };
+      arrow(ctx, cx, cy, p1.x, p1.y, P.accent, 2.5, 9);
+      ctx.setLineDash([5, 4]); arrow(ctx, p1.x, p1.y, p2.x, p2.y, P.accent, 2, 9); ctx.setLineDash([]);
+      // labels on opposite sides of the two arrows
+      const side = (ax: number, ay: number, bx2: number, by2: number, txt: string, sgn: number) => {
+        const dx = bx2 - ax, dy = by2 - ay, l = Math.hypot(dx, dy);
+        if (l < 2) return;
+        const nx = -dy / l, ny = dx / l, mx = (ax + bx2) / 2 + nx * 16 * sgn, my = (ay + by2) / 2 + ny * 16 * sgn;
+        label(ctx, txt, mx, my, P.accent, { size: 11, align: Math.abs(nx) < 0.3 ? 'center' : nx * sgn > 0 ? 'left' : 'right' });
+      };
+      side(cx, cy, p1.x, p1.y, 'Coriolis', 1);
+      if (Math.hypot(p2.x - p1.x, p2.y - p1.y) > 2) side(p1.x, p1.y, p2.x, p2.y, 'transport', -1);
+      // vertical parts, same magnification (up positive)
+      const bx = W - 46, base = cy;
+      ctx.strokeStyle = P.border; ctx.beginPath(); ctx.moveTo(bx - 18, base + 0.5); ctx.lineTo(W - 6, base + 0.5); ctx.stroke();
+      arrow(ctx, bx - 6, base, bx - 6, base + k.cor[2] * s, P.accent, 2.5, 8);
+      ctx.setLineDash([5, 4]); arrow(ctx, bx + 18, base, bx + 18, base + k.tra[2] * s, P.accent, 2, 8); ctx.setLineDash([]);
+      label(ctx, 'vertical', bx + 6, base - R * 1.05, P.muted, { size: 10, align: 'center' });
+      label(ctx, 'parts', bx + 6, base - R * 1.05 + 12, P.muted, { size: 10, align: 'center' });
+      label(ctx, `magnified ×${K >= 1e5 ? K.toExponential(0) : K.toFixed(0)} relative to the side view`, 8, H - 26, P.accent, { size: 11 });
+      // scale bar in mg
+      const unit = [0.1, 1, 10, 100].find((m) => m * MG * s > 30) ?? 100;
+      const len = Math.min(unit * MG * s, W * 0.5);
+      ctx.strokeStyle = P.soft; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(8, H - 9); ctx.lineTo(8 + len, H - 9); ctx.moveTo(8, H - 13); ctx.lineTo(8, H - 5); ctx.moveTo(8 + len, H - 13); ctx.lineTo(8 + len, H - 5); ctx.stroke();
+      label(ctx, `${unit} mg`, 14 + len, H - 9, P.soft, { size: 10 });
+    }
+
+    function drawBars(k: ReturnType<typeof terms>) {
+      const P = palette(), { ctx, size } = B, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const b = { x: 58, y: 26, w: W - 120, h: H - 62 };
+      const ax = axes(ctx, P, b, [0, 5], [1e-6, 1e2], { logY: true, xfmt: () => '', yfmt: (v) => `$10^{${Math.round(Math.log10(v))}}$`, ylabel: '' });
+      label(ctx, 'm/s²', b.x - 6, b.y + b.h + 14, P.muted, { size: 10, align: 'right' });
+      // second axis in mg
+      for (let e = -4; e <= 4; e++) {
+        const y = ax.sy(10 ** e * MG);
+        if (y < b.y - 1 || y > b.y + b.h + 1) continue;
+        ctx.strokeStyle = P.strong; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(b.x + b.w, y); ctx.lineTo(b.x + b.w + 4, y); ctx.stroke();
+        label(ctx, `$10^{${e}}$`, b.x + b.w + 8, y, P.muted, { size: 10 });
+      }
+      label(ctx, 'mg', b.x + b.w + 8, b.y + b.h + 14, P.muted, { size: 10 });
+      const items: [string, number, boolean][] = [
+        ['$\\mathbf{g}^n$', norm(k.g), false],
+        ['$\\mathbf{C}_b^n\\mathbf{f}_{ib}^b$', norm(k.f), false],
+        ['acceleration', norm(k.vd), false],
+        ['Coriolis', norm(k.cor), true],
+        ['transport', norm(k.tra), true],
+      ];
+      items.forEach(([name, v, hot], i) => {
+        const x0 = ax.sx(i + 0.25), x1 = ax.sx(i + 0.75), y = ax.sy(Math.max(v, 1e-6));
+        ctx.fillStyle = hot ? P.accent : P.soft;
+        if (v > 1e-6) ctx.fillRect(x0, y, x1 - x0, b.y + b.h - y);
+        label(ctx, name, (x0 + x1) / 2, b.y + b.h + 14, hot ? P.accent : P.soft, { size: 11, align: 'center' });
+        const ty = v > 1e-6 ? Math.max(b.y + 8, y - 9) : b.y + b.h - 10, xm = (x0 + x1) / 2;
+        if (v < 1e-9) label(ctx, '0', xm, ty, P.fg, { size: 10, align: 'center' });
+        else if (W < 700) { label(ctx, `${sig(v)} m/s²`, xm, ty - 12, P.fg, { size: 9, align: 'center' }); label(ctx, `${sig(v / MG)} mg`, xm, ty, P.fg, { size: 9, align: 'center' }); }
+        else label(ctx, `${sig(v)} m/s² · ${sig(v / MG)} mg`, xm, ty, P.fg, { size: 10, align: 'center' });
+      });
+    }
+
+    function draw() {
+      const k = terms();
+      drawSide(k); drawTop(k); drawBars(k);
+      out('g', `${norm(k.g).toFixed(4)} m/s²`);
+      out('cor', `${sig(norm(k.cor) / MG)} mg`);
+      out('tra', `${sig(norm(k.tra) / MG)} mg`);
+      const vd = add(add(add(k.f, k.g), k.cor), k.tra);
+      out('vd', `[${vd.map((x) => (Math.abs(x) < 5e-4 ? 0 : x).toFixed(3)).join(', ')}]`);
+    }
+
+    slider(fig, 'spd', (v) => `${v} m/s`, (v) => { spd = v; draw(); });
+    slider(fig, 'crs', (v) => `${v}°`, (v) => { crs = v; draw(); });
+    slider(fig, 'lat', (v) => `${v}°`, (v) => { lat = v; draw(); });
+    slider(fig, 'acc', (v) => `${v.toFixed(1)} m/s²`, (v) => { acc = v; draw(); });
+  }
+</script>

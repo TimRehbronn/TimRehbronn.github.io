@@ -1,0 +1,128 @@
+---
+import M from '../../blog/M.astro';
+// Small rotation: the exact rotation of x on its circle vs. the first-order step x + δθ × x along the tangent.
+---
+
+<figure class="xp wide" data-xp="smallrot">
+  <div class="xp-head"><span class="label fig-title">A small rotation is a step along the tangent</span></div>
+  <div class="xp-row two">
+    <canvas class="c-geo" role="img" aria-label="A vector x rotated by a small angle about an axis pointing out of the screen: the exact tip moves on a circle, the first-order step goes along the tangent"></canvas>
+    <canvas class="c-err" role="img" aria-label="Plot against the angle: the step length grows linearly, the error of the first-order result grows quadratically"></canvas>
+  </div>
+  <ul class="xp-legend">
+    <li class="c-fg"><i></i><span><M t={String.raw`\mathbf x`} /> and the exactly rotated vector</span></li>
+    <li class="c-accent"><i></i><span>step <M t={String.raw`\delta\boldsymbol\theta \times \mathbf x`} /> and the first-order result <M t={String.raw`\mathbf x + \delta\boldsymbol\theta \times \mathbf x`} /></span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Rotation angle <M t={String.raw`\delta\theta`} /></span><output for="dth"></output></span><input type="range" name="dth" min="0" max="40" step="0.5" value="20" /></label>
+    <label class="xp-ctl"><span><span>Distance from the axis <M t="r" /></span><output for="rr"></output></span><input type="range" name="rr" min="0.3" max="1" step="0.05" value="1" /></label>
+  </div>
+  <p class="xp-readout" aria-live="polite">
+    <span>step length <M t={String.raw`\delta\theta\, r`} /> = <b data-o="step"></b></span>
+    <span>length of the first-order result <b data-o="len"></b> (exact: <b data-o="r"></b>)</span>
+    <span>its angle <M t={String.raw`\arctan\delta\theta`} /> = <b data-o="ang"></b> (exact: <b data-o="ex"></b>)</span>
+    <span>gap between the tips <b class="hot" data-o="gap"></b> (compare <M t={String.raw`\delta\theta^2 r/2`} /> = <b data-o="par"></b>)</span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, label, slider, arrow, outputs, axes, series } from '../../../lib/explainer';
+
+  const D2R = Math.PI / 180;
+  const gapOf = (a: number) => Math.hypot(Math.cos(a) - 1, Math.sin(a) - a);   // tip gap for r = 1
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="smallrot"]')) {
+    const cg = fig.querySelector<HTMLCanvasElement>('.c-geo')!, ce = fig.querySelector<HTMLCanvasElement>('.c-err')!;
+    const out = outputs(fig);
+    let dth = 20, rr = 1;
+    const G = setupCanvas(cg, 0.72, () => drawGeo());
+    const E = setupCanvas(ce, 0.72, () => drawErr());
+
+    function drawGeo() {
+      const P = palette(), { ctx, size } = G, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const a = dth * D2R;
+      const ox = Math.max(56, W * 0.13), oy = H - 54;
+      const S = Math.min(W - ox - 92, (oy - 34) / 0.75);    // pixels per unit length (r = 1 fills the view)
+      const R = S * rr;
+      const X = (u: number) => ox + u * S, Y = (v: number) => oy - v * S;
+      // circle on which the tip moves
+      ctx.strokeStyle = P.strong; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(ox, oy, R, 0.25, -Math.PI * 0.42, true); ctx.stroke();
+      ctx.strokeStyle = P.fg; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(ox, oy, R, 0, -a, true); ctx.stroke();
+      // the axis: out of the screen
+      ctx.strokeStyle = P.soft; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(ox, oy, 7, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = P.soft; ctx.beginPath(); ctx.arc(ox, oy, 2, 0, Math.PI * 2); ctx.fill();
+      label(ctx, 'axis of $\\delta\\boldsymbol\\theta$, out of the screen', ox - 10, oy + 26, P.soft, { size: 11 });
+      // angle marker
+      if (a > 0.01) {
+        ctx.strokeStyle = P.soft; ctx.lineWidth = 1.25; ctx.beginPath(); ctx.arc(ox, oy, Math.min(60, R * 0.4), 0, -a, true); ctx.stroke();
+        const rl = Math.min(60, R * 0.4) + 14;
+        label(ctx, '$\\delta\\theta$', ox + Math.cos(a / 2) * rl, oy - Math.sin(a / 2) * rl, P.soft, { size: 13, align: 'center' });
+      }
+      // x and the exact result
+      const tx = X(rr), ty = Y(0);
+      const exx = X(rr * Math.cos(a)), exy = Y(rr * Math.sin(a));
+      const apx = X(rr), apy = Y(rr * a);
+      // first-order result (dashed, from the origin)
+      ctx.setLineDash([5, 4]); arrow(ctx, ox, oy, apx, apy, P.accent, 1.5, 9); ctx.setLineDash([]);
+      arrow(ctx, ox, oy, exx, exy, P.fg, 2, 10);
+      arrow(ctx, ox, oy, tx, ty, P.fg, 2.5, 10);
+      label(ctx, '$\\mathbf{x}$', (ox + tx) / 2, ty + 14, P.fg, { size: 15, align: 'center' });
+      if (a > 0.06) label(ctx, 'exact', exx - 8, exy - 12, P.fg, { size: 11, align: 'right' });
+      // right angle between x and the step
+      if (a * R > 14) {
+        const q = 9;
+        ctx.strokeStyle = P.soft; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(tx - q, ty); ctx.lineTo(tx - q, ty - q); ctx.lineTo(tx, ty - q); ctx.stroke();
+      }
+      // the step along the tangent
+      arrow(ctx, tx, ty, apx, apy, P.accent, 3, 11);
+      if (a > 0.005) {
+        label(ctx, '$\\delta\\boldsymbol\\theta\\times\\mathbf{x}$', tx + 10, (ty + apy) / 2 - 8, P.accent, { size: 14 });
+        label(ctx, 'length $\\delta\\theta\\, r$', tx + 10, (ty + apy) / 2 + 12, P.accent, { size: 11 });
+        label(ctx, '$\\mathbf{x}+\\delta\\boldsymbol\\theta\\times\\mathbf{x}$', apx + 8, apy - 12, P.accent, { size: 12 });
+      }
+      // the gap between the exact tip and the first-order tip
+      if (a > 0.05) {
+        ctx.strokeStyle = P.accent; ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
+        ctx.beginPath(); ctx.moveTo(exx, exy); ctx.lineTo(apx, apy); ctx.stroke(); ctx.setLineDash([]);
+      }
+      ctx.fillStyle = P.fg; ctx.beginPath(); ctx.arc(exx, exy, 3.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = P.accent; ctx.beginPath(); ctx.arc(apx, apy, 3.5, 0, Math.PI * 2); ctx.fill();
+      label(ctx, 'the step is perpendicular to $\\mathbf{x}$ and to the axis', 8, 14, P.muted, { size: 11 });
+    }
+
+    function drawErr() {
+      const P = palette(), { ctx, size } = E, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const box = { x: 44, y: 28, w: W - 58, h: H - 66 };
+      const { sx, sy } = axes(ctx, P, box, [0, 40], [0, 0.75], { xlabel: '$\\delta\\theta$ [°]', xticks: 4, yticks: 3 });
+      label(ctx, 'length in units of $r$', box.x, 12, P.soft, { size: 11 });
+      const xs: number[] = [], lin1: number[] = [], gap: number[] = [];
+      for (let d = 0; d <= 40.001; d += 0.5) { const a = d * D2R; xs.push(d); lin1.push(a); gap.push(gapOf(a)); }
+      series(ctx, box, xs, lin1, sx, sy, P.fg, 1.75);
+      series(ctx, box, xs, gap, sx, sy, P.accent, 2.25);
+      label(ctx, 'step $\\delta\\theta$ (linear)', sx(40) - 4, sy(0.698) - 14, P.fg, { size: 11, align: 'right' });
+      label(ctx, 'gap $\\approx\\delta\\theta^2/2$ (quadratic)', sx(40) - 4, sy(gapOf(40 * D2R)) - 14, P.accent, { size: 11, align: 'right' });
+      // current angle
+      const x = sx(dth), a = dth * D2R;
+      ctx.strokeStyle = P.strong; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, box.y); ctx.lineTo(Math.round(x) + 0.5, box.y + box.h); ctx.stroke();
+      ctx.fillStyle = P.fg; ctx.beginPath(); ctx.arc(x, sy(a), 4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = P.accent; ctx.beginPath(); ctx.arc(x, sy(gapOf(a)), 4.5, 0, Math.PI * 2); ctx.fill();
+    }
+
+    function draw() {
+      drawGeo(); drawErr();
+      const a = dth * D2R;
+      out('step', (a * rr).toFixed(3));
+      out('len', (rr * Math.hypot(1, a)).toFixed(3)); out('r', rr.toFixed(3));
+      out('ang', `${(Math.atan(a) / D2R).toFixed(2)}°`); out('ex', `${dth.toFixed(2)}°`);
+      out('gap', (gapOf(a) * rr).toFixed(4)); out('par', (a * a * rr / 2).toFixed(4));
+    }
+    slider(fig, 'dth', (v) => `${v.toFixed(1)}° = ${(v * D2R).toFixed(3)} rad`, (v) => { dth = v; draw(); });
+    slider(fig, 'rr', (v) => v.toFixed(2), (v) => { rr = v; draw(); });
+  }
+</script>

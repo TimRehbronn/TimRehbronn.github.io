@@ -1,0 +1,157 @@
+---
+import M from '../../blog/M.astro';
+// Gravity = gravitation + centrifugal part. Left: a cross-section with gamma pointing to the centre, the
+// (exaggerated) centrifugal acceleration pointing away from the spin axis, and their sum g, which is
+// perpendicular to the level surface. Right: normal gravity (Somigliana) against latitude, with a height term.
+---
+
+<figure class="xp wide" data-xp="gravity">
+  <div class="xp-head"><span class="label fig-title">Gravitation, rotation and gravity</span></div>
+  <div class="xp-row two">
+    <canvas class="c-g" role="img" aria-label="Cross-section of the rotating Earth: at a point on the surface, gravitation points to the centre, the centrifugal acceleration points away from the spin axis, and their sum, gravity, is perpendicular to the flattened surface"></canvas>
+    <canvas class="c-p" role="img" aria-label="Plot of normal gravity in metres per second squared against latitude, from 9.780 at the equator to 9.832 at the poles, with the constant 9.81 for comparison"></canvas>
+  </div>
+  <ul class="xp-legend">
+    <li class="c-fg"><i></i><span>gravitation <M t={String.raw`\boldsymbol\gamma`} />, towards the centre</span></li>
+    <li class="c-muted"><i></i><span>centrifugal part <M t={String.raw`-\boldsymbol\omega_{ie}\times(\boldsymbol\omega_{ie}\times\mathbf r)`} />, away from the axis</span></li>
+    <li class="c-accent"><i></i><span>gravity <M t={String.raw`\mathbf g`} />, perpendicular to the surface</span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Latitude <M t="L" /></span><output for="lat"></output></span><input type="range" name="lat" min="-90" max="90" step="1" value="45" /></label>
+    <label class="xp-ctl"><span><span>Rotation effect, drawn exaggerated</span><output for="ex"></output></span><input type="range" name="ex" min="1" max="150" step="1" value="120" /></label>
+    <label class="xp-ctl"><span><span>Height <M t="h" /></span><output for="h"></output></span><input type="range" name="h" min="0" max="10000" step="100" value="0" /></label>
+  </div>
+  <p class="xp-readout" aria-live="polite">
+    <span>centrifugal <M t={String.raw`\omega_{ie}^2 (R_E + h)\cos L`} /> = <b data-o="cf"></b></span>
+    <span><M t="g(L, h)" /> = <b class="hot" data-o="g"></b></span>
+    <span>error of a constant <M t={String.raw`9.81\,\mathrm{m/s^2}`} />: <b data-o="err"></b></span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, label, slider, arrow, axes, series, outputs } from '../../../lib/explainer';
+
+  const D2R = Math.PI / 180, R0 = 6378137, E2 = 6.69437999014e-3, WIE = 7.292115e-5, GM = 3.986004418e14;
+  const M_REAL = (WIE * WIE * R0 ** 3) / GM; // centrifugal / gravitation at the equator, about 1/289
+  const somigliana = (L: number) => (9.7803253359 * (1 + 0.001931852652 * Math.sin(L) ** 2)) / Math.sqrt(1 - E2 * Math.sin(L) ** 2);
+  const grav = (L: number, h: number) => somigliana(L) - 3.086e-6 * h;
+  const MG = 9.80665e-3;
+
+  // level surface of a point mass plus (exaggerated) rotation, in units of the equatorial radius:
+  // 1/r + m r^2 cos^2(psi) / 2 = 1 + m / 2
+  const radius = (psi: number, m: number) => {
+    const c2 = Math.cos(psi) ** 2;
+    let r = 1;
+    for (let i = 0; i < 30; i++) { const f = 1 / r + 0.5 * m * r * r * c2 - 1 - 0.5 * m, d = -1 / (r * r) + m * r * c2; r -= f / d; }
+    return r;
+  };
+  // geodetic latitude (direction of -g) at geocentric latitude psi
+  const geod = (psi: number, m: number) => { const r = radius(psi, m); return Math.atan2(Math.sin(psi), Math.cos(psi) * (1 - m * r ** 3)); };
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="gravity"]')) {
+    const cg = fig.querySelector<HTMLCanvasElement>('.c-g')!, cp = fig.querySelector<HTMLCanvasElement>('.c-p')!;
+    const out = outputs(fig);
+    let lat = 45, ex = 120, hgt = 0;
+    const G = setupCanvas(cg, 0.95, () => draw()), Pl = setupCanvas(cp, 0.95, () => draw());
+
+    function drawSection() {
+      const P = palette(), { ctx, size } = G, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const a = Math.min(W * 0.36, H * 0.4), cx = W * 0.42, cy = H * 0.5;
+      const X = (x: number) => cx + x * a, Y = (z: number) => cy - z * a;
+      const m = M_REAL * ex;
+
+      // sphere for comparison, axes
+      ctx.strokeStyle = P.muted; ctx.lineWidth = 1; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.arc(cx, cy, a, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+      ctx.strokeStyle = P.border; ctx.beginPath(); ctx.moveTo(cx - a - 12, cy); ctx.lineTo(cx + a + 12, cy); ctx.moveTo(cx, cy + a + 12); ctx.lineTo(cx, cy - a - 24); ctx.stroke();
+      arrow(ctx, cx, cy - a - 4, cx, cy - a - 26, P.muted, 1.25, 7);
+      label(ctx, 'spin axis', cx - 6, cy - a - 20, P.muted, { size: 10, align: 'right' });
+      label(ctx, 'equator', cx - a - 10, cy + 11, P.muted, { size: 10 });
+      // level surface
+      ctx.strokeStyle = P.fg; ctx.lineWidth = 1.75; ctx.beginPath();
+      for (let i = 0; i <= 240; i++) { const s = (i / 240) * 2 * Math.PI, r = radius(s, m); i ? ctx.lineTo(X(r * Math.cos(s)), Y(r * Math.sin(s))) : ctx.moveTo(X(r * Math.cos(s)), Y(r * Math.sin(s))); }
+      ctx.stroke();
+      ctx.fillStyle = P.muted; ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI * 2); ctx.fill();
+
+      // find the geocentric latitude whose surface normal has geodetic latitude L
+      const L = lat * D2R;
+      let lo = -Math.PI / 2, hi = Math.PI / 2;
+      for (let i = 0; i < 50; i++) { const mid = (lo + hi) / 2; geod(mid, m) < L ? (lo = mid) : (hi = mid); }
+      const psi = (lo + hi) / 2, r = radius(psi, m);
+      const px = r * Math.cos(psi), pz = r * Math.sin(psi), Px = X(px), Py = Y(pz);
+
+      // accelerations in units of gravitation at the equator, drawn with length k
+      const k = 0.5;
+      const gam = [(-px / r ** 3) * k, (-pz / r ** 3) * k], cf = [m * px * k, 0], g = [gam[0] + cf[0], gam[1] + cf[1]];
+      // distance to the spin axis and the line to the centre
+      ctx.strokeStyle = P.muted; ctx.lineWidth = 1; ctx.setLineDash([2, 4]); ctx.beginPath(); ctx.moveTo(cx, Py); ctx.lineTo(Px, Py); ctx.stroke();
+      ctx.strokeStyle = P.border; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(Px + gam[0] * a, Py - gam[1] * a); ctx.lineTo(cx, cy); ctx.stroke(); ctx.setLineDash([]);
+      // tangent to the surface and the right angle with g
+      const nl = Math.hypot(g[0], g[1]), gd = [g[0] / nl, g[1] / nl], tg = [-gd[1], gd[0]];
+      ctx.strokeStyle = P.strong; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(Px - tg[0] * 0.32 * a, Py + tg[1] * 0.32 * a); ctx.lineTo(Px + tg[0] * 0.32 * a, Py - tg[1] * 0.32 * a); ctx.stroke();
+      const q = 9, sgn = tg[1] * -1 >= 0 ? 1 : -1;
+      ctx.strokeStyle = P.accent; ctx.beginPath();
+      ctx.moveTo(Px + gd[0] * q, Py - gd[1] * q);
+      ctx.lineTo(Px + gd[0] * q + sgn * tg[0] * q, Py - gd[1] * q - sgn * tg[1] * q);
+      ctx.lineTo(Px + sgn * tg[0] * q, Py - sgn * tg[1] * q); ctx.stroke();
+      // parallelogram
+      ctx.strokeStyle = P.border; ctx.setLineDash([3, 3]);
+      ctx.beginPath(); ctx.moveTo(Px + gam[0] * a, Py - gam[1] * a); ctx.lineTo(Px + g[0] * a, Py - g[1] * a); ctx.lineTo(Px + cf[0] * a, Py - cf[1] * a); ctx.stroke(); ctx.setLineDash([]);
+      arrow(ctx, Px, Py, Px + gam[0] * a, Py - gam[1] * a, P.fg, 2, 9);
+      arrow(ctx, Px, Py, Px + cf[0] * a, Py - cf[1] * a, P.muted, 2, 8);
+      arrow(ctx, Px, Py, Px + g[0] * a, Py - g[1] * a, P.accent, 2.75, 10);
+      ctx.fillStyle = P.fg; ctx.beginPath(); ctx.arc(Px, Py, 4, 0, Math.PI * 2); ctx.fill();
+
+      // labels: gamma beside its middle, g beyond its tip, centrifugal part beyond its tip
+      const gl = Math.hypot(gam[0], gam[1]), gu = [gam[0] / gl, gam[1] / gl];
+      const side = gu[0] * g[1] - gu[1] * g[0] > 0 ? -1 : 1; // put the gamma label on the side away from g
+      const pg = [-gu[1] * side, gu[0] * side];
+      const lab = Math.abs(lat) > 80 ? 0.35 : 0.6;
+      label(ctx, '$\\boldsymbol\\gamma$', Px + gam[0] * a * lab + pg[0] * 14, Py - gam[1] * a * lab - pg[1] * 14, P.fg, { size: 15, align: 'center' });
+      label(ctx, '$\\b{g}$', Px + g[0] * a * 0.75 - pg[0] * 14, Py - g[1] * a * 0.75 + pg[1] * 14, P.accent, { size: 15, align: 'center' });
+      if (cf[0] * a > 6) label(ctx, 'centrifugal', Math.abs(lat) < 25 ? Px + 4 : Math.min(Px + cf[0] * a + 8, W - 62), Py + (Math.abs(lat) < 25 ? -14 : pz >= 0 ? -14 : 14), P.muted, { size: 11 });
+      label(ctx, `rotation effect drawn $${ex}\\times$ stronger`, 8, H - 10, P.muted, { size: 10 });
+      label(ctx, 'sphere', cx - a * 0.72 - 4, cy + a * 0.72 + 10, P.muted, { size: 10, align: 'right' });
+      label(ctx, 'level surface', cx + a * 0.72 + 6, cy + a * 0.62 + 12, P.fg, { size: 10 });
+    }
+
+    function drawPlot() {
+      const P = palette(), { ctx, size } = Pl, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const bx = { x: 52, y: 24, w: W - 64, h: H - 66 };
+      const { sx, sy } = axes(ctx, P, bx, [-90, 90], [9.74, 9.84], { xfmt: (v) => `${v}°`, yfmt: (v) => v.toFixed(2), xticks: 6, yticks: 5, xlabel: 'latitude $L$', ylabel: 'm/s$^2$' });
+      const xs: number[] = [], y0: number[] = [], yh: number[] = [];
+      for (let i = 0; i <= 180; i++) { const l = -90 + i; xs.push(l); y0.push(grav(l * D2R, 0)); yh.push(grav(l * D2R, hgt)); }
+      ctx.strokeStyle = P.fg; ctx.lineWidth = 1; ctx.setLineDash([2, 4]); ctx.beginPath(); ctx.moveTo(bx.x, sy(9.81)); ctx.lineTo(bx.x + bx.w, sy(9.81)); ctx.stroke(); ctx.setLineDash([]);
+      label(ctx, 'constant 9.81', sx(0), sy(9.81) - 9, P.fg, { size: 10, align: 'center' });
+      if (hgt > 0) {
+        series(ctx, bx, xs, y0, sx, sy, P.muted, 1.5, [5, 4]);
+        label(ctx, '$h = 0$', sx(0), sy(grav(0, 0)) - 11, P.muted, { size: 11, align: 'center' });
+      }
+      series(ctx, bx, xs, yh, sx, sy, P.accent, 2.25);
+      label(ctx, `$g(L, h)$ at $h$ = ${(hgt / 1000).toFixed(1)} km`, sx(0), bx.y + 14, P.accent, { size: 11, align: 'center' });
+      const x = sx(lat), gv = grav(lat * D2R, hgt);
+      ctx.strokeStyle = P.strong; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, bx.y); ctx.lineTo(x, bx.y + bx.h); ctx.stroke();
+      ctx.fillStyle = P.accent; ctx.beginPath(); ctx.arc(x, sy(gv), 5, 0, Math.PI * 2); ctx.fill();
+      // value label on the side away from the curve (it rises towards both poles)
+      const right = lat < 70 && (lat >= 0 || lat < -70), up = lat < 0 ? right : !right;
+      label(ctx, gv.toFixed(4), x + (right ? 9 : -9), sy(gv) + (up ? -11 : 13), P.accent, { size: 11, align: right ? 'left' : 'right' });
+    }
+
+    function draw() {
+      drawSection(); drawPlot();
+      const L = lat * D2R, re = R0 / Math.sqrt(1 - E2 * Math.sin(L) ** 2);
+      const c = WIE * WIE * (re + hgt) * Math.cos(L), gv = grav(L, hgt);
+      out('cf', `${c.toFixed(4)} m/s² (${((100 * c) / gv).toFixed(2)} % of g)`);
+      out('g', `${gv.toFixed(4)} m/s²`);
+      const e = (9.81 - gv) / MG;
+      out('err', `${e >= 0 ? '+' : '−'}${Math.abs(e).toFixed(2)} mg`);
+    }
+    slider(fig, 'lat', (v) => `${v}°`, (v) => { lat = v; draw(); });
+    slider(fig, 'ex', (v) => `×${v}`, (v) => { ex = v; draw(); });
+    slider(fig, 'h', (v) => `${(v / 1000).toFixed(1)} km`, (v) => { hgt = v; draw(); });
+  }
+</script>

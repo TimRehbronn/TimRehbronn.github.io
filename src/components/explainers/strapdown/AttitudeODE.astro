@@ -1,0 +1,164 @@
+---
+import M from '../../blog/M.astro';
+// Attitude kinematics: the body axes (columns of C) move with velocity ω × axis. Exact rotation vs. repeated
+// first-order steps C ← C (I + [ω×]Δt), which lengthen the axes and spoil orthonormality.
+---
+
+<figure class="xp wide" data-xp="attode">
+  <div class="xp-head"><span class="label fig-title">Integrating the attitude equation step by step</span><span class="label" style="color:var(--muted)">drag to orbit</span></div>
+  <div class="xp-row two">
+    <canvas class="c3d drag" role="img" aria-label="The three body axes rotating at a constant rate, with small velocity arrows at their tips; a second set of axes computed with first-order steps grows outwards"></canvas>
+    <canvas class="cplot" role="img" aria-label="Lengths of the three first-order axes over time; the exact lengths stay at one"></canvas>
+  </div>
+  <ul class="xp-legend">
+    <li class="c-fg"><i></i><span>exact body axes <M t={String.raw`\mathbf c_1, \mathbf c_2, \mathbf c_3`} /> (columns of <M t={String.raw`\mathbf C_b^n`} />)</span></li>
+    <li class="c-muted"><i></i><span>their velocities <M t={String.raw`\dot{\mathbf c}_i = \boldsymbol\omega \times \mathbf c_i`} /></span></li>
+    <li class="c-accent"><i></i><span>first-order steps <M t={String.raw`\mathbf C_{k+1} = \mathbf C_k\,(\mathbf I + [\boldsymbol\omega_{nb}^b\times]\,\Delta t)`} /></span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Rotation rate <M t={String.raw`\lVert\boldsymbol\omega_{nb}^b\rVert`} /></span><output for="w"></output></span><input type="range" name="w" min="0.2" max="1.5" step="0.05" value="0.8" /></label>
+    <label class="xp-ctl"><span><span>Step size <M t={String.raw`\Delta t`} /></span><output for="dt"></output></span><input type="range" name="dt" min="0.02" max="0.5" step="0.01" value="0.15" /></label>
+  </div>
+  <div class="xp-btns">
+    <button class="btn" type="button" data-act="play" aria-pressed="true">play</button>
+    <button class="btn" type="button" data-act="restart">restart</button>
+  </div>
+  <p class="xp-readout" aria-live="polite">
+    <span>time <b data-o="t"></b></span>
+    <span>angle per step <M t={String.raw`\lVert\boldsymbol\omega\rVert\Delta t`} /> = <b data-o="step"></b></span>
+    <span>axis lengths <b class="hot" data-o="len"></b> (exact: 1, 1, 1)</span>
+    <span><M t={String.raw`\lVert\mathbf C_k^\mathsf T\mathbf C_k - \mathbf I\rVert`} /> = <b class="hot" data-o="orth"></b> (exact: 0)</span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, animate, label, slider, arrow, outputs, reducedMotion, axes, series } from '../../../lib/explainer';
+  import { camera, rexp, mm, tr, mv, cross, norm, scale, I3, type M3, type V3 } from '../../../lib/rot';
+
+  const AX: V3 = (() => { const v: V3 = [0.35, -0.3, 1]; return scale(v, 1 / norm(v)); })();   // rotation axis in body axes
+  const col = (C: M3, i: number): V3 => [C[i], C[3 + i], C[6 + i]];
+  const skew = (a: V3): M3 => [0, -a[2], a[1], a[2], 0, -a[0], -a[1], a[0], 0];
+  const NAMES = ['$x^b$', '$y^b$', '$z^b$'];
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="attode"]')) {
+    const c3 = fig.querySelector<HTMLCanvasElement>('.c3d')!, cp = fig.querySelector<HTMLCanvasElement>('.cplot')!;
+    const out = outputs(fig);
+    const playBtn = fig.querySelector<HTMLButtonElement>('[data-act="play"]')!;
+    let w = 0.8, dt = 0.15, t = 0, playing = true, az = 0.75, el = 0.42;
+    let steps: M3[] = [];                          // C_0, C_1, ... up to one revolution
+    const Tend = () => (2 * Math.PI) / w;
+
+    function compute() {
+      const om = scale(AX, w), Om = skew(om), S = I3.map((v, i) => v + Om[i] * dt) as M3;
+      const K = Math.ceil(Tend() / dt);
+      steps = [I3];
+      for (let k = 0; k < K; k++) steps.push(mm(steps[k], S));
+    }
+    const kNow = () => Math.min(steps.length - 1, Math.floor(t / dt + 1e-9));
+
+    const A = setupCanvas(c3, 0.9, () => draw3d());
+    const B = setupCanvas(cp, 0.9, () => drawPlot());
+
+    function draw3d() {
+      const P = palette(), { ctx, size } = A, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const cam = camera(az, el, Math.min(W, H) * 0.29, W / 2, H / 2 + 10);
+      const pr = (v: V3) => cam.project([v[0], -v[1], -v[2]]);         // z up on screen
+      const o = pr([0, 0, 0]);
+      const C = rexp(scale(AX, w * t)), k = kNow(), Ck = steps[k];
+      // rotation axis
+      const a1 = pr(scale(AX, 1.9)), a0 = pr(scale(AX, -1.2));
+      ctx.strokeStyle = P.muted; ctx.lineWidth = 1; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(a0.x, a0.y); ctx.lineTo(a1.x, a1.y); ctx.stroke(); ctx.setLineDash([]);
+      label(ctx, 'axis of $\\boldsymbol\\omega$', a1.x + 6, a1.y, P.muted, { size: 11 });
+      // circles traced by the exact tips
+      ctx.strokeStyle = P.strong; ctx.lineWidth = 1; ctx.setLineDash([2, 4]);
+      for (let i = 0; i < 3; i++) {
+        ctx.beginPath();
+        for (let j = 0; j <= 72; j++) { const p = pr(col(rexp(scale(AX, (j / 72) * 2 * Math.PI)), i)); j ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      // first-order tips: polyline of the steps so far
+      for (let i = 0; i < 3; i++) {
+        ctx.strokeStyle = P.accent; ctx.lineWidth = 1.25; ctx.globalAlpha = 0.7; ctx.beginPath();
+        for (let j = 0; j <= k; j++) { const p = pr(col(steps[j], i)); j ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }
+        ctx.stroke(); ctx.globalAlpha = 1;
+        ctx.fillStyle = P.accent;
+        for (let j = 0; j <= k; j++) { const p = pr(col(steps[j], i)); ctx.beginPath(); ctx.arc(p.x, p.y, 1.8, 0, Math.PI * 2); ctx.fill(); }
+      }
+      // first-order axes
+      for (let i = 0; i < 3; i++) { const p = pr(col(Ck, i)); arrow(ctx, o.x, o.y, p.x, p.y, P.accent, 2.5, 10); }
+      // exact axes and their velocities
+      const omn = mv(C, scale(AX, w));                // ω in navigation axes (constant)
+      for (let i = 0; i < 3; i++) {
+        const c = col(C, i), p = pr(c), v = cross(omn, c), q = pr([c[0] + v[0] * 0.5, c[1] + v[1] * 0.5, c[2] + v[2] * 0.5]);
+        arrow(ctx, o.x, o.y, p.x, p.y, P.fg, 2.5, 10);
+        arrow(ctx, p.x, p.y, q.x, q.y, P.muted, 1.75, 7);
+        label(ctx, NAMES[i], p.x + (p.x >= o.x ? 8 : -8), p.y - 10, P.fg, { size: 14, align: p.x >= o.x ? 'left' : 'right' });
+      }
+      label(ctx, 'velocity arrows show half a second of motion', 8, H - 10, P.muted, { size: 10 });
+    }
+
+    function drawPlot() {
+      const P = palette(), { ctx, size } = B, W = size.w, H = size.h;
+      if (!W || !steps.length) return;
+      ctx.clearRect(0, 0, W, H);
+      const box = { x: 46, y: 28, w: W - 60, h: H - 66 };
+      let top = 1.05;
+      for (const C of steps) for (let i = 0; i < 3; i++) top = Math.max(top, norm(col(C, i)));
+      top = Math.min(4, 1 + (top - 1) * 1.12 + 0.02);
+      const T = Tend(), { sx, sy } = axes(ctx, P, box, [0, T], [0.9, top], { xlabel: 'time [s]', xticks: 5, yticks: 4, yfmt: (v) => v.toFixed(2) });
+      label(ctx, 'lengths of the axes', box.x, 12, P.soft, { size: 11 });
+      ctx.strokeStyle = P.fg; ctx.lineWidth = 1.75; ctx.beginPath(); ctx.moveTo(box.x, sy(1)); ctx.lineTo(box.x + box.w, sy(1)); ctx.stroke();
+      label(ctx, 'exact: 1', box.x + 6, sy(1) + 12, P.fg, { size: 10 });
+      const k = kNow();
+      const ts = steps.map((_, j) => j * dt);
+      for (let i = 0; i < 3; i++) {
+        const ls = steps.map((C) => norm(col(C, i)));
+        series(ctx, box, ts, ls, sx, sy, P.accent, i === 2 ? 1.5 : 2, i === 2 ? [5, 4] : [], k + 1);
+        const lx = sx(ts[k]), inside = lx > box.x + box.w - 30;
+        if (k > 0) label(ctx, NAMES[i], lx + (inside ? -6 : 6), sy(ls[k]) + (i === 0 ? -10 : i === 1 ? 10 : 10), P.accent, { size: 12, align: inside ? 'right' : 'left' });
+      }
+      const x = sx(Math.min(t, T));
+      ctx.strokeStyle = P.strong; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, box.y); ctx.lineTo(Math.round(x) + 0.5, box.y + box.h); ctx.stroke();
+    }
+
+    function readout() {
+      const k = kNow(), Ck = steps[k];
+      const E = mm(tr(Ck), Ck).map((v, i) => v - I3[i]);
+      out('t', `${t.toFixed(2)} s (step ${k}, ${((w * t * 180) / Math.PI).toFixed(0)}° turned)`);
+      out('step', `${((w * dt * 180) / Math.PI).toFixed(1)}° = ${(w * dt).toFixed(3)} rad`);
+      out('len', [0, 1, 2].map((i) => norm(col(Ck, i)).toFixed(3)).join(', '));
+      out('orth', Math.hypot(...E).toFixed(3));
+    }
+    const draw = () => { draw3d(); drawPlot(); readout(); };
+    const setPlaying = (p: boolean) => { playing = p; playBtn.setAttribute('aria-pressed', String(p)); playBtn.textContent = p ? 'pause' : 'play'; if (p) anim.kick(); };
+
+    const anim = animate(fig, (d) => {
+      t += d;
+      if (t >= Tend()) { t = Tend(); setPlaying(false); }
+      draw();
+    }, () => playing && !reducedMotion());
+
+    const reset = () => { compute(); t = reducedMotion() ? Tend() : Math.min(t, Tend()); draw(); };
+    slider(fig, 'w', (v) => `${v.toFixed(2)} rad/s`, (v) => { w = v; reset(); });
+    slider(fig, 'dt', (v) => `${v.toFixed(2)} s`, (v) => { dt = v; reset(); });
+    if (reducedMotion()) { t = Tend(); setPlaying(false); draw(); } else setPlaying(true);
+    playBtn.addEventListener('click', () => {
+      if (reducedMotion()) { t = Tend(); draw(); return; }
+      if (!playing && t >= Tend()) t = 0;
+      setPlaying(!playing);
+    });
+    fig.querySelector('[data-act="restart"]')!.addEventListener('click', () => {
+      t = reducedMotion() ? Tend() : 0; draw();
+      if (!reducedMotion()) setPlaying(true);
+    });
+
+    let drag: { x: number; y: number; az: number; el: number } | null = null;
+    c3.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, az, el }; c3.setPointerCapture(e.pointerId); });
+    c3.addEventListener('pointermove', (e) => { if (!drag) return; az = drag.az - (e.clientX - drag.x) * 0.01; el = Math.max(-1.2, Math.min(1.4, drag.el + (e.clientY - drag.y) * 0.01)); draw3d(); });
+    c3.addEventListener('pointerup', () => (drag = null));
+  }
+</script>
