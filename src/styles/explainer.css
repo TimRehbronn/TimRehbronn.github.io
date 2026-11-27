@@ -146,3 +146,6 @@
 
 /* wide figures inside collapsible boxes stay within the box */
 .prose details.derivation .xp.wide { width: auto; }
+
+/* editorial responsibility and AI disclosure below each post */
+.post .post-credit { color: var(--muted); font-size: 0.85rem; line-height: 1.55; margin: 0 0 1.5rem; }

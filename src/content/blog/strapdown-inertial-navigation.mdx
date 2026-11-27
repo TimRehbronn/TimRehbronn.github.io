@@ -41,6 +41,7 @@ import ScrewMotion from '../../components/explainers/strapdown/ScrewMotion.astro
 import PoseInterp from '../../components/explainers/strapdown/PoseInterp.astro';
 import AngularVelocity from '../../components/explainers/strapdown/AngularVelocity.astro';
 import CrossProduct from '../../components/explainers/strapdown/CrossProduct.astro';
+import IntroBox from '../../components/explainers/strapdown/IntroBox.astro';
 import FrameChain from '../../components/explainers/strapdown/FrameChain.astro';
 import SkewLink from '../../components/explainers/strapdown/SkewLink.astro';
 import ExpLimit from '../../components/explainers/strapdown/ExpLimit.astro';
@@ -79,13 +80,21 @@ import AllanVariance from '../../components/explainers/strapdown/AllanVariance.a
 
 <SeriesNav current="strapdown-inertial-navigation" />
 
-Imagine you are locked in a windowless box. Someone loads the box onto a ship, a truck or an aircraft and moves it around for an hour. You cannot see outside, you have no radio and no satellite receiver. When the box stops, you are asked: where are you, how fast are you moving, and which way are you facing?
+Imagine you sit in a closed box without windows. Someone loads it onto a ship, a truck or an aircraft and carries it around for an hour. You have no radio, no satellite receiver and no view outside. All you were told is where the box stood at the start, that it was at rest and which way it faced. When the box stops, you are asked three questions: where are you, how fast are you moving, and which way are you facing?
 
-It sounds impossible, but it is not. Everything that happens to the box (every push, every turn, every bump) is felt from the inside. If you measure these pushes and turns precisely enough and keep track of them without interruption, you can reconstruct the whole journey. This is the idea behind **inertial navigation**, and the computation that turns the raw measurements into a position is called the **strapdown algorithm**.
+From inside the box you cannot see the motion, but you can feel part of it. When the box speeds up, brakes or goes round a curve, you are pressed against one of its walls. When it turns, you feel the rotation. Two things, however, you cannot feel. Moving in a straight line at constant speed feels exactly like standing still; this is Galileo's principle of relativity. And gravity presses you onto the floor in exactly the same way as an upward acceleration would; this is Einstein's equivalence principle. Rotation is different: even a steady rotation can be measured from inside, because rotation, unlike constant velocity, is not relative. What you can measure is therefore not your position or your velocity, but how your velocity and your orientation **change**, and the change of velocity is mixed with gravity.
 
-This post builds the strapdown algorithm step by step. We start with a box that can only move along a straight line, add rotation in a plane, move to three dimensions and finally put the box on a round, rotating Earth. At every step there is an interactive figure to play with. Along the way we will see why inertial navigation on its own always drifts, how fast it drifts, and why the Earth's curvature surprisingly helps. That drift is the reason why inertial navigation is combined with other sensors, above all satellite navigation (GNSS), which is what the later parts of this series are about.
+This is enough to answer the three questions, under three conditions: you know the starting state, you measure the changes without interruption, and you know gravity well enough to separate it from the pushes. Then you add the changes up. The measured rotations, added up, give the orientation of the box. The orientation tells you in which direction each measured push acted; corrected for gravity, the pushes, added up, give the velocity; and the velocity, added up, gives the position. This is **inertial navigation**. The instruments that measure rotation are called **gyroscopes**, those that measure the pushes **accelerometers**, and both are defined precisely below.
 
-I try to define every term before it is used and every symbol before it appears in an equation. If you already know a section, skip it; nothing later depends on having read the prose, only on the definitions.
+Adding up has a price. Every small error in a measurement is added up as well, and nothing ever removes it again. A tiny constant error in the measured acceleration grows into a velocity error that increases linearly with time and a position error that increases with its square. A small error in the orientation is worse: it makes part of gravity look like a horizontal acceleration. An inertial navigation system on its own therefore always drifts away from the truth, and the important questions are how fast, and why. Because of this drift, inertial navigation is combined with other sensors, above all with satellite navigation (GNSS), and that combination is what the later parts of this series are about.
+
+<IntroBox>
+  The box, seen from above, carried along the white path. It starts from a known state. On the straight section at constant speed there is nothing to feel. In a turn the box is pushed sideways towards the centre of the curve, a **specific force** $\mathbf f$ (the quantity an accelerometer measures, defined below), and it turns at the **turn rate** $\omega$ (what a gyroscope measures). Adding up the measured changes gives the orange path. It starts exactly on the true one, but small errors in the measurements are added up together with the motion, and the computed position drifts away from the true position as time goes on. The drift is exaggerated here so that it is visible.
+</IntroBox>
+
+This post builds the computation step by step. We start with a box that can only move along a straight line, add rotation in a plane, move to three dimensions and finally put the box on a round, rotating Earth. Then we look inside the sensors, describe their errors and work out how these errors grow, including the surprising fact that the Earth's curvature keeps some of them bounded. In today's systems the sensors are rigidly fixed to the vehicle, and the computation is called the **strapdown algorithm**; both terms are defined in the next section.
+
+Every term is defined before it is used, and every symbol before it appears in an equation. Definitions are set in framed boxes, longer derivations are folded away and can be opened when needed, and almost every step comes with an interactive figure to play with.
 
 ## The idea: navigation without looking outside
 
