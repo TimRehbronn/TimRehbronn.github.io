@@ -35,7 +35,7 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, animate, label, slider, arrow, outputs, reducedMotion } from '../../../lib/explainer';
+  import { palette, setupCanvas, animate, label, slider, arrow, outputs, reducedMotion, lazyInit } from '../../../lib/explainer';
   import { camera, type V3 } from '../../../lib/rot';
 
   const D2R = Math.PI / 180, R0 = 6378137, E2 = 6.69437999014e-3;
@@ -45,7 +45,7 @@ import M from '../../blog/M.astro';
   const RE = (L: number) => R0 / Math.sqrt(1 - E2 * Math.sin(L) ** 2);
   const num = (x: number, d = 2) => (Math.abs(x) < 0.5 * 10 ** -d ? (0).toFixed(d) : x.toFixed(d)).replace('-', '−');
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="trate"]')) {
+  lazyInit('[data-xp="trate"]', (fig) => {
     const cn = fig.querySelector<HTMLCanvasElement>('.c-n')!, ce = fig.querySelector<HTMLCanvasElement>('.c-e')!;
     const out = outputs(fig);
     const playBtn = fig.querySelector<HTMLButtonElement>('[data-act="play"]')!, resetBtn = fig.querySelector<HTMLButtonElement>('[data-act="reset"]')!;
@@ -234,5 +234,5 @@ import M from '../../blog/M.astro';
       anim.kick();
     });
     resetBtn.addEventListener('click', () => { t = playing ? 0 : 6; hold = 0; draw(); });
-  }
+  });
 </script>

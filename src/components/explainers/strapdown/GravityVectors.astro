@@ -30,7 +30,7 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, label, slider, arrow, axes, series, outputs } from '../../../lib/explainer';
+  import { palette, setupCanvas, label, slider, arrow, axes, series, outputs, lazyInit } from '../../../lib/explainer';
 
   const D2R = Math.PI / 180, R0 = 6378137, E2 = 6.69437999014e-3, WIE = 7.292115e-5, GM = 3.986004418e14;
   const M_REAL = (WIE * WIE * R0 ** 3) / GM; // centrifugal / gravitation at the equator, about 1/289
@@ -49,7 +49,7 @@ import M from '../../blog/M.astro';
   // geodetic latitude (direction of -g) at geocentric latitude psi
   const geod = (psi: number, m: number) => { const r = radius(psi, m); return Math.atan2(Math.sin(psi), Math.cos(psi) * (1 - m * r ** 3)); };
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="gravity"]')) {
+  lazyInit('[data-xp="gravity"]', (fig) => {
     const cg = fig.querySelector<HTMLCanvasElement>('.c-g')!, cp = fig.querySelector<HTMLCanvasElement>('.c-p')!;
     const out = outputs(fig);
     let lat = 45, ex = 120, hgt = 0;
@@ -153,5 +153,5 @@ import M from '../../blog/M.astro';
     slider(fig, 'lat', (v) => `${v}°`, (v) => { lat = v; draw(); });
     slider(fig, 'ex', (v) => `×${v}`, (v) => { ex = v; draw(); });
     slider(fig, 'h', (v) => `${(v / 1000).toFixed(1)} km`, (v) => { hgt = v; draw(); });
-  }
+  });
 </script>

@@ -32,7 +32,7 @@ import M from '../../blog/M.astro';
   <figcaption><slot /></figcaption>
 </figure>
 
-<style>
+<style is:global>
   .rp-side { min-width: 0; overflow-x: auto; }
   .rp-t { border-collapse: collapse; margin: 0; font-variant-numeric: tabular-nums; font-size: 0.86rem; }
   .rp-t th { font-weight: 400; color: var(--muted); text-align: left; vertical-align: top; padding: 0.45rem 0.7rem 0.45rem 0; white-space: nowrap; border-bottom: 1px solid var(--border); }
@@ -44,7 +44,7 @@ import M from '../../blog/M.astro';
 </style>
 
 <script>
-  import { palette, setupCanvas, animate, label, slider, arrow, outputs } from '../../../lib/explainer';
+  import { palette, setupCanvas, animate, label, slider, arrow, outputs, lazyInit } from '../../../lib/explainer';
   import { euler, camera, mv, matq, qmat, slerp, type M3, type V3, type Q } from '../../../lib/rot';
 
   const D2R = Math.PI / 180, R2D = 180 / Math.PI;
@@ -55,7 +55,7 @@ import M from '../../blog/M.astro';
   const FACES = [[0, 1, 2], [1, 3, 4, 2], [0, 5, 1], [0, 2, 6], [1, 5, 7, 3], [2, 4, 8, 6], [5, 6, 8, 7], [3, 7, 8, 4], [0, 6, 5]];
   const f3 = (v: number) => (Math.abs(v) < 5e-4 ? 0 : v).toFixed(3);
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="repr"]')) {
+  lazyInit('[data-xp="repr"]', (fig) => {
     const canvas = fig.querySelector('canvas')!;
     const out = outputs(fig);
     const mat = fig.querySelector<HTMLElement>('[data-o-mat]')!;
@@ -136,5 +136,5 @@ import M from '../../blog/M.astro';
     canvas.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, az, el }; canvas.setPointerCapture(e.pointerId); });
     canvas.addEventListener('pointermove', (e) => { if (!drag) return; az = drag.az - (e.clientX - drag.x) * 0.01; el = Math.max(-1.4, Math.min(1.4, drag.el + (e.clientY - drag.y) * 0.01)); draw(); });
     canvas.addEventListener('pointerup', () => (drag = null));
-  }
+  });
 </script>

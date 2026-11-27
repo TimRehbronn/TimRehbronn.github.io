@@ -32,7 +32,7 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, animate, label, slider, arrow, fmtLen, reducedMotion, outputs } from '../../../lib/explainer';
+  import { palette, setupCanvas, animate, label, slider, arrow, fmtLen, reducedMotion, outputs, lazyInit } from '../../../lib/explainer';
 
   const G = 9.80665, D2R = Math.PI / 180;
   const SPANS = [60, 600, 3600];
@@ -40,7 +40,7 @@ import M from '../../blog/M.astro';
 
   type Cell = { row: 0 | 1; col: number; title: string; pow: number; val: (t: number) => number; fmt: (v: number) => string };
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="echain"]')) {
+  lazyInit('[data-xp="echain"]', (fig) => {
     const canvas = fig.querySelector('canvas')!;
     const out = outputs(fig);
     const playBtn = fig.querySelector<HTMLButtonElement>('[data-act="play"]')!;
@@ -172,5 +172,5 @@ import M from '../../blog/M.astro';
       tS.set(tc * 1000);
     }));
     setRun(running);
-  }
+  });
 </script>

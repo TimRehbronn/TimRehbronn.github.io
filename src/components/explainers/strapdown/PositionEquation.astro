@@ -32,7 +32,7 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, animate, label, slider, arrow, axes, series, reducedMotion, outputs } from '../../../lib/explainer';
+  import { palette, setupCanvas, animate, label, slider, arrow, axes, series, reducedMotion, outputs, lazyInit } from '../../../lib/explainer';
   import { camera, type V3 } from '../../../lib/rot';
 
   const D2R = Math.PI / 180, A0 = 6378137, E2 = 6.69437999014e-3, TH = 2, DT = 60;
@@ -42,7 +42,7 @@ import M from '../../blog/M.astro';
   const latAx = new Float64Array(NP);
   for (let i = 0; i < NP; i++) latAx[i] = -85 + i;
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="poseq"]')) {
+  lazyInit('[data-xp="poseq"]', (fig) => {
     const out = outputs(fig);
     const playBtn = fig.querySelector<HTMLButtonElement>('[data-act="play"]')!;
     let lat = 60, spd = 250, crs = 90, tau = TH, running = !reducedMotion();
@@ -155,5 +155,5 @@ import M from '../../blog/M.astro';
     slider(fig, 'crs', (v) => `${v}°`, (v) => { crs = v; draw(); });
     playBtn.addEventListener('click', () => { running = !running; playBtn.textContent = running ? 'Pause' : 'Play'; anim.kick(); });
     if (!running) playBtn.textContent = 'Play';
-  }
+  });
 </script>

@@ -35,14 +35,14 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, animate, label, slider, axes, series, reducedMotion, outputs } from '../../../lib/explainer';
+  import { palette, setupCanvas, animate, label, slider, axes, series, reducedMotion, outputs, lazyInit } from '../../../lib/explainer';
   import { euler, rexp, mm, mv, tr, scale, norm, type M3, type V3 } from '../../../lib/rot';
 
   const D2R = Math.PI / 180, WIE = 7.292115e-5, TMAX = 6, NS = 241;
   const degh = (w: number) => (w * 3600) / D2R;
   const wrap = (a: number) => ((a + 540) % 360) - 180;
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="atteq"]')) {
+  lazyInit('[data-xp="atteq"]', (fig) => {
     const cI = fig.querySelector<HTMLCanvasElement>('.c-ins')!, cP = fig.querySelector<HTMLCanvasElement>('.c-plot')!;
     const out = outputs(fig);
     const playBtn = fig.querySelector<HTMLButtonElement>('[data-act="play"]')!;
@@ -185,5 +185,5 @@ import M from '../../blog/M.astro';
     });
     if (reducedMotion()) tSl.set(4);
     else { running = true; playBtn.textContent = 'Pause'; anim.kick(); }
-  }
+  });
 </script>

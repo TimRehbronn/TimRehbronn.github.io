@@ -28,10 +28,10 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, label, slider, arrow, outputs } from '../../../lib/explainer';
+  import { palette, setupCanvas, label, slider, arrow, outputs, lazyInit } from '../../../lib/explainer';
 
   const G = 9.81, GAP = 2e-6;   // electrode gap d = 2 µm
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="macc"]')) {
+  lazyInit('[data-xp="macc"]', (fig) => {
     const cm = fig.querySelector<HTMLCanvasElement>('.c-m')!, cc = fig.querySelector<HTMLCanvasElement>('.c-c')!;
     const out = outputs(fig);
     let a = 0.6, lf0 = 3.7;
@@ -109,5 +109,5 @@ import M from '../../blog/M.astro';
     }
     slider(fig, 'a', (v) => `${v.toFixed(2)} g`, (v) => { a = v; draw(); });
     slider(fig, 'f0', (v) => `${(10 ** v / 1000).toFixed(1)} kHz`, (v) => { lf0 = v; draw(); });
-  }
+  });
 </script>

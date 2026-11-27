@@ -26,14 +26,14 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, animate, rng, axes, series, label, slider, fmtLen, reducedMotion, outputs } from '../../../lib/explainer';
+  import { palette, setupCanvas, animate, rng, axes, series, label, slider, fmtLen, reducedMotion, outputs, lazyInit } from '../../../lib/explainer';
 
   const G = 9.80665, DT = 0.01, T = 60, N = Math.round(T / DT) + 1;
   // true acceleration profile: two stop-and-go legs
   const accel = (t: number) =>
     t >= 5 && t < 9 ? 1.5 : t >= 25 && t < 29 ? -1.5 : t >= 35 && t < 38 ? 2 : t >= 48 && t < 51 ? -2 : 0;
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="dbl"]')) {
+  lazyInit('[data-xp="dbl"]', (fig) => {
     const canvas = fig.querySelector('canvas')!;
     const out = outputs(fig);
     const playBtn = fig.querySelector<HTMLButtonElement>('[data-act="play"]')!;
@@ -120,5 +120,5 @@ import M from '../../blog/M.astro';
     fig.querySelector('[data-act="seed"]')!.addEventListener('click', () => { seed++; simulate(); draw(); });
     if (!running) playBtn.textContent = 'Play';
     simulate(); draw();
-  }
+  });
 </script>

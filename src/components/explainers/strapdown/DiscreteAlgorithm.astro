@@ -47,12 +47,12 @@ import M from '../../blog/M.astro';
 </style>
 
 <script>
-  import { palette, setupCanvas, animate, label, slider, arrow, reducedMotion, outputs } from '../../../lib/explainer';
+  import { palette, setupCanvas, animate, label, slider, arrow, reducedMotion, outputs, lazyInit } from '../../../lib/explainer';
 
   const D2R = Math.PI / 180, G = 9.81, DT = 1, K = 5, DVX = 1;
   type S = { th: number; v: [number, number]; p: [number, number] }; // pitch, velocity (north, up), position (north, up)
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="discalg"]')) {
+  lazyInit('[data-xp="discalg"]', (fig) => {
     const out = outputs(fig);
     const playBtn = fig.querySelector<HTMLButtonElement>('[data-act="play"]')!;
     const stBtns = fig.querySelectorAll<HTMLButtonElement>('[data-st]');
@@ -209,5 +209,5 @@ import M from '../../blog/M.astro';
     slider(fig, 'dth', (v) => `${v}°`, (v) => { dth = v; simulate(); draw(); });
     slider(fig, 'dvz', (v) => `${v.toFixed(1)} m/s`, (v) => { dvz = v; simulate(); draw(); });
     if (!reducedMotion()) { running = true; playBtn.textContent = 'Pause'; k = 1; st = 0; anim.kick(); draw(); }
-  }
+  });
 </script>

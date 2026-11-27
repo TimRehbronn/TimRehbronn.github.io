@@ -30,14 +30,14 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, label, slider, arrow, outputs } from '../../../lib/explainer';
+  import { palette, setupCanvas, label, slider, arrow, outputs, lazyInit } from '../../../lib/explainer';
   import { camera, qmul, qconj, type Q, type V3 } from '../../../lib/rot';
 
   const D2R = Math.PI / 180;
   const V0: V3 = [1, 0.15, -0.35];
   const f3 = (x: number) => (Math.abs(x) < 5e-4 ? 0 : x).toFixed(3);
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="qsand"]')) {
+  lazyInit('[data-xp="qsand"]', (fig) => {
     const cq = fig.querySelector<HTMLCanvasElement>('.c-q')!, cv = fig.querySelector<HTMLCanvasElement>('.c-v')!;
     const out = outputs(fig);
     const halfBtn = fig.querySelector<HTMLButtonElement>('[data-act="half"]')!;
@@ -107,5 +107,5 @@ import M from '../../blog/M.astro';
     cv.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, az, el }; cv.setPointerCapture(e.pointerId); });
     cv.addEventListener('pointermove', (e) => { if (!drag) return; az = drag.az - (e.clientX - drag.x) * 0.01; el = Math.max(-1.4, Math.min(1.4, drag.el + (e.clientY - drag.y) * 0.01)); draw(); });
     cv.addEventListener('pointerup', () => (drag = null));
-  }
+  });
 </script>

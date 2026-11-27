@@ -47,11 +47,11 @@ import M from '../../blog/M.astro';
 </style>
 
 <script>
-  import { palette, setupCanvas, label, slider, arrow, outputs } from '../../../lib/explainer';
+  import { palette, setupCanvas, label, slider, arrow, outputs, lazyInit } from '../../../lib/explainer';
 
   const D2R = Math.PI / 180, LAT = 51, VEARTH = 7.292115e-5 * 6378137 * Math.cos(LAT * D2R);
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="fvec"]')) {
+  lazyInit('[data-xp="fvec"]', (fig) => {
     const canvas = fig.querySelector('canvas')!;
     const out = outputs(fig);
     let hd = 40, sp = 6, dr = 12, res: 'n' | 'b' = 'n';
@@ -116,5 +116,5 @@ import M from '../../blog/M.astro';
     slider(fig, 'dr', (v) => `${v}°`, (v) => { dr = v; draw(); });
     const btns = fig.querySelectorAll<HTMLButtonElement>('[data-res]');
     btns.forEach((b) => b.addEventListener('click', () => { res = b.dataset.res as 'n' | 'b'; btns.forEach((x) => x.setAttribute('aria-pressed', String(x === b))); draw(); }));
-  }
+  });
 </script>

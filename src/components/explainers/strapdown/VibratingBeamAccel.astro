@@ -24,10 +24,10 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, animate, label, slider, arrow, outputs, reducedMotion } from '../../../lib/explainer';
+  import { palette, setupCanvas, animate, label, slider, arrow, outputs, reducedMotion, lazyInit } from '../../../lib/explainer';
 
   const F0 = 40000, S = 100, TC = -1.2;   // Hz, Hz per g, Hz per kelvin (illustrative values)
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="vba"]')) {
+  lazyInit('[data-xp="vba"]', (fig) => {
     const canvas = fig.querySelector('canvas')!;
     const out = outputs(fig);
     let a = 1.5, dT = 0, t = 0;
@@ -67,5 +67,5 @@ import M from '../../blog/M.astro';
     animate(fig, (dt) => { t += dt; draw(); }, () => !reducedMotion());
     slider(fig, 'a', (v) => `${v.toFixed(2)} g`, (v) => { a = v; draw(); });
     slider(fig, 'dt', (v) => `${v > 0 ? '+' : ''}${v} K`, (v) => { dT = v; draw(); });
-  }
+  });
 </script>

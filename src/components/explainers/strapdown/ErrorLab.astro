@@ -27,7 +27,7 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, label, slider, axes, series, fmtLen } from '../../../lib/explainer';
+  import { palette, setupCanvas, label, slider, axes, series, fmtLen, lazyInit } from '../../../lib/explainer';
 
   const G = 9.80665, R = 6.371e6, WS = Math.sqrt(G / R), WV = Math.sqrt((2 * G) / R);
   const SPANS = [60, 600, 3600, 4 * 3600];
@@ -41,7 +41,7 @@ import M from '../../blog/M.astro';
     navigation: [Math.log10(50), -2],
   };
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="err"]')) {
+  lazyInit('[data-xp="err"]', (fig) => {
     const canvas = fig.querySelector('canvas')!;
     const readout = fig.querySelector<HTMLElement>('.xp-readout')!;
     let ab = 2.48, gb = 0, ts = 3;
@@ -94,5 +94,5 @@ import M from '../../blog/M.astro';
       abS.set(a); gbS.set(g);
     });
     for (const inp of fig.querySelectorAll('input[name="ab"], input[name="gb"]')) inp.addEventListener('input', () => btns.forEach((x) => x.setAttribute('aria-pressed', 'false')));
-  }
+  });
 </script>

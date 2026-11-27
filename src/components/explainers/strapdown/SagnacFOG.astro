@@ -32,12 +32,12 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, animate, label, slider, arrow, axes, outputs, reducedMotion } from '../../../lib/explainer';
+  import { palette, setupCanvas, animate, label, slider, arrow, axes, outputs, reducedMotion, lazyInit } from '../../../lib/explainer';
 
   const C = 299792458, LAMBDA = 1550e-9, WIE = 7.292115e-5;
   const fmtRad = (x: number) => { const a = Math.abs(x); return a >= 0.1 ? `${x.toFixed(3)} rad` : a >= 1e-4 ? `${(x * 1e3).toFixed(3)} mrad` : a >= 1e-7 ? `${(x * 1e6).toFixed(3)} µrad` : `${(x * 1e9).toFixed(3)} nrad`; };
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="fog"]')) {
+  lazyInit('[data-xp="fog"]', (fig) => {
     const ca = fig.querySelector<HTMLCanvasElement>('.c-a')!, ci = fig.querySelector<HTMLCanvasElement>('.c-i')!;
     const out = outputs(fig);
     const modBtn = fig.querySelector<HTMLButtonElement>('[data-act="mod"]')!;
@@ -126,5 +126,5 @@ import M from '../../blog/M.astro';
     slider(fig, 'len', (v) => { const l = 10 ** v; return l >= 1000 ? `${(l / 1000).toFixed(1)} km` : `${l.toFixed(0)} m`; }, (v) => { llen = v; drawInt(); });
     slider(fig, 'dia', (v) => `${v.toFixed(1)} cm`, (v) => { dia = v; drawInt(); });
     modBtn.addEventListener('click', () => { mod = !mod; modBtn.setAttribute('aria-pressed', String(mod)); modBtn.textContent = mod ? 'Bias modulation on' : 'Bias modulation off'; drawInt(); });
-  }
+  });
 </script>

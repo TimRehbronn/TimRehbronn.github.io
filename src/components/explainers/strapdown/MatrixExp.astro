@@ -27,7 +27,7 @@ import M from '../../blog/M.astro';
   <figcaption><slot /></figcaption>
 </figure>
 
-<style>
+<style is:global>
   .me-side { min-width: 0; overflow-x: auto; }
   .me-side p { margin: 0 0 0.5rem; }
   .me-mat { margin: 0.2rem 0 0.8rem; display: flex; align-items: center; gap: 0.6rem; }
@@ -38,10 +38,10 @@ import M from '../../blog/M.astro';
 </style>
 
 <script>
-  import { palette, setupCanvas, label, slider, arrow, outputs } from '../../../lib/explainer';
+  import { palette, setupCanvas, label, slider, arrow, outputs, lazyInit } from '../../../lib/explainer';
 
   const D2R = Math.PI / 180;
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="mexp"]')) {
+  lazyInit('[data-xp="mexp"]', (fig) => {
     const canvas = fig.querySelector('canvas')!;
     const out = outputs(fig);
     const mat = fig.querySelector<HTMLElement>('[data-o-mat]')!;
@@ -95,5 +95,5 @@ import M from '../../blog/M.astro';
     }
     slider(fig, 'al', (v) => `${v}° = ${(v * D2R).toFixed(2)} rad`, (v) => { al = v; draw(); });
     slider(fig, 'nt', (v) => `${v}`, (v) => { nt = v; draw(); });
-  }
+  });
 </script>

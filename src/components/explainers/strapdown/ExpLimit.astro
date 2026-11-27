@@ -1,0 +1,215 @@
+---
+import M from '../../blog/M.astro';
+// The limit definition of the rotation matrix: N first-order steps (I + [α×]/N)^N converge to exp([α×]),
+// like compound interest (1 + a/N)^N → e^a. Shown in the plane perpendicular to α.
+---
+
+<figure class="xp wide" data-xp="explimit">
+  <div class="xp-head"><span class="label fig-title">Many small rotations make one large one</span></div>
+  <div class="xp-row two">
+    <canvas class="c-geo" role="img" aria-label="Unit circle with the start vector x, a polygon of N first-order rotation steps along the tangent, its endpoint outside the circle and the exactly rotated vector on the circle"></canvas>
+    <div class="el-side">
+      <p class="small">In the plane perpendicular to <M t={String.raw`\boldsymbol\alpha`} />, the matrix <M t={String.raw`[\boldsymbol\alpha\times]`} /> acts as <M t={String.raw`\alpha\,\mathbf J`} /> with</p>
+      <M t={String.raw`\mathbf J = \begin{bmatrix} 0 & -1 \\ 1 & 0 \end{bmatrix}, \qquad \mathbf J^2 = -\mathbf I ,`} display />
+      <p class="small">the matrix version of <M t="i^2 = -1" />. The limit is the matrix version of <span class="nw"><M t={String.raw`(1 + i\alpha/N)^N \to e^{i\alpha}`} />:</span></p>
+      <M t={String.raw`\begin{aligned} \Big(\mathbf I + \tfrac{\alpha}{N}\mathbf J\Big)^N &\xrightarrow{N\to\infty} \exp(\alpha\mathbf J) \\ &\;= \cos\alpha\,\mathbf I + \sin\alpha\,\mathbf J \end{aligned}`} display />
+      <div class="el-eq">
+        <div class="el-blk hot"><span class="el-cap"><M t={String.raw`(\mathbf I + \tfrac{\alpha}{N}\mathbf J)^N`} /></span><table class="el-m"><tbody data-o-a></tbody></table></div>
+        <div class="el-blk"><span class="el-cap"><M t={String.raw`\exp(\alpha\mathbf J)`} /></span><table class="el-m"><tbody data-o-e></tbody></table></div>
+      </div>
+      <canvas class="c-err" role="img" aria-label="Log-log plot of the error against the number of steps N: the rotation error and the relative error of compound interest both fall like 1 over N"></canvas>
+    </div>
+  </div>
+  <ul class="xp-legend">
+    <li class="c-fg"><i></i><span><M t={String.raw`\mathbf x`} /> and the exact result <M t={String.raw`\exp([\boldsymbol\alpha\times])\,\mathbf x`} /></span></li>
+    <li class="c-accent"><i></i><span><M t="N" /> steps, <M t={String.raw`\mathbf x_N = (\mathbf I + [\boldsymbol\alpha\times]/N)^N\,\mathbf x`} /></span></li>
+    <li class="c-fg dash"><i></i><span>scalar <M t={String.raw`\lvert(1 + \alpha/N)^N - e^\alpha\rvert / e^\alpha`} /></span></li>
+    <li class="c-muted dash"><i></i><span><M t={String.raw`\alpha^2 / 2N`} /></span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Total angle <M t={String.raw`\alpha`} /></span><output for="al"></output></span><input type="range" name="al" min="0" max="360" step="1" value="120" /></label>
+    <label class="xp-ctl"><span><span>Number of steps <M t="N" /></span><output for="nn"></output></span><input type="range" name="nn" min="0" max="12" step="1" value="2" /></label>
+  </div>
+  <div class="xp-btns"><button class="btn" type="button" data-act="play" aria-pressed="false">play: increase N</button></div>
+  <p class="xp-readout" aria-live="polite">
+    <span>step angle <M t={String.raw`\alpha/N`} /> = <b data-o="step"></b></span>
+    <span><M t={String.raw`\lVert\mathbf x_N\rVert`} /> = <b data-o="len"></b> (exact: 1)</span>
+    <span>angle reached <b data-o="ang"></b> (exact: <b data-o="ex"></b>)</span>
+    <span>error <M t={String.raw`\lVert\mathbf x_N - \exp([\boldsymbol\alpha\times])\mathbf x\rVert`} /> = <b class="hot" data-o="err"></b></span>
+    <span>scalar <M t={String.raw`(1 + \alpha/N)^N`} /> = <b data-o="sc"></b> vs. <M t={String.raw`e^\alpha`} /> = <b data-o="ea"></b></span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<style>
+  .el-side { min-width: 0; overflow-x: auto; }
+  .el-side p { margin: 0 0 0.4rem; text-align: left; }
+  .el-side :global(.katex-display) { margin: 0.4rem 0 0.6rem; }
+  .el-eq { display: flex; align-items: center; gap: 1.6rem; margin: 0.2rem 0 0.8rem; flex-wrap: wrap; }
+  .el-blk { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; }
+  .el-cap { font-size: 0.85rem; color: var(--fg-soft); }
+  .el-blk.hot .el-cap { color: var(--accent); }
+  .el-m { border-collapse: collapse; margin: 0; font-variant-numeric: tabular-nums; font-size: 0.85rem; }
+  .el-m :global(tr), .el-m :global(tbody) { border: 0; }
+  .el-m :global(td) { border: 0; padding: 0.1rem 0.5rem; text-align: right; color: var(--fg); min-width: 3.4rem; }
+  .el-blk.hot .el-m :global(td) { color: var(--accent); }
+  .el-m :global(tr td:first-child) { border-left: 1px solid var(--border-strong); }
+  .el-m :global(tr td:last-child) { border-right: 1px solid var(--border-strong); }
+  .nw { white-space: nowrap; }
+</style>
+
+<script>
+  import { palette, setupCanvas, animate, label, slider, arrow, outputs, axes, series, reducedMotion, lazyInit } from '../../../lib/explainer';
+
+  const D2R = Math.PI / 180;
+  const NS = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 64, 128, 256];
+  /** k-th vertex of the polygon: (1 + i a/N)^k applied to x = (1, 0), in polar form */
+  const vert = (a: number, N: number, k: number) => {
+    const r = Math.hypot(1, a / N) ** k, p = k * Math.atan(a / N);
+    return [r * Math.cos(p), r * Math.sin(p)];
+  };
+  const rotErr = (a: number, N: number) => { const z = vert(a, N, N); return Math.hypot(z[0] - Math.cos(a), z[1] - Math.sin(a)); };
+  const scErr = (a: number, N: number) => Math.abs((1 + a / N) ** N - Math.exp(a)) / Math.exp(a);
+
+  lazyInit('[data-xp="explimit"]', (fig) => {
+    const cg = fig.querySelector<HTMLCanvasElement>('.c-geo')!, ce = fig.querySelector<HTMLCanvasElement>('.c-err')!;
+    const tA = fig.querySelector<HTMLElement>('[data-o-a]')!, tE = fig.querySelector<HTMLElement>('[data-o-e]')!;
+    const playBtn = fig.querySelector<HTMLButtonElement>('[data-act="play"]')!;
+    const out = outputs(fig);
+    let al = 120, ni = 2, playing = false, acc = 0;
+    const G = setupCanvas(cg, 1, () => drawGeo());
+    const E = setupCanvas(ce, (w) => Math.max(200, Math.min(280, w * 0.62)), () => drawErr());
+
+    function drawGeo() {
+      const P = palette(), { ctx, size } = G, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const a = al * D2R, N = NS[ni];
+      const pts: number[][] = [];
+      for (let k = 0; k <= N; k++) pts.push(vert(a, N, k));
+      const xN = pts[N], ex = [Math.cos(a), Math.sin(a)];
+      // fit the unit circle and the whole polygon, with room for labels
+      let x0 = -1, x1 = 1, y0 = -1, y1 = 1;
+      for (const p of pts) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); }
+      const span = Math.max(x1 - x0, y1 - y0) * 1.3;
+      const S = Math.min(W, H) / span, cx = W / 2 - ((x0 + x1) / 2) * S, cy = H / 2 + ((y0 + y1) / 2) * S;
+      const zoom = (Math.min(W, H) / 2.6) / S;
+      const X = (p: number[]) => cx + p[0] * S, Y = (p: number[]) => cy - p[1] * S;
+      // axes and the unit circle
+      ctx.strokeStyle = P.border; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, cy + 0.5); ctx.lineTo(W, cy + 0.5); ctx.moveTo(cx + 0.5, 0); ctx.lineTo(cx + 0.5, H); ctx.stroke();
+      ctx.strokeStyle = P.strong; ctx.beginPath(); ctx.arc(cx, cy, S, 0, Math.PI * 2); ctx.stroke();
+      // the rotation axis points out of the screen
+      ctx.strokeStyle = P.soft; ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = P.soft; ctx.beginPath(); ctx.arc(cx, cy, 1.6, 0, Math.PI * 2); ctx.fill();
+      // exact path on the circle and the angle marker
+      if (a > 0.01) {
+        ctx.strokeStyle = P.fg; ctx.lineWidth = 1.5; ctx.setLineDash([2, 4]);
+        ctx.beginPath(); ctx.arc(cx, cy, S, 0, -a, true); ctx.stroke(); ctx.setLineDash([]);
+        const ra = Math.min(S * 0.24, 34);
+        ctx.strokeStyle = P.soft; ctx.lineWidth = 1.25; ctx.beginPath(); ctx.arc(cx, cy, ra, 0, -a, true); ctx.stroke();
+        label(ctx, '$\\alpha$', cx + Math.cos(a / 2) * (ra + 11), cy - Math.sin(a / 2) * (ra + 11), P.soft, { size: 13, align: 'center' });
+      }
+      // polygon of first-order steps
+      ctx.strokeStyle = P.accent; ctx.lineWidth = 2; ctx.lineJoin = 'round';
+      ctx.beginPath(); pts.forEach((p, k) => (k ? ctx.lineTo(X(p), Y(p)) : ctx.moveTo(X(p), Y(p)))); ctx.stroke();
+      // right angle between x and the first step: each step goes along the tangent
+      if (a > 0.05) {
+        const q = 7;
+        const o = [X([1, 0]), Y([1, 0])];
+        ctx.strokeStyle = P.accent; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(o[0] - q, o[1]); ctx.lineTo(o[0] - q, o[1] - q); ctx.lineTo(o[0], o[1] - q); ctx.stroke();
+      }
+      const dr = N <= 32 ? 3 : N <= 64 ? 2 : 1.4;
+      ctx.fillStyle = P.accent;
+      for (let k = 1; k < N; k++) { ctx.beginPath(); ctx.arc(X(pts[k]), Y(pts[k]), dr, 0, Math.PI * 2); ctx.fill(); }
+      // start vector, exact result, first-order result
+      arrow(ctx, cx, cy, X([1, 0]), Y([1, 0]), P.fg, 2, 9);
+      arrow(ctx, cx, cy, X(ex), Y(ex), P.fg, 1.5, 9);
+      arrow(ctx, cx, cy, X(xN), Y(xN), P.accent, 2, 10);
+      ctx.fillStyle = P.fg; ctx.beginPath(); ctx.arc(X(ex), Y(ex), 4.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = P.accent; ctx.beginPath(); ctx.arc(X(xN), Y(xN), 4.5, 0, Math.PI * 2); ctx.fill();
+      // gap
+      const gx = X(xN) - X(ex), gy = Y(xN) - Y(ex), gl = Math.hypot(gx, gy);
+      if (gl > 6) {
+        ctx.strokeStyle = P.soft; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+        ctx.beginPath(); ctx.moveTo(X(ex), Y(ex)); ctx.lineTo(X(xN), Y(xN)); ctx.stroke(); ctx.setLineDash([]);
+      }
+      // labels
+      const place = (txt: string, px: number, py: number, dx: number, dy: number, col: string, d = 14) => {
+        const l = Math.hypot(dx, dy) || 1, ux = dx / l, uy = dy / l;
+        const al2: CanvasTextAlign = ux > 0.35 ? 'left' : ux < -0.35 ? 'right' : 'center';
+        label(ctx, txt, px + ux * d, py + uy * (d + 2), col, { size: 13, align: al2 });
+      };
+      label(ctx, '$\\mathbf{x}$', X([1, 0]) + 6, Y([1, 0]) + 14, P.fg, { size: 13 });
+      // exact label ahead of the exact point along the circle (the polygon always lags behind)
+      if (a > 0.08) place('$e^{[\\boldsymbol\\alpha\\times]}\\mathbf{x}$', X(ex), Y(ex), -Math.sin(a) + 0.6 * Math.cos(a), -(Math.cos(a) + 0.6 * Math.sin(a)) * 1, P.fg);
+      if (gl > 14) place('$\\mathbf{x}_N$', X(xN), Y(xN), xN[0], -xN[1], P.accent);
+      if (gl > 48) {
+        const mx = (X(xN) + X(ex)) / 2, my = (Y(xN) + Y(ex)) / 2;
+        // perpendicular to the gap, on the side away from the polygon's last step
+        let nx = -gy / gl, ny = gx / gl;
+        const back = [X(pts[N - 1]) - mx, Y(pts[N - 1]) - my];
+        if (nx * back[0] + ny * back[1] > 0) { nx = -nx; ny = -ny; }
+        label(ctx, 'error', mx + nx * 12, my + ny * 12, P.soft, { size: 12, align: nx > 0.3 ? 'left' : nx < -0.3 ? 'right' : 'center' });
+      }
+      if (zoom > 1.05) label(ctx, `view zoomed out ${zoom.toFixed(1)}×`, 8, H - 10, P.muted, { size: 11 });
+    }
+
+    function drawErr() {
+      const P = palette(), { ctx, size } = E, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const a = al * D2R, N = NS[ni];
+      const box = { x: 44, y: 26, w: W - 56, h: H - 62 };
+      const { sx, sy } = axes(ctx, P, box, [0, 8], [1e-4, 100], { logY: true, xticks: 8, xfmt: (v) => String(2 ** v), yfmt: (v) => `$10^{${Math.round(Math.log10(v))}}$`, xlabel: 'number of steps $N$ (log scale)' });
+      label(ctx, 'error after $N$ steps', box.x, 10, P.soft, { size: 11 });
+      if (a < 1e-3) { label(ctx, 'no rotation: no error', box.x + box.w / 2, box.y + box.h / 2, P.muted, { size: 12, align: 'center' }); return; }
+      const xs: number[] = [], er: number[] = [], es: number[] = [], ref: number[] = [];
+      for (let n = 1; n <= 256; n++) { xs.push(Math.log2(n)); er.push(rotErr(a, n)); es.push(scErr(a, n)); ref.push((a * a) / (2 * n)); }
+      series(ctx, box, xs, ref, sx, sy, P.muted, 1.25, [5, 4]);
+      series(ctx, box, xs, es, sx, sy, P.fg, 1.5, [2, 3]);
+      series(ctx, box, xs, er, sx, sy, P.accent, 2.25);
+      const x = sx(Math.log2(N));
+      ctx.strokeStyle = P.strong; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, box.y); ctx.lineTo(Math.round(x) + 0.5, box.y + box.h); ctx.stroke();
+      const e = rotErr(a, N);
+      if (e > 1e-4 && e < 100) { ctx.fillStyle = P.accent; ctx.beginPath(); ctx.arc(x, sy(e), 4.5, 0, Math.PI * 2); ctx.fill(); }
+      const s = scErr(a, N);
+      if (s > 1e-4 && s < 100) { ctx.fillStyle = P.fg; ctx.beginPath(); ctx.arc(x, sy(s), 3, 0, Math.PI * 2); ctx.fill(); }
+    }
+
+    const f = (v: number) => (Math.abs(v) < 5e-3 ? '0.00' : v.toFixed(2));
+    const mat = (m: number[]) => `<tr><td>${f(m[0])}</td><td>${f(m[1])}</td></tr><tr><td>${f(m[2])}</td><td>${f(m[3])}</td></tr>`;
+    const fmtNum = (v: number) => (v >= 1e4 ? v.toExponential(2) : v.toFixed(v >= 100 ? 1 : 3));
+    function draw() {
+      drawGeo(); drawErr();
+      const a = al * D2R, N = NS[ni], xN = vert(a, N, N);
+      tA.innerHTML = mat([xN[0], -xN[1], xN[1], xN[0]]);
+      tE.innerHTML = mat([Math.cos(a), -Math.sin(a), Math.sin(a), Math.cos(a)]);
+      out('step', `${(al / N).toFixed(al / N < 10 ? 2 : 1)}°`);
+      out('len', Math.hypot(xN[0], xN[1]).toFixed(4));
+      out('ang', `${((N * Math.atan(a / N)) / D2R).toFixed(1)}°`);
+      out('ex', `${al.toFixed(1)}°`);
+      out('err', rotErr(a, N).toFixed(4));
+      out('sc', fmtNum((1 + a / N) ** N));
+      out('ea', fmtNum(Math.exp(a)));
+    }
+
+    slider(fig, 'al', (v) => `${v}° = ${(v * D2R).toFixed(2)} rad`, (v) => { al = v; draw(); });
+    const ns = slider(fig, 'nn', (v) => String(NS[v]), (v) => { ni = v; draw(); });
+
+    const setPlaying = (p: boolean) => { playing = p; acc = 0; playBtn.setAttribute('aria-pressed', String(p)); playBtn.textContent = p ? 'pause' : 'play: increase N'; if (p) anim.kick(); };
+    const anim = animate(fig, (dt) => {
+      acc += dt;
+      if (acc < 0.7) return;
+      acc = 0;
+      if (ni >= NS.length - 1) { setPlaying(false); return; }
+      ns.set(ni + 1);
+    }, () => playing && !reducedMotion());
+    playBtn.addEventListener('click', () => {
+      if (reducedMotion()) { ns.set(NS.length - 1); return; }
+      if (!playing && ni >= NS.length - 1) ns.set(0);
+      setPlaying(!playing);
+    });
+  });
+</script>

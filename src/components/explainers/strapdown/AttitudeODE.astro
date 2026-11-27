@@ -1,164 +1,300 @@
 ---
 import M from '../../blog/M.astro';
-// Attitude kinematics: the body axes (columns of C) move with velocity ω × axis. Exact rotation vs. repeated
-// first-order steps C ← C (I + [ω×]Δt), which lengthen the axes and spoil orthonormality.
+// Attitude kinematics in 2D (rotation about the vertical only), seen from above with north up and east right.
+// The columns of C (body axes) move perpendicular to themselves with speed ω. Repeated first-order steps
+// C ← C (I + [ω×]Δt) move each tip straight along the tangent and spiral outwards; exact steps C ← C exp([ω×]Δt)
+// follow the unit circle.
 ---
 
 <figure class="xp wide" data-xp="attode">
-  <div class="xp-head"><span class="label fig-title">Integrating the attitude equation step by step</span><span class="label" style="color:var(--muted)">drag to orbit</span></div>
+  <div class="xp-head"><span class="label fig-title">Integrating the attitude equation step by step</span></div>
   <div class="xp-row two">
-    <canvas class="c3d drag" role="img" aria-label="The three body axes rotating at a constant rate, with small velocity arrows at their tips; a second set of axes computed with first-order steps grows outwards"></canvas>
-    <canvas class="cplot" role="img" aria-label="Lengths of the three first-order axes over time; the exact lengths stay at one"></canvas>
+    <canvas class="c-main" role="img" aria-label="Top view with north up and east right: the unit circle, the two body axes as arrows from the centre, the velocity of each axis tip along the tangent, and the trail of the computed axis tips, step by step"></canvas>
+    <div class="ao-side">
+      <p class="ao-title">One step of the tip of <M t={String.raw`\mathbf c_1`} />, magnified (lengths relative to <M t={String.raw`\lVert\mathbf c_1\rVert`} />)</p>
+      <canvas class="c-zoom" role="img" aria-label="Magnified view of one step: the straight first-order step along the tangent ends slightly outside the circular arc that the exact step follows"></canvas>
+      <div class="ao-eq">
+        <div class="ao-blk">
+          <span class="ao-cap"><span data-cap="fo">step <M t={String.raw`\mathbf I + [\boldsymbol\omega\times]\Delta t`} /></span><span data-cap="ex" hidden>step <M t={String.raw`\exp([\boldsymbol\omega\times]\Delta t)`} /></span></span>
+          <table class="ao-m"><tbody data-m="s"></tbody></table>
+        </div>
+        <div class="ao-blk hot">
+          <span class="ao-cap"><M t={String.raw`\mathbf C_k`} /></span>
+          <table class="ao-m"><tbody data-m="c"></tbody></table>
+        </div>
+        <div class="ao-blk hot">
+          <span class="ao-cap"><M t={String.raw`\mathbf C_k^\mathsf T\mathbf C_k`} /> (exact: <M t={String.raw`\mathbf I`} />)</span>
+          <table class="ao-m"><tbody data-m="g"></tbody></table>
+        </div>
+      </div>
+      <p class="small muted ao-note">In two dimensions <M t={String.raw`[\boldsymbol\omega\times]`} /> shrinks to <M t={String.raw`\begin{bmatrix} 0 & -\omega \\ \omega & 0 \end{bmatrix}`} />, so <M t={String.raw`\dot{\mathbf C} = \mathbf C \begin{bmatrix} 0 & -\omega \\ \omega & 0 \end{bmatrix}`} />, column by column <M t={String.raw`\dot{\mathbf c}_1 = \omega\,\mathbf c_2`} /> and <M t={String.raw`\dot{\mathbf c}_2 = -\omega\,\mathbf c_1`} />: each axis moves like itself turned by <M t={String.raw`90^\circ`} /> (clockwise from above), times <M t={String.raw`\omega`} />.</p>
+      <p class="small muted ao-note" data-note="fo">First-order step: new axis = old axis + <M t={String.raw`\omega\Delta t`} /> × (old axis turned by <M t={String.raw`90^\circ`} />). A straight step along the tangent: each step lengthens the axis by the factor <M t={String.raw`\sqrt{1 + (\omega\Delta t)^2}`} />.</p>
+      <p class="small muted ao-note" data-note="ex" hidden>Exact step: new axis = <M t={String.raw`\cos(\omega\Delta t)`} /> × old axis + <M t={String.raw`\sin(\omega\Delta t)`} /> × (old axis turned by <M t={String.raw`90^\circ`} />). The tip moves along the arc and the length stays 1.</p>
+    </div>
   </div>
   <ul class="xp-legend">
-    <li class="c-fg"><i></i><span>exact body axes <M t={String.raw`\mathbf c_1, \mathbf c_2, \mathbf c_3`} /> (columns of <M t={String.raw`\mathbf C_b^n`} />)</span></li>
-    <li class="c-muted"><i></i><span>their velocities <M t={String.raw`\dot{\mathbf c}_i = \boldsymbol\omega \times \mathbf c_i`} /></span></li>
-    <li class="c-accent"><i></i><span>first-order steps <M t={String.raw`\mathbf C_{k+1} = \mathbf C_k\,(\mathbf I + [\boldsymbol\omega_{nb}^b\times]\,\Delta t)`} /></span></li>
+    <li class="c-fg"><i></i><span>exact body axes <M t={String.raw`\mathbf c_1, \mathbf c_2`} /> (columns of <M t={String.raw`\mathbf C`} />)</span></li>
+    <li class="c-muted"><i></i><span>velocity of each tip times the step, <M t={String.raw`\dot{\mathbf c}_i\,\Delta t`} /></span></li>
+    <li class="c-accent"><i></i><span>computed axes <M t={String.raw`\mathbf C_k`} /> and the path of their tips (dots: steps)</span></li>
   </ul>
   <div class="xp-controls">
-    <label class="xp-ctl"><span><span>Rotation rate <M t={String.raw`\lVert\boldsymbol\omega_{nb}^b\rVert`} /></span><output for="w"></output></span><input type="range" name="w" min="0.2" max="1.5" step="0.05" value="0.8" /></label>
-    <label class="xp-ctl"><span><span>Step size <M t={String.raw`\Delta t`} /></span><output for="dt"></output></span><input type="range" name="dt" min="0.02" max="0.5" step="0.01" value="0.15" /></label>
+    <label class="xp-ctl"><span><span>Angle per step <M t={String.raw`\omega\Delta t`} /></span><output for="deg"></output></span><input type="range" name="deg" min="2" max="45" step="1" value="12" /></label>
   </div>
   <div class="xp-btns">
-    <button class="btn" type="button" data-act="play" aria-pressed="true">play</button>
-    <button class="btn" type="button" data-act="restart">restart</button>
+    <button class="btn" type="button" data-mode="fo" aria-pressed="true">first-order step</button>
+    <button class="btn" type="button" data-mode="ex" aria-pressed="false">exact step</button>
+    <span class="ao-gap"></span>
+    <button class="btn" type="button" data-act="step">one step</button>
+    <button class="btn" type="button" data-act="play" aria-pressed="false">play</button>
+    <button class="btn" type="button" data-act="reset">reset</button>
   </div>
   <p class="xp-readout" aria-live="polite">
-    <span>time <b data-o="t"></b></span>
-    <span>angle per step <M t={String.raw`\lVert\boldsymbol\omega\rVert\Delta t`} /> = <b data-o="step"></b></span>
-    <span>axis lengths <b class="hot" data-o="len"></b> (exact: 1, 1, 1)</span>
-    <span><M t={String.raw`\lVert\mathbf C_k^\mathsf T\mathbf C_k - \mathbf I\rVert`} /> = <b class="hot" data-o="orth"></b> (exact: 0)</span>
+    <span>step <M t="k" /> = <b data-o="k"></b></span>
+    <span>angle turned <M t={String.raw`k\,\omega\Delta t`} /> = <b data-o="ang"></b></span>
+    <span>direction of computed <M t={String.raw`\mathbf c_1`} /> = <b class="hot" data-o="dir"></b></span>
+    <span>length <M t={String.raw`\lVert\mathbf c_1\rVert`} /> = <b class="hot" data-o="len"></b> (exact: 1)</span>
+    <span data-o="status"></span>
   </p>
   <figcaption><slot /></figcaption>
 </figure>
 
+<style>
+  .ao-side { min-width: 0; overflow-x: auto; }
+  .ao-title { margin: 0 0 0.3rem; font-size: 0.8rem; color: var(--fg-soft); text-align: left; }
+  .ao-eq { display: flex; align-items: flex-end; gap: 0.6rem 1.2rem; margin: 0.7rem 0 0.6rem; flex-wrap: wrap; }
+  .ao-blk { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; }
+  .ao-cap { font-size: 0.8rem; color: var(--fg-soft); }
+  .ao-blk.hot .ao-cap { color: var(--accent); }
+  .ao-m { border-collapse: collapse; margin: 0; font-variant-numeric: tabular-nums; font-size: 0.85rem; }
+  .ao-m :global(tr), .ao-m tbody { border: 0; }
+  .ao-m :global(td) { border: 0; padding: 0.1rem 0.45rem; text-align: right; color: var(--fg); min-width: 3.4rem; }
+  .ao-blk.hot .ao-m :global(td) { color: var(--accent); }
+  .ao-m :global(tr td:first-child) { border-left: 1px solid var(--border-strong); }
+  .ao-m :global(tr td:last-child) { border-right: 1px solid var(--border-strong); }
+  .ao-note { text-align: left; margin: 0 0 0.5rem; }
+  .ao-gap { flex: 0 0 0.6rem; }
+</style>
+
 <script>
-  import { palette, setupCanvas, animate, label, slider, arrow, outputs, reducedMotion, axes, series } from '../../../lib/explainer';
-  import { camera, rexp, mm, tr, mv, cross, norm, scale, I3, type M3, type V3 } from '../../../lib/rot';
+  import { palette, setupCanvas, animate, label, slider, arrow, outputs, reducedMotion, lazyInit } from '../../../lib/explainer';
 
-  const AX: V3 = (() => { const v: V3 = [0.35, -0.3, 1]; return scale(v, 1 / norm(v)); })();   // rotation axis in body axes
-  const col = (C: M3, i: number): V3 => [C[i], C[3 + i], C[6 + i]];
-  const skew = (a: V3): M3 => [0, -a[2], a[1], a[2], 0, -a[0], -a[1], a[0], 0];
-  const NAMES = ['$x^b$', '$y^b$', '$z^b$'];
+  type M2 = [number, number, number, number];          // [[a, b], [c, d]] row by row; columns = body axes in (north, east)
+  type V2 = [number, number];                          // (north, east)
+  const D2R = Math.PI / 180;
+  const VIEW = 2.2;                                    // half extent of the main view, in units of the axis length
+  const FIT = 2.1;                                     // stop before an axis tip would leave the view
+  const I2: M2 = [1, 0, 0, 1];
+  const mul = (A: M2, B: M2): M2 => [A[0] * B[0] + A[1] * B[2], A[0] * B[1] + A[1] * B[3], A[2] * B[0] + A[3] * B[2], A[2] * B[1] + A[3] * B[3]];
+  const col = (C: M2, i: number): V2 => (i ? [C[1], C[3]] : [C[0], C[2]]);
+  const turn = (v: V2): V2 => [-v[1], v[0]];           // +90°: clockwise seen from above (north -> east)
+  const rot = (a: number): M2 => [Math.cos(a), -Math.sin(a), Math.sin(a), Math.cos(a)];
+  const first = (a: number): M2 => [1, -a, a, 1];
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="attode"]')) {
-    const c3 = fig.querySelector<HTMLCanvasElement>('.c3d')!, cp = fig.querySelector<HTMLCanvasElement>('.cplot')!;
+  lazyInit('[data-xp="attode"]', (fig) => {
+    const cm = fig.querySelector<HTMLCanvasElement>('.c-main')!, cz = fig.querySelector<HTMLCanvasElement>('.c-zoom')!;
     const out = outputs(fig);
+    const tb = (n: string) => fig.querySelector<HTMLElement>(`[data-m="${n}"]`)!;
+    const tS = tb('s'), tC = tb('c'), tG = tb('g');
     const playBtn = fig.querySelector<HTMLButtonElement>('[data-act="play"]')!;
-    let w = 0.8, dt = 0.15, t = 0, playing = true, az = 0.75, el = 0.42;
-    let steps: M3[] = [];                          // C_0, C_1, ... up to one revolution
-    const Tend = () => (2 * Math.PI) / w;
+    let deg = 12, exact = false, k = 0, u = 0, playing = false, stepping = false, endReason = 'rev';
+    let Cs: M2[] = [I2];
+    const h = () => deg * D2R;
+    const stepM = (a: number) => (exact ? rot(a) : first(a));
+    const kmax = () => Cs.length - 1;
 
     function compute() {
-      const om = scale(AX, w), Om = skew(om), S = I3.map((v, i) => v + Om[i] * dt) as M3;
-      const K = Math.ceil(Tend() / dt);
-      steps = [I3];
-      for (let k = 0; k < K; k++) steps.push(mm(steps[k], S));
+      const S = stepM(h()), N = Math.floor((2 * Math.PI) / h() + 1e-6);
+      Cs = [I2]; endReason = 'rev';
+      for (let j = 0; j < N; j++) {
+        const nx = mul(Cs[j], S);
+        if (Math.hypot(nx[0], nx[2]) > FIT) { endReason = 'out'; break; }
+        Cs.push(nx);
+      }
     }
-    const kNow = () => Math.min(steps.length - 1, Math.floor(t / dt + 1e-9));
+    /** C shown on screen: C_k, or part of the way to C_{k+1} during an animated step */
+    function shown(): M2 {
+      const Ck = Cs[k];
+      if (u <= 0 || k >= kmax()) return Ck;
+      if (exact) return mul(Ck, rot(u * h()));
+      const Cn = Cs[k + 1];
+      return Ck.map((v, i) => v + u * (Cn[i] - v)) as M2;
+    }
 
-    const A = setupCanvas(c3, 0.9, () => draw3d());
-    const B = setupCanvas(cp, 0.9, () => drawPlot());
+    const A = setupCanvas(cm, 1, () => drawMain());
+    const Z = setupCanvas(cz, (w) => Math.min(w * 0.5, 230), () => drawZoom());
 
-    function draw3d() {
+    /** label with a dot over its first letter (canvas math has no \dot) */
+    function dotLabel(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, color: string, size: number, align: CanvasTextAlign) {
+      const w = label(ctx, text, x, y, color, { size, align });
+      const x0 = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x;
+      ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x0 + size * 0.33, y - size * 0.68, 1.4, 0, Math.PI * 2); ctx.fill();
+    }
+
+    function drawMain() {
       const P = palette(), { ctx, size } = A, W = size.w, H = size.h;
       if (!W) return;
       ctx.clearRect(0, 0, W, H);
-      const cam = camera(az, el, Math.min(W, H) * 0.29, W / 2, H / 2 + 10);
-      const pr = (v: V3) => cam.project([v[0], -v[1], -v[2]]);         // z up on screen
-      const o = pr([0, 0, 0]);
-      const C = rexp(scale(AX, w * t)), k = kNow(), Ck = steps[k];
-      // rotation axis
-      const a1 = pr(scale(AX, 1.9)), a0 = pr(scale(AX, -1.2));
-      ctx.strokeStyle = P.muted; ctx.lineWidth = 1; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(a0.x, a0.y); ctx.lineTo(a1.x, a1.y); ctx.stroke(); ctx.setLineDash([]);
-      label(ctx, 'axis of $\\boldsymbol\\omega$', a1.x + 6, a1.y, P.muted, { size: 11 });
-      // circles traced by the exact tips
-      ctx.strokeStyle = P.strong; ctx.lineWidth = 1; ctx.setLineDash([2, 4]);
-      for (let i = 0; i < 3; i++) {
+      const cx = W / 2, cy = H / 2, U = Math.min(W, H) / (2 * VIEW);
+      const X = (v: V2) => cx + v[1] * U, Y = (v: V2) => cy - v[0] * U;
+      // north and east axes
+      ctx.strokeStyle = P.border; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, cy + 0.5); ctx.lineTo(W, cy + 0.5); ctx.moveTo(cx + 0.5, 0); ctx.lineTo(cx + 0.5, H); ctx.stroke();
+      const tw = label(ctx, 'seen from above: north up, east right', 4, 10, P.muted, { size: 11 });
+      // unit circle
+      ctx.strokeStyle = P.strong; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(cx, cy, U, 0, Math.PI * 2); ctx.stroke();
+
+      const a = h(), C = shown();
+      // trail of the computed tips (straight segments for first order, arcs for the exact step)
+      const dotR = deg < 6 ? 1.5 : 2.5;
+      for (let i = 0; i < 2; i++) {
+        ctx.strokeStyle = P.accent; ctx.lineWidth = 1.25; ctx.globalAlpha = 0.75;
         ctx.beginPath();
-        for (let j = 0; j <= 72; j++) { const p = pr(col(rexp(scale(AX, (j / 72) * 2 * Math.PI)), i)); j ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }
-        ctx.stroke();
-      }
-      ctx.setLineDash([]);
-      // first-order tips: polyline of the steps so far
-      for (let i = 0; i < 3; i++) {
-        ctx.strokeStyle = P.accent; ctx.lineWidth = 1.25; ctx.globalAlpha = 0.7; ctx.beginPath();
-        for (let j = 0; j <= k; j++) { const p = pr(col(steps[j], i)); j ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }
+        let p = col(Cs[0], i); ctx.moveTo(X(p), Y(p));
+        for (let j = 0; j < k; j++) {
+          if (exact) for (let s = 1; s <= 8; s++) { p = col(mul(Cs[j], rot((s / 8) * a)), i); ctx.lineTo(X(p), Y(p)); }
+          else { p = col(Cs[j + 1], i); ctx.lineTo(X(p), Y(p)); }
+        }
+        if (u > 0 && k < kmax()) {
+          if (exact) for (let s = 1; s <= 8; s++) { p = col(mul(Cs[k], rot((s / 8) * u * a)), i); ctx.lineTo(X(p), Y(p)); }
+          else { p = col(C, i); ctx.lineTo(X(p), Y(p)); }
+        }
         ctx.stroke(); ctx.globalAlpha = 1;
         ctx.fillStyle = P.accent;
-        for (let j = 0; j <= k; j++) { const p = pr(col(steps[j], i)); ctx.beginPath(); ctx.arc(p.x, p.y, 1.8, 0, Math.PI * 2); ctx.fill(); }
+        for (let j = 0; j <= k; j++) { const q = col(Cs[j], i); ctx.beginPath(); ctx.arc(X(q), Y(q), dotR, 0, Math.PI * 2); ctx.fill(); }
       }
-      // first-order axes
-      for (let i = 0; i < 3; i++) { const p = pr(col(Ck, i)); arrow(ctx, o.x, o.y, p.x, p.y, P.accent, 2.5, 10); }
-      // exact axes and their velocities
-      const omn = mv(C, scale(AX, w));                // ω in navigation axes (constant)
-      for (let i = 0; i < 3; i++) {
-        const c = col(C, i), p = pr(c), v = cross(omn, c), q = pr([c[0] + v[0] * 0.5, c[1] + v[1] * 0.5, c[2] + v[2] * 0.5]);
-        arrow(ctx, o.x, o.y, p.x, p.y, P.fg, 2.5, 10);
-        arrow(ctx, p.x, p.y, q.x, q.y, P.muted, 1.75, 7);
-        label(ctx, NAMES[i], p.x + (p.x >= o.x ? 8 : -8), p.y - 10, P.fg, { size: 14, align: p.x >= o.x ? 'left' : 'right' });
+      // velocity times the step, at the tips of C_k: the axis turned by 90° times ωΔt
+      for (let i = 0; i < 2; i++) {
+        const c = col(Cs[k], i), v = turn(c), e: V2 = [c[0] + a * v[0], c[1] + a * v[1]];
+        arrow(ctx, X(c), Y(c), X(e), Y(e), P.muted, 2, 8);
+        const len = a * Math.hypot(c[0], c[1]) * U;
+        if (len > 22) {
+          // beside the middle of the arrow (outwards), or else beyond its head; skip if neither fits
+          const m: V2 = [(c[0] + e[0]) / 2, (c[1] + e[1]) / 2], n = Math.hypot(m[0], m[1]) || 1, vl = Math.hypot(v[0], v[1]) || 1;
+          const cand: [number, number][] = [[X(m) + (m[1] / n) * 26, Y(m) - (m[0] / n) * 16], [X(e) + (v[1] / vl) * 26, Y(e) - (v[0] / vl) * 16]];
+          const fit = cand.find(([x, y]) => x > 24 && x < W - 24 && y < H - 10 && (y > 26 || (y > 12 && x - 22 > tw + 10)));
+          if (fit) dotLabel(ctx, `$\\b{c}_${i + 1}\\Delta t$`, fit[0], fit[1], P.soft, 12, 'center');
+        }
       }
-      label(ctx, 'velocity arrows show half a second of motion', 8, H - 10, P.muted, { size: 10 });
+      // exact axes (white): heading ψ = (k + u) ωΔt
+      const psi = (k + u) * a, ex: V2[] = [[Math.cos(psi), Math.sin(psi)], [-Math.sin(psi), Math.cos(psi)]];
+      for (const c of ex) arrow(ctx, cx, cy, X(c), Y(c), P.fg, 2, 9);
+      // computed axes (orange)
+      for (let i = 0; i < 2; i++) {
+        const c = col(C, i), n = Math.hypot(c[0], c[1]) || 1;
+        arrow(ctx, cx, cy, X(c), Y(c), P.accent, 2.5, 10);
+        // label beside the shaft, on the side that trails the motion (counter-clockwise of the axis)
+        const t = 0.62, b: V2 = [c[0] * t, c[1] * t], off = 13;
+        label(ctx, `$\\b{c}_${i + 1}$`, X(b) - (c[0] / n) * off, Y(b) - (c[1] / n) * off, P.accent, { size: 14, align: 'center' });
+      }
     }
 
-    function drawPlot() {
-      const P = palette(), { ctx, size } = B, W = size.w, H = size.h;
-      if (!W || !steps.length) return;
+    function drawZoom() {
+      const P = palette(), { ctx, size } = Z, W = size.w, H = size.h;
+      if (!W) return;
       ctx.clearRect(0, 0, W, H);
-      const box = { x: 46, y: 28, w: W - 60, h: H - 66 };
-      let top = 1.05;
-      for (const C of steps) for (let i = 0; i < 3; i++) top = Math.max(top, norm(col(C, i)));
-      top = Math.min(4, 1 + (top - 1) * 1.12 + 0.02);
-      const T = Tend(), { sx, sy } = axes(ctx, P, box, [0, T], [0.9, top], { xlabel: 'time [s]', xticks: 5, yticks: 4, yfmt: (v) => v.toFixed(2) });
-      label(ctx, 'lengths of the axes', box.x, 12, P.soft, { size: 11 });
-      ctx.strokeStyle = P.fg; ctx.lineWidth = 1.75; ctx.beginPath(); ctx.moveTo(box.x, sy(1)); ctx.lineTo(box.x + box.w, sy(1)); ctx.stroke();
-      label(ctx, 'exact: 1', box.x + 6, sy(1) + 12, P.fg, { size: 10 });
-      const k = kNow();
-      const ts = steps.map((_, j) => j * dt);
-      for (let i = 0; i < 3; i++) {
-        const ls = steps.map((C) => norm(col(C, i)));
-        series(ctx, box, ts, ls, sx, sy, P.accent, i === 2 ? 1.5 : 2, i === 2 ? [5, 4] : [], k + 1);
-        const lx = sx(ts[k]), inside = lx > box.x + box.w - 30;
-        if (k > 0) label(ctx, NAMES[i], lx + (inside ? -6 : 6), sy(ls[k]) + (i === 0 ? -10 : i === 1 ? 10 : 10), P.accent, { size: 12, align: inside ? 'right' : 'left' });
+      ctx.strokeStyle = P.border; ctx.lineWidth = 1; ctx.strokeRect(0.5, 0.5, W - 1, H - 1);
+      const a = h(), sc = (W * 0.55) / a;                 // px per unit radius: the straight step spans 55% of the width
+      const x0 = W * 0.12, y0 = H * 0.32;
+      // local coordinates: tangent along +x, outward radial direction up; circle of radius 1 centred at (0, -1)
+      const S = (t: number, r: number) => [x0 + t * sc, y0 - r * sc];
+      const onC = (phi: number) => S(Math.sin(phi), Math.cos(phi) - 1);
+      // exact arc
+      ctx.strokeStyle = P.fg; ctx.lineWidth = 1.5; ctx.beginPath();
+      for (let j = 0; j <= 60; j++) { const q = onC(-0.15 * a + (j / 60) * 1.4 * a); j ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }
+      ctx.stroke();
+      const R = onC(a), Q = S(a, 0), P0 = S(0, 0);
+      const lc = onC(0.5 * a);
+      label(ctx, 'circle', lc[0], lc[1] + 14, P.soft, { size: 11, align: 'center' });
+      if (exact) {
+        arrow(ctx, P0[0], P0[1], Q[0], Q[1], P.muted, 1.5, 7);
+        dotLabel(ctx, '$\\b{c}_1\\Delta t$', (P0[0] + Q[0]) / 2, y0 - 14, P.soft, 12, 'center');
+        ctx.strokeStyle = P.accent; ctx.lineWidth = 2.5; ctx.beginPath();
+        for (let j = 0; j <= 40; j++) { const q = onC((j / 40) * a); j ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }
+        ctx.stroke();
+        ctx.fillStyle = P.accent; ctx.beginPath(); ctx.arc(R[0], R[1], 4, 0, Math.PI * 2); ctx.fill();
+        label(ctx, 'exact step: on the arc, no overshoot', W / 2, H - 14, P.accent, { size: 11, align: 'center' });
+      } else {
+        ctx.fillStyle = P.fg; ctx.beginPath(); ctx.arc(R[0], R[1], 3, 0, Math.PI * 2); ctx.fill();
+        arrow(ctx, P0[0], P0[1], Q[0], Q[1], P.accent, 2.5, 9);
+        label(ctx, 'straight step $\\omega\\Delta t$', (P0[0] + Q[0]) / 2, y0 - 14, P.accent, { size: 11, align: 'center' });
+        // radial overshoot: from the circle (along the radius through Q) out to Q
+        const rq = Math.hypot(a, 1), phiQ = Math.atan2(a, 1), Qc = onC(phiQ);
+        ctx.strokeStyle = P.accent; ctx.lineWidth = 1; ctx.setLineDash([2, 2]);
+        const dir = [Q[0] - Qc[0], Q[1] - Qc[1]], dl = Math.hypot(dir[0], dir[1]) || 1;
+        ctx.beginPath(); ctx.moveTo(Qc[0], Qc[1]); ctx.lineTo(Q[0] + (dir[0] / dl) * 4, Q[1] + (dir[1] / dl) * 4); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = P.accent; ctx.beginPath(); ctx.arc(Qc[0], Qc[1], 2, 0, Math.PI * 2); ctx.fill();
+        const gap = rq - 1;
+        label(ctx, `overshoot ${gap.toFixed(4)}`, Q[0] + 10, Q[1] + 2, P.accent, { size: 11 });
+        label(ctx, '$\\approx(\\omega\\Delta t)^2/2$', Q[0] + 10, Q[1] + 17, P.accent, { size: 11 });
+        label(ctx, 'exact step ends on the circle', W / 2, H - 14, P.soft, { size: 11, align: 'center' });
       }
-      const x = sx(Math.min(t, T));
-      ctx.strokeStyle = P.strong; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, box.y); ctx.lineTo(Math.round(x) + 0.5, box.y + box.h); ctx.stroke();
+      ctx.fillStyle = P.fg; ctx.beginPath(); ctx.arc(P0[0], P0[1], 3.5, 0, Math.PI * 2); ctx.fill();
+      label(ctx, 'tip', P0[0], P0[1] + 15, P.soft, { size: 11, align: 'center' });
     }
 
-    function readout() {
-      const k = kNow(), Ck = steps[k];
-      const E = mm(tr(Ck), Ck).map((v, i) => v - I3[i]);
-      out('t', `${t.toFixed(2)} s (step ${k}, ${((w * t * 180) / Math.PI).toFixed(0)}° turned)`);
-      out('step', `${((w * dt * 180) / Math.PI).toFixed(1)}° = ${(w * dt).toFixed(3)} rad`);
-      out('len', [0, 1, 2].map((i) => norm(col(Ck, i)).toFixed(3)).join(', '));
-      out('orth', Math.hypot(...E).toFixed(3));
+    const f = (v: number) => (Math.abs(v) < 5e-4 ? '0.000' : v.toFixed(3));
+    const mat = (M: M2) => `<tr><td>${f(M[0])}</td><td>${f(M[1])}</td></tr><tr><td>${f(M[2])}</td><td>${f(M[3])}</td></tr>`;
+    function panel() {
+      fig.querySelectorAll<HTMLElement>('[data-note], [data-cap]').forEach((n) => (n.hidden = (n.dataset.note ?? n.dataset.cap) !== (exact ? 'ex' : 'fo')));
+      const Ck = Cs[k];
+      tS.innerHTML = mat(stepM(h()));
+      tC.innerHTML = mat(Ck);
+      const G: M2 = [Ck[0] * Ck[0] + Ck[2] * Ck[2], Ck[0] * Ck[1] + Ck[2] * Ck[3], 0, Ck[1] * Ck[1] + Ck[3] * Ck[3]];
+      G[2] = G[1];
+      tG.innerHTML = mat(G);
+      out('k', String(k));
+      out('ang', `${(k * deg).toFixed(0)}°`);
+      const d = (Math.atan2(Ck[2], Ck[0]) / D2R + 360) % 360;
+      out('dir', `${d.toFixed(1)}° from north`);
+      out('len', Math.hypot(Ck[0], Ck[2]).toFixed(3));
+      out('status', k < kmax() ? '' : endReason === 'out' ? '(stopped: the next step would leave the view)' : '(one full revolution)');
     }
-    const draw = () => { draw3d(); drawPlot(); readout(); };
-    const setPlaying = (p: boolean) => { playing = p; playBtn.setAttribute('aria-pressed', String(p)); playBtn.textContent = p ? 'pause' : 'play'; if (p) anim.kick(); };
+    function draw() { drawMain(); drawZoom(); panel(); }
 
-    const anim = animate(fig, (d) => {
-      t += d;
-      if (t >= Tend()) { t = Tend(); setPlaying(false); }
+    const setPlaying = (p: boolean) => { playing = p; playBtn.textContent = p ? 'pause' : 'play'; playBtn.setAttribute('aria-pressed', String(p)); if (p) anim.kick(); };
+    const dur = () => Math.max(0.05, Math.min(0.4, 8 / (360 / deg)));     // seconds per step: one revolution in about 8 s
+    const anim = animate(fig, (dt) => {
+      if (k >= kmax()) { stepping = false; setPlaying(false); u = 0; draw(); return; }
+      u += dt / dur();
+      if (u >= 1) {
+        u = 0; k++;
+        if (!playing) stepping = false;
+        if (k >= kmax()) { stepping = false; setPlaying(false); }
+      }
       draw();
-    }, () => playing && !reducedMotion());
+    }, () => (playing || stepping) && !reducedMotion());
 
-    const reset = () => { compute(); t = reducedMotion() ? Tend() : Math.min(t, Tend()); draw(); };
-    slider(fig, 'w', (v) => `${v.toFixed(2)} rad/s`, (v) => { w = v; reset(); });
-    slider(fig, 'dt', (v) => `${v.toFixed(2)} s`, (v) => { dt = v; reset(); });
-    if (reducedMotion()) { t = Tend(); setPlaying(false); draw(); } else setPlaying(true);
+    slider(fig, 'deg', (v) => `${v}°`, (v) => {
+      const ang = k * deg;
+      deg = v; compute();
+      k = Math.min(kmax(), Math.round(ang / deg)); u = 0; stepping = false;
+      draw();
+    });
+    const mb = fig.querySelectorAll<HTMLButtonElement>('[data-mode]');
+    mb.forEach((b) => b.addEventListener('click', () => {
+      exact = b.dataset.mode === 'ex';
+      mb.forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      compute(); k = Math.min(k, kmax()); u = 0; stepping = false;
+      draw();
+    }));
+    fig.querySelector('[data-act="step"]')!.addEventListener('click', () => {
+      if (playing) setPlaying(false);
+      if (stepping || k >= kmax()) return;
+      if (reducedMotion()) { k++; draw(); return; }
+      stepping = true; u = 0; anim.kick();
+    });
     playBtn.addEventListener('click', () => {
-      if (reducedMotion()) { t = Tend(); draw(); return; }
-      if (!playing && t >= Tend()) t = 0;
+      if (k >= kmax() && !playing) { k = 0; u = 0; }
+      if (reducedMotion()) { k = kmax(); u = 0; draw(); return; }
       setPlaying(!playing);
+      draw();
     });
-    fig.querySelector('[data-act="restart"]')!.addEventListener('click', () => {
-      t = reducedMotion() ? Tend() : 0; draw();
-      if (!reducedMotion()) setPlaying(true);
+    fig.querySelector('[data-act="reset"]')!.addEventListener('click', () => {
+      setPlaying(false); stepping = false; k = 0; u = 0; draw();
     });
 
-    let drag: { x: number; y: number; az: number; el: number } | null = null;
-    c3.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, az, el }; c3.setPointerCapture(e.pointerId); });
-    c3.addEventListener('pointermove', (e) => { if (!drag) return; az = drag.az - (e.clientX - drag.x) * 0.01; el = Math.max(-1.2, Math.min(1.4, drag.el + (e.clientY - drag.y) * 0.01)); draw3d(); });
-    c3.addEventListener('pointerup', () => (drag = null));
-  }
+    k = Math.min(kmax(), Math.round(180 / deg));     // start half a turn in, so the drift is already visible
+    draw();
+  });
 </script>

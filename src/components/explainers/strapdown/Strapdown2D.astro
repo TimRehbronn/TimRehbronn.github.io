@@ -25,7 +25,7 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, animate, rng, axes, series, label, slider, fmtLen, reducedMotion, outputs } from '../../../lib/explainer';
+  import { palette, setupCanvas, animate, rng, axes, series, label, slider, fmtLen, reducedMotion, outputs, lazyInit } from '../../../lib/explainer';
 
   const G = 9.80665, DT = 0.01, D2R = Math.PI / 180;
   // route: [duration s, longitudinal acceleration m/s², yaw rate °/s]
@@ -48,7 +48,7 @@ import M from '../../blog/M.astro';
     }
   }
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="s2d"]')) {
+  lazyInit('[data-xp="s2d"]', (fig) => {
     const canvas = fig.querySelector('canvas')!;
     const out = outputs(fig);
     const playBtn = fig.querySelector<HTMLButtonElement>('[data-act="play"]')!;
@@ -160,5 +160,5 @@ import M from '../../blog/M.astro';
     playBtn.addEventListener('click', () => { if (now >= T) return restart(); running = !running; playBtn.textContent = running ? 'Pause' : 'Play'; anim.kick(); });
     fig.querySelector('[data-act="reset"]')!.addEventListener('click', restart);
     if (!running) playBtn.textContent = 'Play';
-  }
+  });
 </script>

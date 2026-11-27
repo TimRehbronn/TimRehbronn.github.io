@@ -32,7 +32,7 @@ import M from '../../blog/M.astro';
   <figcaption><slot /></figcaption>
 </figure>
 
-<style>
+<style is:global>
   .cp-side { min-width: 0; overflow-x: auto; }
   .cp-eq { display: flex; align-items: center; gap: 0.5rem; margin: 0.4rem 0 0.8rem; }
   .cp-blk { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; }
@@ -47,12 +47,12 @@ import M from '../../blog/M.astro';
 </style>
 
 <script>
-  import { palette, setupCanvas, label, slider, arrow } from '../../../lib/explainer';
+  import { palette, setupCanvas, label, slider, arrow, lazyInit } from '../../../lib/explainer';
   import { camera, cross, dot, scale, sub, add, norm, type V3 } from '../../../lib/rot';
 
   const D2R = Math.PI / 180;
   const f2 = (x: number) => (Math.abs(x) < 5e-3 ? '0' : x.toFixed(2));
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="cross"]')) {
+  lazyInit('[data-xp="cross"]', (fig) => {
     const canvas = fig.querySelector('canvas')!;
     const tAx = fig.querySelector<HTMLElement>('[data-o-ax]')!, tB = fig.querySelector<HTMLElement>('[data-o-b]')!, tC = fig.querySelector<HTMLElement>('[data-o-c]')!;
     let baz = 70, bel = 25, al = 1, az = 0.8, el = 0.4;
@@ -100,5 +100,5 @@ import M from '../../blog/M.astro';
     canvas.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, az, el }; canvas.setPointerCapture(e.pointerId); });
     canvas.addEventListener('pointermove', (e) => { if (!drag) return; az = drag.az - (e.clientX - drag.x) * 0.01; el = Math.max(-1.2, Math.min(1.4, drag.el + (e.clientY - drag.y) * 0.01)); draw(); });
     canvas.addEventListener('pointerup', () => (drag = null));
-  }
+  });
 </script>

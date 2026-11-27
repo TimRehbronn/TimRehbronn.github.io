@@ -33,7 +33,7 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, animate, label, slider, arrow, axes, series, reducedMotion, outputs, fmtLen } from '../../../lib/explainer';
+  import { palette, setupCanvas, animate, label, slider, arrow, axes, series, reducedMotion, outputs, fmtLen, lazyInit } from '../../../lib/explainer';
 
   const G = 9.80665, R = 6.371e6, WS2 = G / R, WV2 = (2 * G) / R, WV = Math.sqrt(WV2);
   const TEND = 90 * 60, DT = 0.5, EVERY = 20, NS = Math.round(TEND / DT / EVERY) + 1;
@@ -41,7 +41,7 @@ import M from '../../blog/M.astro';
   const W0 = (2 * Math.PI) / 300, K1 = 2 * 0.7 * W0, K2 = W0 * W0 + WV2;
   const XR: [number, number] = [-5, 15]; // km, shared by landscape and trace
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="vchan"]')) {
+  lazyInit('[data-xp="vchan"]', (fig) => {
     const cH = fig.querySelector<HTMLCanvasElement>('[data-c="h"]')!;
     const cV = fig.querySelector<HTMLCanvasElement>('[data-c="v"]')!;
     const out = outputs(fig);
@@ -160,5 +160,5 @@ import M from '../../blog/M.astro';
     baroBtn.addEventListener('click', () => { baro = !baro; baroBtn.setAttribute('aria-pressed', String(baro)); simulate(); draw(); });
     slider(fig, 'bz', (v) => `${v.toFixed(2)} mg`, (v) => { bz = v; simulate(); draw(); });
     setRun(running);
-  }
+  });
 </script>

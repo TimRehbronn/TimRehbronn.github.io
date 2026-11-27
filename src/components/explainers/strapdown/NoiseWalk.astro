@@ -26,11 +26,11 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, label, slider, axes, series, rng, outputs } from '../../../lib/explainer';
+  import { palette, setupCanvas, label, slider, axes, series, rng, outputs, lazyInit } from '../../../lib/explainer';
 
   const T = 60, RUNS = 300, SHOW = 30;
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="nw"]')) {
+  lazyInit('[data-xp="nw"]', (fig) => {
     const canvas = fig.querySelector('canvas')!;
     const out = outputs(fig);
     let nd = 0.3, fs = 10, mode = 1, seed = 11;
@@ -104,5 +104,5 @@ import M from '../../blog/M.astro';
     const mb = fig.querySelectorAll<HTMLButtonElement>('[data-mode]');
     mb.forEach((b) => b.addEventListener('click', () => { mode = Number(b.dataset.mode); mb.forEach((x) => x.setAttribute('aria-pressed', String(x === b))); upd(); }));
     fig.querySelector('[data-act="seed"]')!.addEventListener('click', () => { seed++; upd(); });
-  }
+  });
 </script>

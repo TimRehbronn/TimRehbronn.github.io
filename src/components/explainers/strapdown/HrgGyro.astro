@@ -33,10 +33,10 @@ import M from '../../blog/M.astro';
 </style>
 
 <script>
-  import { palette, setupCanvas, animate, label, slider, outputs, reducedMotion } from '../../../lib/explainer';
+  import { palette, setupCanvas, animate, label, slider, outputs, reducedMotion, lazyInit } from '../../../lib/explainer';
 
   const D2R = Math.PI / 180;
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="hrg"]')) {
+  lazyInit('[data-xp="hrg"]', (fig) => {
     const canvas = fig.querySelector('canvas')!;
     const out = outputs(fig);
     let rate = 20, k = 0.3, phi = 0, t = 0;
@@ -87,5 +87,5 @@ import M from '../../blog/M.astro';
     kb.forEach((b) => b.addEventListener('click', () => { k = Number(b.dataset.k); kb.forEach((x) => x.setAttribute('aria-pressed', String(x === b))); draw(); }));
     fig.querySelector('[data-act="reset"]')!.addEventListener('click', () => { phi = 0; draw(); });
     if (reducedMotion()) { phi = 60; draw(); }
-  }
+  });
 </script>

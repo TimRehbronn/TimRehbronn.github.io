@@ -27,11 +27,11 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, label, slider, arrow, outputs, axes, series } from '../../../lib/explainer';
+  import { palette, setupCanvas, label, slider, arrow, outputs, axes, series, lazyInit } from '../../../lib/explainer';
 
   const D2R = Math.PI / 180;
   const gapOf = (a: number) => Math.hypot(Math.cos(a) - 1, Math.sin(a) - a);   // tip gap for r = 1
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="smallrot"]')) {
+  lazyInit('[data-xp="smallrot"]', (fig) => {
     const cg = fig.querySelector<HTMLCanvasElement>('.c-geo')!, ce = fig.querySelector<HTMLCanvasElement>('.c-err')!;
     const out = outputs(fig);
     let dth = 20, rr = 1;
@@ -124,5 +124,5 @@ import M from '../../blog/M.astro';
     }
     slider(fig, 'dth', (v) => `${v.toFixed(1)}° = ${(v * D2R).toFixed(3)} rad`, (v) => { dth = v; draw(); });
     slider(fig, 'rr', (v) => v.toFixed(2), (v) => { rr = v; draw(); });
-  }
+  });
 </script>

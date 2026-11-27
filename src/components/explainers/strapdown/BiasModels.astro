@@ -29,11 +29,11 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, label, slider, axes, series, rng, outputs } from '../../../lib/explainer';
+  import { palette, setupCanvas, label, slider, axes, series, rng, outputs, lazyInit } from '../../../lib/explainer';
 
   const T = 120, DT = 0.5, NS = Math.round(T / DT) + 1, RUNS = 300, SHOW = 40;  // minutes
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="biasmodels"]')) {
+  lazyInit('[data-xp="biasmodels"]', (fig) => {
     const canvas = fig.querySelector('canvas')!;
     const out = outputs(fig);
     let mode = 2, seed = 3, s0 = 2, K = 2, sb = 2, tc = 15;
@@ -114,5 +114,5 @@ import M from '../../blog/M.astro';
     mb.forEach((b) => b.addEventListener('click', () => { mode = Number(b.dataset.mode); mb.forEach((x) => x.setAttribute('aria-pressed', String(x === b))); enable(); upd(); }));
     fig.querySelector('[data-act="seed"]')!.addEventListener('click', () => { seed++; upd(); });
     enable();
-  }
+  });
 </script>

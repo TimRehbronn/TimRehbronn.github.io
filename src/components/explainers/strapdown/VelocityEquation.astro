@@ -33,13 +33,13 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, label, slider, arrow, axes, outputs } from '../../../lib/explainer';
+  import { palette, setupCanvas, label, slider, arrow, axes, outputs, lazyInit } from '../../../lib/explainer';
   import { cross, scale, add, sub, norm, type V3 } from '../../../lib/rot';
 
   const D2R = Math.PI / 180, WIE = 7.292115e-5, A0 = 6378137, E2 = 6.69437999014e-3, MG = 9.80665e-3;
   const sig = (x: number) => (Math.abs(x) >= 100 ? x.toFixed(0) : Math.abs(x) >= 1 ? x.toFixed(2) : x.toPrecision(2));
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="veleq"]')) {
+  lazyInit('[data-xp="veleq"]', (fig) => {
     const out = outputs(fig);
     let spd = 250, crs = 45, lat = 51, acc = 1;
     const cS = fig.querySelector<HTMLCanvasElement>('.c-side')!, cT = fig.querySelector<HTMLCanvasElement>('.c-top')!, cB = fig.querySelector<HTMLCanvasElement>('.c-bar')!;
@@ -181,5 +181,5 @@ import M from '../../blog/M.astro';
     slider(fig, 'crs', (v) => `${v}°`, (v) => { crs = v; draw(); });
     slider(fig, 'lat', (v) => `${v}°`, (v) => { lat = v; draw(); });
     slider(fig, 'acc', (v) => `${v.toFixed(1)} m/s²`, (v) => { acc = v; draw(); });
-  }
+  });
 </script>

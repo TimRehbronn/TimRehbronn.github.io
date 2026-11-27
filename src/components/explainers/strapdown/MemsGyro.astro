@@ -30,12 +30,12 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, animate, label, slider, arrow, axes, series, outputs, reducedMotion } from '../../../lib/explainer';
+  import { palette, setupCanvas, animate, label, slider, arrow, axes, series, outputs, reducedMotion, lazyInit } from '../../../lib/explainer';
 
   const D2R = Math.PI / 180, Q = 1e4, WIE = 7.292115e-5;
   const fmtLen = (m: number) => { const a = Math.abs(m); return a >= 1e-6 ? `${(m * 1e6).toFixed(2)} µm` : a >= 1e-9 ? `${(m * 1e9).toFixed(2)} nm` : a >= 1e-12 ? `${(m * 1e12).toFixed(2)} pm` : `${(m * 1e15).toFixed(1)} fm`; };
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="mems"]')) {
+  lazyInit('[data-xp="mems"]', (fig) => {
     const cs = fig.querySelector<HTMLCanvasElement>('.c-s')!, ct = fig.querySelector<HTMLCanvasElement>('.c-t')!;
     const out = outputs(fig);
     let om = 60, amp = 10, fd = 20, ldf = 2.7, t = 0;
@@ -120,5 +120,5 @@ import M from '../../blog/M.astro';
     slider(fig, 'amp', (v) => `${v.toFixed(1)} µm`, (v) => { amp = v; drawPlots(); });
     slider(fig, 'fd', (v) => `${v} kHz`, (v) => { fd = v; drawPlots(); });
     slider(fig, 'df', (v) => `${(10 ** v).toFixed(0)} Hz`, (v) => { ldf = v; drawPlots(); });
-  }
+  });
 </script>

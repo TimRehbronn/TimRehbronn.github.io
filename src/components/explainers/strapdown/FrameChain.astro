@@ -1,0 +1,461 @@
+---
+import M from '../../blog/M.astro';
+// The chain of frames from the sensor axes to the frames in which results are wanted: s -> b -> n -> e -> i, with
+// the vehicle v and the aiding sensors a, c, l attached to b. Nodes and link labels are HTML on a fixed grid
+// (800 x 382 wide, 380 x 560 tall for phones; sizes in container units), the links are SVG lines.
+// The reader picks a "measured in" and a "wanted in" frame; the path lights up and the readout shows the product
+// with index cancellation. Clicking or hovering a link label shows where that link comes from.
+
+type Kind = 'cal' | 'geo' | 'est';
+type Node = { id: string; name: string; w: [number, number]; t: [number, number] };
+const WW = 800, WH = 382, TW = 380, TH = 560;
+const nodes: Node[] = [
+  { id: 's', name: 'sensor axes', w: [62, 172], t: [95, 45] },
+  { id: 'b', name: 'IMU (body)', w: [236, 172], t: [95, 160] },
+  { id: 'n', name: 'local NED', w: [410, 172], t: [95, 285] },
+  { id: 'e', name: 'ECEF', w: [584, 172], t: [95, 400] },
+  { id: 'i', name: 'ECI', w: [738, 172], t: [95, 515] },
+  { id: 'v', name: 'vehicle', w: [236, 44], t: [290, 45] },
+  { id: 'a', name: 'GNSS antenna', w: [80, 317], t: [290, 135] },
+  { id: 'c', name: 'camera', w: [236, 317], t: [290, 225] },
+  { id: 'l', name: 'LiDAR', w: [420, 317], t: [290, 315] },
+];
+const N = Object.fromEntries(nodes.map((n) => [n.id, n]));
+
+type Card = {
+  id: string; a: string; b: string; kind: Kind; chip: string; title: string; math: string;
+  what?: string; from: string; needs: string; changes: string; where: [string, string?][];
+};
+const KIND: Record<Kind, string> = { cal: 'calibration · constant', geo: 'geometry and time · known', est: 'estimated state · changes fast' };
+const cards: Card[] = [
+  {
+    id: 'sb', a: 's', b: 'b', kind: 'cal', chip: String.raw`\mathbf b,\ \mathbf M`,
+    title: 'Sensor axes to IMU axes: intrinsic calibration',
+    math: String.raw`\mathbf f_{ib}^b = (\mathbf I + \mathbf M_a)^{-1}\big(\tilde{\mathbf f}^s - \mathbf b_a\big), \qquad \boldsymbol\omega_{ib}^b = (\mathbf I + \mathbf M_g)^{-1}\big(\tilde{\boldsymbol\omega}^s - \mathbf b_g - \mathbf G_g\,\mathbf f_{ib}^b\big)`,
+    what: 'Not a rotation: the error model solved for the true input (noise left out). It removes the biases and undoes the scale factor errors and the non-perpendicular sensitive axes. The post writes the raw outputs as $\\tilde{\\mathbf f}_{ib}^b$ and puts the axis errors into $\\mathbf M_a$; here they get their own frame $s$.',
+    from: 'Intrinsic calibration: multi-position tests for the accelerometers, a rate table for the gyros, repeated in a temperature chamber.',
+    needs: 'Laboratory measurements against known inputs (gravity $g$, the Earth rate $\\omega_{ie}$, the table rate), stored in the IMU; in operation the temperature $T$.',
+    changes: 'Nearly constant: the parameters follow the temperature $T$, and the residual bias wanders slowly, so the fusion filter keeps estimating it.',
+    where: [['The error model', '#the-error-model'], ['Intrinsic calibration', '#intrinsic-calibration-measuring-the-sensor-against-known-inputs'], ['in-run estimation: part 5']],
+  },
+  {
+    id: 'bv', a: 'b', b: 'v', kind: 'cal', chip: String.raw`\mathbf C_b^v,\ \mathbf l_{vb}^v`,
+    title: 'IMU to vehicle: mounting rotation and lever arm',
+    math: String.raw`\mathbf x^v = \mathbf C_b^v\,\mathbf x^b, \qquad \mathbf C_v^n = \mathbf C_b^n\,\mathbf C_v^b, \qquad \mathbf p_v^n = \mathbf p_b^n - \mathbf C_v^n\,\mathbf l_{vb}^v`,
+    from: 'Extrinsic calibration of the installation.',
+    needs: 'Drawings, a tape measure or a total station survey for the lever arm $\\mathbf l_{vb}^v$; the small mounting angles $\\delta\\boldsymbol\\alpha$ from reference surfaces, or estimated in the filter, where turns make them observable.',
+    changes: 'Constant, as long as the IMU stays bolted in place.',
+    where: [['Extrinsic calibration', '#extrinsic-calibration-where-the-imu-sits-on-the-vehicle'], ['multi-sensor calibration: part 10']],
+  },
+  {
+    id: 'bn', a: 'b', b: 'n', kind: 'est', chip: String.raw`\mathbf C_b^n`,
+    title: 'IMU to navigation frame: the attitude',
+    math: String.raw`\mathbf x^n = \mathbf C_b^n\,\mathbf x^b, \qquad \dot{\mathbf C}_b^n = \mathbf C_b^n\,\boldsymbol\Omega_{ib}^b - \boldsymbol\Omega_{in}^n\,\mathbf C_b^n`,
+    what: 'The main thing the strapdown algorithm estimates.',
+    from: 'Integration of the attitude equation with the gyro measurements, started by alignment: levelling with the accelerometers, then gyrocompassing with the Earth rate, or the heading from GNSS or a magnetometer.',
+    needs: 'The gyro rates $\\boldsymbol\\omega_{ib}^b$ at every time step, an initial attitude, and the rotation $\\boldsymbol\\omega_{in}^n$ of the navigation frame, which needs the latitude and the velocity.',
+    changes: 'Fast, with every manoeuvre, at up to hundreds of degrees per second. Its errors grow without bound, which is why it is corrected by aiding.',
+    where: [['The full strapdown equations: attitude', '#attitude'], ['Where does the initial attitude come from?', '#where-does-the-initial-attitude-come-from'], ['GNSS/INS fusion: part 5'], ['filters on manifolds: part 8']],
+  },
+  {
+    id: 'ne', a: 'n', b: 'e', kind: 'geo', chip: String.raw`\mathbf C_n^e`,
+    title: 'Navigation frame to Earth-fixed frame',
+    math: String.raw`\mathbf C_n^e = \begin{bmatrix} \mathbf e_N & \mathbf e_E & \mathbf e_D \end{bmatrix}`,
+    from: 'Geometry: its columns are the north, east and down axes written in ECEF coordinates, from the definition of the frame $n$.',
+    needs: 'The latitude $L$ and longitude $\\lambda$, i.e. the position, which the INS integrates itself and GNSS measures.',
+    changes: 'Slowly, as the vehicle moves over the curved Earth, at the transport rate $\\boldsymbol\\omega_{en}^n$: about $1\\,°/\\text{h}$ for a car, $8\\,°/\\text{h}$ for an airliner.',
+    where: [['The four frames', '#the-four-frames-of-inertial-navigation'], ['The transport rate', '#the-transport-rate'], ['GNSS: part 2']],
+  },
+  {
+    id: 'ei', a: 'e', b: 'i', kind: 'geo', chip: String.raw`\mathbf C_e^i`,
+    title: 'Earth-fixed frame to inertial frame',
+    math: String.raw`\mathbf C_e^i = \begin{bmatrix} \cos\omega_{ie}t & -\sin\omega_{ie}t & 0 \\ \sin\omega_{ie}t & \cos\omega_{ie}t & 0 \\ 0 & 0 & 1 \end{bmatrix}`,
+    what: 'The gyros and accelerometers measure relative to $i$, so this link is why the Earth rate $\\boldsymbol\\omega_{ie}^n$ appears in the strapdown equations. An INS that works in $n$ uses that rate, not the matrix itself.',
+    from: 'The rotation of the Earth about the common $z$-axis.',
+    needs: 'The time $t$ since the axes of $e$ and $i$ coincided, and the Earth rate $\\omega_{ie}$.',
+    changes: 'Steadily, at $\\omega_{ie} \\approx 15.04\\,°/\\text{h}$.',
+    where: [['The four frames', '#the-four-frames-of-inertial-navigation'], ['The Earth rate in the navigation frame', '#the-earth-rate-in-the-navigation-frame']],
+  },
+  {
+    id: 'ba', a: 'b', b: 'a', kind: 'cal', chip: String.raw`\mathbf l_{ba}^b`,
+    title: 'IMU to GNSS antenna: a lever arm only',
+    math: String.raw`\mathbf p_a^n = \mathbf p_b^n + \mathbf C_b^n\,\mathbf l_{ba}^b`,
+    what: 'An antenna is a point: its orientation carries no useful information, so there is no rotation. GNSS delivers the antenna position in $e$.',
+    from: 'Extrinsic calibration.',
+    needs: 'A measurement of the installation (drawing, tape measure, total station), or estimation in the filter, where turns make it observable.',
+    changes: 'Constant.',
+    where: [['Extrinsic calibration', '#extrinsic-calibration-where-the-imu-sits-on-the-vehicle'], ['GNSS: part 2'], ['GNSS/INS fusion: part 5']],
+  },
+  {
+    id: 'cb', a: 'c', b: 'b', kind: 'cal', chip: String.raw`\mathbf C_c^b,\ \mathbf l_{bc}^b`,
+    title: 'Camera to IMU: camera-IMU extrinsics',
+    math: String.raw`\mathbf x^b = \mathbf C_c^b\,\mathbf x^c, \qquad \mathbf p_c^n = \mathbf p_b^n + \mathbf C_b^n\,\mathbf l_{bc}^b`,
+    from: 'Camera-IMU extrinsic calibration: a calibration target filmed while the rig is moved, hand-eye calibration, or estimation in a visual-inertial filter.',
+    needs: 'Images and IMU data recorded together, with enough rotation about all axes.',
+    changes: 'Constant, as long as both are rigidly mounted.',
+    where: [['visual odometry: part 11'], ['adding the camera: part 12'], ['multi-sensor calibration: part 10']],
+  },
+  {
+    id: 'lb', a: 'l', b: 'b', kind: 'cal', chip: String.raw`\mathbf C_l^b,\ \mathbf l_{bl}^b`,
+    title: 'LiDAR to IMU: LiDAR-IMU extrinsics',
+    math: String.raw`\mathbf x^b = \mathbf C_l^b\,\mathbf x^l, \qquad \mathbf p_l^n = \mathbf p_b^n + \mathbf C_b^n\,\mathbf l_{bl}^b`,
+    from: 'LiDAR-IMU extrinsic calibration: hand-eye calibration from LiDAR odometry and the integrated IMU motion, or estimation in a LiDAR-inertial filter.',
+    needs: 'Point clouds and IMU data recorded during motion that excites all axes.',
+    changes: 'Constant, as long as both are rigidly mounted.',
+    where: [['LiDAR odometry: part 6'], ['multi-sensor calibration: part 10']],
+  },
+];
+
+const pct = (v: number, s: number) => `${((v / s) * 100).toFixed(3)}%`;
+const nodeStyle = (n: Node) => `--wx:${pct(n.w[0], WW)};--wy:${pct(n.w[1], WH)};--tx:${pct(n.t[0], TW)};--ty:${pct(n.t[1], TH)};`;
+const mid = (c: Card, k: 'w' | 't') => [(N[c.a][k][0] + N[c.b][k][0]) / 2, (N[c.a][k][1] + N[c.b][k][1]) / 2];
+const chipStyle = (c: Card) => {
+  const [wx, wy] = mid(c, 'w'), [tx, ty] = mid(c, 't');
+  return `--wx:${pct(wx, WW)};--wy:${pct(wy, WH)};--tx:${pct(tx, TW)};--ty:${pct(ty, TH)};`;
+};
+const parts = (s: string) => s.split('$').map((t, i) => ({ t, math: i % 2 === 1 }));
+const order = ['s', 'b', 'v', 'n', 'e', 'i', 'a', 'c', 'l'];
+---
+
+<figure class="xp wide fc" data-xp="framechain">
+  <div class="xp-head"><span class="label fig-title">From the sensor to the estimate: the chain of frames</span></div>
+  <div class="fc-pick">
+    <div class="fc-pick-row" role="group" aria-label="Measured in">
+      <span class="fc-pick-lbl">measured in</span>
+      {order.map((id) => <button class="btn fc-fbtn" type="button" data-role="from" data-f={id} aria-pressed={id === 'b' ? 'true' : 'false'} aria-label={`measured in ${id}, ${N[id].name}`}><M t={id} /></button>)}
+    </div>
+    <div class="fc-pick-row" role="group" aria-label="Wanted in">
+      <span class="fc-pick-lbl">wanted in</span>
+      {order.map((id) => <button class="btn fc-fbtn" type="button" data-role="to" data-f={id} aria-pressed={id === 'n' ? 'true' : 'false'} aria-label={`wanted in ${id}, ${N[id].name}`}><M t={id} /></button>)}
+    </div>
+  </div>
+  <div class="fc-wrap">
+    <div class="fc-canvas">
+      <svg class="fc-svg fc-w" viewBox={`0 0 ${WW} ${WH}`} aria-hidden="true">
+        <rect x="22" y="279" width="458" height="76" rx="4" class="fc-group" />
+        <path d="M358 130 V120 H636 V130" class="fc-note-l" />
+        <path d="M738 123 V136" class="fc-note-l" />
+        {cards.map((c) => <line data-e={c.id} class={`fc-edge k-${c.kind}`} x1={N[c.a].w[0]} y1={N[c.a].w[1]} x2={N[c.b].w[0]} y2={N[c.b].w[1]} vector-effect="non-scaling-stroke" />)}
+      </svg>
+      <svg class="fc-svg fc-t" viewBox={`0 0 ${TW} ${TH}`} aria-hidden="true">
+        <rect x="228" y="95" width="124" height="262" rx="4" class="fc-group" />
+        <path d="M152 257 H160 V428 H152" class="fc-note-l" />
+        <path d="M150 515 H162" class="fc-note-l" />
+        {cards.map((c) => <line data-e={c.id} class={`fc-edge k-${c.kind}`} x1={N[c.a].t[0]} y1={N[c.a].t[1]} x2={N[c.b].t[0]} y2={N[c.b].t[1]} vector-effect="non-scaling-stroke" />)}
+      </svg>
+      <div class="fc-note fc-w center" style={`left:${pct(497, WW)};top:${pct(100, WH)};`}>results for localization and<br />fusion are wanted here</div>
+      <div class="fc-note fc-w center" style={`left:${pct(738, WW)};top:${pct(100, WH)};`}>the IMU measures<br />relative to here</div>
+      <div class="fc-note fc-w" style={`left:${pct(30, WW)};top:${pct(370, WH)};`}>aiding sensors, treated in later parts</div>
+      <div class="fc-note fc-t" style={`left:${pct(170, TW)};top:${pct(410, TH)};`}>results for localization and<br />fusion are wanted here</div>
+      <div class="fc-note fc-t" style={`left:${pct(170, TW)};top:${pct(515, TH)};`}>the IMU measures<br />relative to here</div>
+      <div class="fc-note fc-t" style={`left:${pct(232, TW)};top:${pct(370, TH)};`}>aiding sensors, later parts</div>
+      {cards.map((c) => (
+        <button type="button" class={`fc-chip k-${c.kind}`} data-chip={c.id} style={chipStyle(c)} aria-label={`link ${c.a} to ${c.b}: details`}><M t={c.chip} /></button>
+      ))}
+      {nodes.map((n) => (
+        <button type="button" class="fc-node" data-n={n.id} style={nodeStyle(n)} aria-label={`frame ${n.id}, ${n.name}`}>
+          <span class="fc-letter"><M t={n.id} /></span>
+          <span class="fc-name">{n.name}</span>
+          <span class="fc-badge" data-badge></span>
+        </button>
+      ))}
+    </div>
+  </div>
+  <ul class="xp-legend">
+    <li class="c-muted dash"><i></i><span>calibration: constant</span></li>
+    <li class="c-fg"><i></i><span>geometry and time: known</span></li>
+    <li class="c-fg thick"><i></i><span>estimated state: changes fast</span></li>
+    <li class="c-accent"><i></i><span>path from measured to wanted</span></li>
+  </ul>
+  <div class="xp-readout fc-out" aria-live="polite">
+    <span data-o="path">Path <M t={String.raw`b \to n`} />: 1 link, which needs the attitude <M t={String.raw`\mathbf C_b^n`} /> (estimated).</span>
+    <span data-o="rot"><M t={String.raw`\mathbf x^{n} = \mathbf C_{b}^{n}\,\mathbf x^{b}`} /></span>
+    <span data-o="pos" hidden></span>
+  </div>
+  <p class="fc-hint">Tap two frames in turn (first measured, then wanted) or use the buttons. Tap or hover over a link label for its details.</p>
+  <div class="fc-card">
+    {cards.map((c) => (
+      <article data-card={c.id} hidden={c.id !== 'bn'}>
+        <div class="fc-card-head">
+          <span class="fc-card-title">{c.title}</span>
+          <span class={`fc-kind k-${c.kind}`}>{KIND[c.kind]}</span>
+        </div>
+        <div class="fc-card-math"><M t={c.math} display /></div>
+        {c.what && <p class="fc-what">{parts(c.what).map((p) => (p.math ? <M t={p.t} /> : p.t))}</p>}
+        <dl>
+          <dt>comes from</dt><dd>{parts(c.from).map((p) => (p.math ? <M t={p.t} /> : p.t))}</dd>
+          <dt>needs</dt><dd>{parts(c.needs).map((p) => (p.math ? <M t={p.t} /> : p.t))}</dd>
+          <dt>changes</dt><dd>{parts(c.changes).map((p) => (p.math ? <M t={p.t} /> : p.t))}</dd>
+          <dt>treated in</dt><dd>{c.where.map(([t, href], k) => (
+            <>{k > 0 && ' · '}{href ? <a href={href}>{t}</a> : <span>{t}</span>}</>
+          ))}</dd>
+        </dl>
+      </article>
+    ))}
+  </div>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<style>
+  .fc { container: fc / inline-size; }
+  .fc .fc-pick { display: grid; gap: 0.4rem; margin: 0 0 0.9rem; }
+  .fc .fc-pick-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; }
+  .fc .fc-pick-lbl { width: 6.5rem; font-size: 0.72rem; color: var(--muted); }
+  .fc .fc-fbtn { min-width: 2.1rem; justify-content: center; padding: 0.3rem 0.5rem; text-transform: none; letter-spacing: 0; font-size: 0.8rem; }
+  @container fc (max-width: 440px) {
+    .fc .fc-pick-lbl { width: 100%; }
+    .fc .fc-fbtn { min-width: 1.9rem; padding: 0.28rem 0.4rem; }
+  }
+
+  .fc .fc-wrap { container: fcw / inline-size; width: 100%; max-width: 900px; margin: 0 auto; }
+  .fc .fc-canvas { --u: calc(100cqw / 800); position: relative; width: 100%; aspect-ratio: 800 / 382; }
+  .fc .fc-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; overflow: visible; }
+  .fc .fc-t { display: none; }
+  @container fcw (max-width: 639px) {
+    .fc .fc-canvas { --u: calc(min(100cqw, 460px) / 380); aspect-ratio: 380 / 560; max-width: 460px; margin: 0 auto; }
+    .fc .fc-w { display: none; }
+    .fc .fc-t { display: block; }
+    .fc .fc-node, .fc .fc-chip { left: var(--tx) !important; top: var(--ty) !important; }
+    .fc .fc-node { height: calc(var(--u) * 60); }
+  }
+
+  .fc .fc-group { fill: none; stroke: var(--border); stroke-dasharray: 4 4; }
+  .fc .fc-note-l { fill: none; stroke: var(--muted); stroke-width: 1; }
+  .fc .fc-edge { stroke: var(--fg); stroke-width: 1.5; transition: stroke 0.15s, opacity 0.15s; }
+  .fc .fc-edge.k-cal { stroke: var(--muted); stroke-dasharray: 5 4; }
+  .fc .fc-edge.k-est { stroke-width: 4; }
+  .fc .fc-edge.on { stroke: var(--accent); stroke-width: 2.25; }
+  .fc .fc-edge.k-est.on { stroke-width: 4.5; }
+  .fc .fc-edge.dim { opacity: 0.5; }
+
+  .fc .fc-note { position: absolute; transform: translateY(-50%); font-size: calc(var(--u) * 11.5); line-height: 1.25; color: var(--fg-soft); white-space: nowrap; }
+  .fc .fc-note.center { transform: translate(-50%, -50%); text-align: center; }
+
+  .fc .fc-node {
+    position: absolute; left: var(--wx); top: var(--wy); transform: translate(-50%, -50%);
+    width: calc(var(--u) * 104); height: calc(var(--u) * 64);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(var(--u) * 2);
+    margin: 0; padding: 0 calc(var(--u) * 4); border: 1px solid var(--border-strong); border-radius: 4px;
+    background: var(--bg); color: var(--fg); font: inherit; line-height: 1.1; cursor: pointer;
+    transition: border-color 0.15s, opacity 0.15s;
+  }
+  .fc .fc-node:focus-visible, .fc .fc-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .fc .fc-letter { font-size: calc(var(--u) * 17); }
+  .fc .fc-name { font-size: calc(var(--u) * 11.5); color: var(--fg-soft); white-space: nowrap; }
+  .fc .fc-badge { font-size: calc(var(--u) * 9.5); letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); min-height: 1.1em; white-space: nowrap; }
+  .fc .fc-node.on { border-color: var(--fg-soft); }
+  .fc .fc-node.end { border-color: var(--accent); }
+  .fc .fc-node.end .fc-letter { color: var(--accent); }
+  .fc .fc-node.dim { border-color: var(--border); }
+  .fc .fc-node.dim .fc-letter, .fc .fc-node.dim .fc-name { color: var(--muted); }
+
+  .fc .fc-chip {
+    position: absolute; left: var(--wx); top: var(--wy); transform: translate(-50%, -50%);
+    margin: 0; padding: calc(var(--u) * 2) calc(var(--u) * 5); border: 1px solid var(--border); border-radius: 3px;
+    background: var(--bg); color: var(--fg); font: inherit; font-size: calc(var(--u) * 11); line-height: 1.2; white-space: nowrap; cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .fc .fc-chip:hover { border-color: var(--fg-soft); }
+  .fc .fc-chip.on { color: var(--accent); }
+  .fc .fc-chip.sel { border-color: var(--accent); }
+  .fc :global(.katex) { font-size: 1.08em; }
+
+  .fc .xp-legend .thick i { border-top-width: 4px; }
+  .fc .fc-out { display: block; font-family: var(--font-sans); font-size: 0.86rem; text-align: left; }
+  .fc .fc-out > span { display: block; margin: 0.15rem 0; }
+  .fc .fc-out > span[hidden] { display: none; }
+  .fc .fc-hint { margin: 0.5rem 0 0; font-size: 0.76rem; color: var(--muted); text-align: left; }
+
+  .fc .fc-card { margin-top: 0.8rem; padding: 0.75rem 0.9rem; border: 1px solid var(--border); border-left: 2px solid var(--accent); border-radius: 0 var(--radius) var(--radius) 0; font-size: 0.85rem; }
+  .fc .fc-card article[hidden] { display: none; }
+  .fc .fc-card-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0.2rem 1rem; }
+  .fc .fc-card-title { color: var(--fg); font-weight: 600; }
+  .fc .fc-kind { font-size: 0.72rem; color: var(--muted); }
+  .fc .fc-kind.k-geo { color: var(--fg-soft); }
+  .fc .fc-kind.k-est { color: var(--fg); }
+  .fc .fc-card-math { overflow-x: auto; overflow-y: hidden; }
+  .fc .fc-card-math :global(.katex-display) { margin: 0.55rem 0; }
+  .fc .fc-card-math :global(.katex) { font-size: 1em; }
+  .fc .fc-what { margin: 0 0 0.5rem; color: var(--fg-soft); text-align: left; }
+  .fc dl { display: grid; grid-template-columns: 6.2rem 1fr; gap: 0.3rem 0.8rem; margin: 0; }
+  .fc dt { font-size: 0.72rem; color: var(--muted); padding-top: 0.12rem; }
+  .fc dd { margin: 0; color: var(--fg-soft); text-align: left; hyphens: manual; }
+  .fc dd a { color: var(--fg); }
+  @container fc (max-width: 440px) {
+    .fc dl { grid-template-columns: 1fr; gap: 0.1rem; }
+    .fc dd { margin-bottom: 0.35rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .fc .fc-edge, .fc .fc-node, .fc .fc-chip { transition: none; }
+  }
+</style>
+
+<script>
+  import { lazyInit } from '../../../lib/explainer';
+
+  type EdgeId = 'sb' | 'bv' | 'bn' | 'ne' | 'ei' | 'ba' | 'cb' | 'lb';
+  // canonical direction of each link (the direction in which its matrix is written)
+  const EDGES: Record<EdgeId, [string, string]> = { sb: ['s', 'b'], bv: ['b', 'v'], bn: ['b', 'n'], ne: ['n', 'e'], ei: ['e', 'i'], ba: ['b', 'a'], cb: ['c', 'b'], lb: ['l', 'b'] };
+  const NEEDS: Record<EdgeId, string> = {
+    sb: 'the intrinsic calibration ($\\mathbf b_a$, $\\mathbf M_a$)',
+    bv: 'the mounting ($\\mathbf C_b^v$, $\\mathbf l_{vb}^v$)',
+    bn: 'the attitude $\\mathbf C_b^n$ (estimated)',
+    ne: 'the position ($L$, $\\lambda$)',
+    ei: 'the time $t$',
+    ba: 'the lever arm $\\mathbf l_{ba}^b$',
+    cb: 'the camera extrinsics ($\\mathbf C_c^b$, $\\mathbf l_{bc}^b$)',
+    lb: 'the LiDAR extrinsics ($\\mathbf C_l^b$, $\\mathbf l_{bl}^b$)',
+  };
+  // origin of a leaf frame relative to the IMU, in b axes
+  const ORIGIN: Record<string, string> = { v: '-\\mathbf C_v^b\\,\\mathbf l_{vb}^v', a: '\\mathbf l_{ba}^b', c: '\\mathbf l_{bc}^b', l: '\\mathbf l_{bl}^b' };
+  const NAME: Record<string, string> = { v: 'the reference point', a: 'the antenna', c: 'the camera', l: 'the LiDAR' };
+
+  const edgeOf = (x: string, y: string) =>
+    (Object.keys(EDGES) as EdgeId[]).find((k) => (EDGES[k][0] === x && EDGES[k][1] === y) || (EDGES[k][0] === y && EDGES[k][1] === x))!;
+  const neighbours = (x: string) => Object.values(EDGES).flatMap(([p, q]) => (p === x ? [q] : q === x ? [p] : []));
+  function path(a: string, b: string): string[] {
+    const prev: Record<string, string> = { [a]: '' };
+    const queue = [a];
+    while (queue.length) {
+      const u = queue.shift()!;
+      if (u === b) break;
+      for (const w of neighbours(u)) if (!(w in prev)) { prev[w] = u; queue.push(w); }
+    }
+    const out = [b];
+    while (out[0] !== a) out.unshift(prev[out[0]]);
+    return out;
+  }
+  const C = (x: string, y: string) => `\\mathbf C_{${x}}^{${y}}`;
+  // product of the rotation matrices along a path, written right to left (first step rightmost)
+  const product = (p: string[]) => {
+    const f: string[] = [];
+    for (let k = 1; k < p.length; k++) f.unshift(C(p[k - 1], p[k]));
+    return f.join('\\,');
+  };
+  const reversedStep = (p: string[]) => {
+    for (let k = 1; k < p.length; k++) {
+      const e = EDGES[edgeOf(p[k - 1], p[k])];
+      if (e[0] === p[k] && edgeOf(p[k - 1], p[k]) !== 'sb' && edgeOf(p[k - 1], p[k]) !== 'ba') return [p[k - 1], p[k]];
+    }
+    return null;
+  };
+
+  function describe(A: string, B: string) {
+    if (A === B) return { path: `Measured and wanted in the same frame $${A}$: nothing to convert.`, rot: '', pos: '', edges: [] as EdgeId[], nodes: [A] };
+    const p = path(A, B);
+    const edges = p.slice(1).map((x, k) => edgeOf(p[k], x));
+    const n = edges.length;
+    const needs = edges.map((e) => NEEDS[e]);
+    const list = needs.length > 1 ? `${needs.slice(0, -1).join(', ')} and ${needs[needs.length - 1]}` : needs[0];
+    const pathTxt = `Path $${p.join(' \\to ')}$: ${n} link${n > 1 ? 's' : ''}, which need${n > 1 ? '' : 's'} ${list}.`;
+
+    // rotation (direction vectors)
+    let rot = '';
+    if (A === 'a' || B === 'a') {
+      rot = 'The antenna $a$ is a point without axes: no rotation leads to or from it. Only its position is connected, through the lever arm:';
+    } else if (A === 's') {
+      const q = p.slice(1), pr = product(q);
+      rot = `$\\mathbf f_{ib}^{${B}} = ${pr ? pr + '\\,' : ''}(\\mathbf I + \\mathbf M_a)^{-1}(\\tilde{\\mathbf f}^s - \\mathbf b_a)$ for the accelerometers, and the same for the gyros with $\\mathbf b_g$, $\\mathbf M_g$, $\\mathbf G_g$. The first step is a correction, not a rotation.`;
+    } else if (B === 's') {
+      const q = p.slice(0, -1), pr = product(q);
+      rot = `$\\tilde{\\mathbf f}^s = \\mathbf b_a + (\\mathbf I + \\mathbf M_a)\\,${pr ? pr + '\\,' : ''}\\mathbf f_{ib}^{${A}}$: what the accelerometers would read, without noise. The last step is the error model, not a rotation.`;
+    } else {
+      const pr = product(p);
+      rot = `$\\mathbf x^{${B}} = ${pr}\\,\\mathbf x^{${A}}$` + (n > 1 ? `, so $\\mathbf C_{${A}}^{${B}} = ${pr}$.` : '.');
+    }
+    if (A !== 's' && B !== 's') {
+      const r = reversedStep(p);
+      if (r && !(A === 'a' || B === 'a')) rot += ` A link walked against its arrow uses the transpose, $${C(r[0], r[1])} = (${C(r[1], r[0])})^\\mathsf T$.`;
+    }
+
+    // positions (origins)
+    let pos = '';
+    const leaves = [A, B].filter((x) => x in ORIGIN);
+    const pre = A === 'a' || B === 'a' ? '' : 'The origins differ as well: ';
+    const sign = (o: string) => (o.startsWith('-') ? ['-', o.slice(1)] : ['+', o]);
+    if (leaves.length === 1) {
+      const X = leaves[0], Y = X === A ? B : A;
+      if (Y === 'n' || Y === 'e' || Y === 'i') {
+        const [sg, o] = sign(ORIGIN[X]);
+        const pr = product(path('b', Y));
+        pos = `${pre}$\\mathbf p_${X}^{${Y}} = \\mathbf p_b^{${Y}} ${sg} ${pr}\\,${o}$, with $\\mathbf p_b^{${Y}}$ the position of the IMU.`;
+      } else if (X === 'v') {
+        pos = `${pre}the IMU sits at $\\mathbf l_{vb}^v$ from the reference point, in $v$ axes.`;
+      } else {
+        pos = `${pre}${NAME[X]} sits at $${ORIGIN[X]}$ from the IMU, in $b$ axes.`;
+      }
+    } else if (leaves.length === 2) {
+      const [sg, o] = sign(ORIGIN[B]);
+      const d = `${ORIGIN[A]} ${sg === '-' ? '+' : '-'} ${o}`;
+      pos = B === 'a'
+        ? `${pre}${NAME[A]} sits at $${d}$ from the antenna, in $b$ axes.`
+        : `${pre}${NAME[A]} sits at $${C('b', B)}\\,(${d})$ from ${NAME[B]}, in $${B}$ axes.`;
+    }
+    pos = pos.charAt(0).toUpperCase() + pos.slice(1);
+    return { path: pathTxt, rot, pos, edges, nodes: p };
+  }
+
+  lazyInit('[data-xp="framechain"]', async (fig) => {
+    const nodeEls = [...fig.querySelectorAll<HTMLButtonElement>('.fc-node')];
+    const chips = [...fig.querySelectorAll<HTMLButtonElement>('.fc-chip')];
+    const lines = [...fig.querySelectorAll<SVGLineElement>('.fc-edge')];
+    const cards = [...fig.querySelectorAll<HTMLElement>('[data-card]')];
+    const fbtns = [...fig.querySelectorAll<HTMLButtonElement>('.fc-fbtn')];
+    const out = (k: string) => fig.querySelector<HTMLElement>(`[data-o="${k}"]`)!;
+
+    let katex: typeof import('katex').default | null = null;
+    const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    const rich = (s: string) => s.split('$').map((t, k) => (k % 2 ? (katex ? katex.renderToString(t, { throwOnError: false }) : esc(t)) : esc(t))).join('');
+
+    let from = 'b', to = 'n', next: 'from' | 'to' = 'from', pinned = 'bn';
+    const showCard = (id: string) => {
+      cards.forEach((c) => { c.hidden = c.dataset.card !== id; });
+      chips.forEach((c) => c.classList.toggle('sel', c.dataset.chip === id));
+    };
+    const update = (render = true) => {
+      const d = describe(from, to);
+      const on = new Set(d.edges as string[]), onN = new Set(d.nodes);
+      lines.forEach((l) => { l.classList.toggle('on', on.has(l.dataset.e!)); l.classList.toggle('dim', !on.has(l.dataset.e!)); });
+      chips.forEach((c) => c.classList.toggle('on', on.has(c.dataset.chip!)));
+      nodeEls.forEach((el) => {
+        const id = el.dataset.n!;
+        el.classList.toggle('on', onN.has(id));
+        el.classList.toggle('end', id === from || id === to);
+        el.classList.toggle('dim', !onN.has(id));
+        el.querySelector('[data-badge]')!.textContent = id === from && id === to ? 'measured, wanted' : id === from ? 'measured' : id === to ? 'wanted' : '';
+      });
+      fbtns.forEach((b) => b.setAttribute('aria-pressed', String((b.dataset.role === 'from' ? from : to) === b.dataset.f)));
+      if (!render) return;
+      out('path').innerHTML = rich(d.path);
+      out('rot').innerHTML = rich(d.rot);
+      out('rot').hidden = !d.rot;
+      out('pos').innerHTML = rich(d.pos);
+      out('pos').hidden = !d.pos;
+    };
+
+    for (const b of fbtns) b.addEventListener('click', () => {
+      if (b.dataset.role === 'from') { from = b.dataset.f!; next = 'to'; } else { to = b.dataset.f!; next = 'from'; }
+      update();
+    });
+    for (const el of nodeEls) el.addEventListener('click', () => {
+      if (next === 'from') { from = el.dataset.n!; next = 'to'; } else { to = el.dataset.n!; next = 'from'; }
+      update();
+    });
+    for (const c of chips) {
+      const id = c.dataset.chip!;
+      c.addEventListener('pointerenter', (ev) => { if (ev.pointerType === 'mouse') showCard(id); });
+      c.addEventListener('pointerleave', (ev) => { if (ev.pointerType === 'mouse') showCard(pinned); });
+      c.addEventListener('focus', () => showCard(id));
+      c.addEventListener('blur', () => showCard(pinned));
+      c.addEventListener('click', () => { pinned = id; showCard(id); });
+    }
+    showCard(pinned);
+    update(false); // the default state is pre-rendered in the markup
+    try {
+      katex = (await import('katex')).default;
+      if (from !== 'b' || to !== 'n') update(); // re-typeset anything chosen while KaTeX was loading
+    } catch (err) {
+      console.error(err);
+    }
+  });
+</script>

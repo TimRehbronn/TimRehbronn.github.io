@@ -23,11 +23,11 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, animate, label, slider, arrow, outputs, reducedMotion } from '../../../lib/explainer';
+  import { palette, setupCanvas, animate, label, slider, arrow, outputs, reducedMotion, lazyInit } from '../../../lib/explainer';
   import { camera, cross, type V3 } from '../../../lib/rot';
 
   const D2R = Math.PI / 180;
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="angvel"]')) {
+  lazyInit('[data-xp="angvel"]', (fig) => {
     const canvas = fig.querySelector('canvas')!;
     const out = outputs(fig);
     let w = 0.8, tl = 25, rr = 1, phase = 0.6, az = 0.9, el = 0.35;
@@ -85,5 +85,5 @@ import M from '../../blog/M.astro';
     canvas.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, az, el }; canvas.setPointerCapture(e.pointerId); });
     canvas.addEventListener('pointermove', (e) => { if (!drag) return; az = drag.az - (e.clientX - drag.x) * 0.01; el = Math.max(-1.2, Math.min(1.4, drag.el + (e.clientY - drag.y) * 0.01)); draw(); });
     canvas.addEventListener('pointerup', () => (drag = null));
-  }
+  });
 </script>

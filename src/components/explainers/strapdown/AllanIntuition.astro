@@ -29,7 +29,7 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, label, axes, series, rng, outputs, animate, reducedMotion } from '../../../lib/explainer';
+  import { palette, setupCanvas, label, axes, series, rng, outputs, animate, reducedMotion, lazyInit } from '../../../lib/explainer';
 
   const FS = 10, DT = 1 / FS, T = 2000, N = T * FS;
   const SW = 4, KR = 0.05, STEP = 3, SW2 = 0.6;  // white noise per sample, rate random walk per sqrt(s), step height, noise on the step signal
@@ -37,7 +37,7 @@ import M from '../../blog/M.astro';
   const MS: number[] = [];
   for (let l = 0; l <= 46; l++) { const m = Math.round(10 ** (l / 46 * Math.log10((T / 3) * FS))); if (!MS.length || m > MS[MS.length - 1]) MS.push(m); }
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="allanint"]')) {
+  lazyInit('[data-xp="allanint"]', (fig) => {
     const cts = fig.querySelector<HTMLCanvasElement>('.c-ts')!, cad = fig.querySelector<HTMLCanvasElement>('.c-ad')!;
     const out = outputs(fig);
     const tauIn = fig.querySelector<HTMLInputElement>('input[name="tau"]')!;
@@ -155,5 +155,5 @@ import M from '../../blog/M.astro';
     });
 
     generate(); setIdx(idx);
-  }
+  });
 </script>

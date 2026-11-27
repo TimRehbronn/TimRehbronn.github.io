@@ -29,7 +29,7 @@ import M from '../../blog/M.astro';
 </style>
 
 <script>
-  import { palette, setupCanvas, label, outputs } from '../../../lib/explainer';
+  import { palette, setupCanvas, label, outputs, lazyInit } from '../../../lib/explainer';
 
   // Indicative orders of magnitude for complete IMUs (price) and their gyros (bias instability, ARW).
   type Tech = { id: string; name: string; price: [number, number]; bi: [number, number]; pr: string; sz: string; arw: string; use: string };
@@ -44,7 +44,7 @@ import M from '../../blog/M.astro';
     { id: 'hrg', name: 'Hemispherical resonator (HRG)', price: [50000, 300000], bi: [0.0005, 0.01], pr: 'vibrating quartz shell ("wine glass"), Coriolis force', sz: 'resonator 2 to 3 cm, INS 2 to 10 kg', arw: '0.0002 to 0.002 °/√h', use: 'spacecraft, ships, aircraft, long missions' },
   ];
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="gland"]')) {
+  lazyInit('[data-xp="gland"]', (fig) => {
     const canvas = fig.querySelector('canvas')!;
     const out = outputs(fig);
     const btnBox = fig.querySelector<HTMLElement>('.gl-btns')!;
@@ -111,5 +111,5 @@ import M from '../../blog/M.astro';
       label(ctx, 'indicative orders of magnitude', box.x + box.w - 6, box.y + box.h - 10, P.muted, { size: 10, align: 'right' });
     }
     update();
-  }
+  });
 </script>

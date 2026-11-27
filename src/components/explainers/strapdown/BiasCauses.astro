@@ -29,7 +29,7 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, label, slider, axes, series, rng, outputs } from '../../../lib/explainer';
+  import { palette, setupCanvas, label, slider, axes, series, rng, outputs, lazyInit } from '../../../lib/explainer';
 
   const FS = 1, T = 4 * 3600, N = T * FS;  // 1 Hz for four hours
   const SIG_W = 8;          // white noise per sample [°/h]
@@ -44,7 +44,7 @@ import M from '../../blog/M.astro';
     return 21 + sun - 3 / (1 + Math.exp(-(h - 3.3) * 8)) + 0.6 * Math.sin(2 * Math.PI * h / 0.9);
   };
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="biascauses"]')) {
+  lazyInit('[data-xp="biascauses"]', (fig) => {
     const cb = fig.querySelector<HTMLCanvasElement>('.c-b')!, ct = fig.querySelector<HTMLCanvasElement>('.c-t')!;
     const out = outputs(fig);
     const on = [true, true, true, true];
@@ -132,5 +132,5 @@ import M from '../../blog/M.astro';
     const cbtn = fig.querySelectorAll<HTMLButtonElement>('[data-c]');
     cbtn.forEach((b) => b.addEventListener('click', () => { const i = Number(b.dataset.c); on[i] = !on[i]; b.setAttribute('aria-pressed', String(on[i])); redraw(); }));
     fig.querySelector('[data-act="seed"]')!.addEventListener('click', () => { seed++; noise(); redraw(); });
-  }
+  });
 </script>

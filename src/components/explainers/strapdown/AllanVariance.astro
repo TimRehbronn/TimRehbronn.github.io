@@ -23,23 +23,11 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, label, slider, axes, series, rng, outputs } from '../../../lib/explainer';
+  import { palette, setupCanvas, label, slider, axes, series, rng, outputs, lazyInit, once } from '../../../lib/explainer';
 
   const FS = 10, DT = 1 / FS, T = 6 * 3600, N = T * FS;
   const TAU_CORR = [2, 10, 50, 250, 1250];
 
-  // unit-amplitude error components, generated once
-  const r = rng(42);
-  const white = new Float64Array(N), rrw = new Float64Array(N), gm = new Float64Array(N);
-  {
-    let x = 0; const st = TAU_CORR.map(() => 0), phi = TAU_CORR.map((tc) => Math.exp(-DT / tc)), q = phi.map((p) => Math.sqrt(1 - p * p));
-    for (let k = 0; k < N; k++) {
-      white[k] = r.gauss();
-      rrw[k] = x; x += Math.sqrt(DT) * r.gauss();
-      let s = 0; for (let j = 0; j < st.length; j++) { st[j] = phi[j] * st[j] + q[j] * r.gauss(); s += st[j]; }
-      gm[k] = s;
-    }
-  }
   const TAUS: number[] = [];
   for (let l = -1; l <= Math.log10(T / 9); l += 0.08) { const m = Math.max(1, Math.round(10 ** l * FS)); if (!TAUS.length || m / FS > TAUS[TAUS.length - 1]) TAUS.push(m / FS); }
 
@@ -53,12 +41,28 @@ import M from '../../blog/M.astro';
       return Math.sqrt(s / (2 * tau * tau * (N - 2 * m + 1)));
     });
   }
-  // calibrate the Gauss-Markov sum so that its plateau equals 0.664 (i.e. bias instability B = 1)
-  const gmAd = adev(gm);
-  const plateau = (() => { const v = gmAd.filter((_, i) => TAUS[i] >= 5 && TAUS[i] <= 500).sort((a, b) => a - b); return v[Math.floor(v.length / 2)]; })();
-  const GM_SCALE = 0.664 / plateau;
+  const data = once(() => {
+    // unit-amplitude error components, generated once
+    const r = rng(42);
+    const white = new Float64Array(N), rrw = new Float64Array(N), gm = new Float64Array(N);
+    {
+      let x = 0; const st = TAU_CORR.map(() => 0), phi = TAU_CORR.map((tc) => Math.exp(-DT / tc)), q = phi.map((p) => Math.sqrt(1 - p * p));
+      for (let k = 0; k < N; k++) {
+        white[k] = r.gauss();
+        rrw[k] = x; x += Math.sqrt(DT) * r.gauss();
+        let s = 0; for (let j = 0; j < st.length; j++) { st[j] = phi[j] * st[j] + q[j] * r.gauss(); s += st[j]; }
+        gm[k] = s;
+      }
+    }
+    // calibrate the Gauss-Markov sum so that its plateau equals 0.664 (i.e. bias instability B = 1)
+    const gmAd = adev(gm);
+    const plateau = (() => { const v = gmAd.filter((_, i) => TAUS[i] >= 5 && TAUS[i] <= 500).sort((a, b) => a - b); return v[Math.floor(v.length / 2)]; })();
+    const GM_SCALE = 0.664 / plateau;
+    return { white, rrw, gm, GM_SCALE };
+  });
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="allan"]')) {
+  lazyInit('[data-xp="allan"]', (fig) => {
+    const { white, rrw, gm, GM_SCALE } = data();
     const cts = fig.querySelector<HTMLCanvasElement>('.c-ts')!, cad = fig.querySelector<HTMLCanvasElement>('.c-ad')!;
     const out = outputs(fig);
     let arw = 10 ** -0.7, bi = 10 ** 0.3, rr = 10 ** 0.6, tau = 10;
@@ -132,5 +136,5 @@ import M from '../../blog/M.astro';
     slider(fig, 'bi', (v) => `${(10 ** v).toFixed(2)} °/h`, (v) => { bi = 10 ** v; upd(); });
     slider(fig, 'rrw', (v) => `${(10 ** v).toFixed(2)} °/h/√h`, (v) => { rr = 10 ** v; upd(); });
     slider(fig, 'tau', (v) => `${(10 ** v).toFixed(10 ** v >= 10 ? 0 : 1)} s`, (v) => { tau = 10 ** v; drawTs(); drawAd(); });
-  }
+  });
 </script>

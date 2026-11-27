@@ -28,7 +28,7 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, label, slider, axes, series, rng, outputs, type Palette } from '../../../lib/explainer';
+  import { palette, setupCanvas, label, slider, axes, series, rng, outputs, type Palette, lazyInit } from '../../../lib/explainer';
 
   const T0 = -40, T1 = 85;
   const u = (T: number) => (T - 22.5) / 62.5; // temperature mapped to [-1, 1] for a well-conditioned fit
@@ -51,7 +51,7 @@ import M from '../../blog/M.astro';
   }
   const peval = (c: number[], x: number) => c.reduce((s, a, i) => s + a * x ** i, 0);
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="tcal"]')) {
+  lazyInit('[data-xp="tcal"]', (fig) => {
     const out = outputs(fig);
     let ord = 1, hy = 2, top = -10;
     const r = rng(21), nU = TEMPS.map(() => r.gauss()), nD = TEMPS.map(() => r.gauss());
@@ -118,5 +118,5 @@ import M from '../../blog/M.astro';
     slider(fig, 'ord', (v) => `${v}`, (v) => { ord = v; draw(); });
     slider(fig, 'hy', (v) => `${v.toFixed(1)} °/h`, (v) => { hy = v; draw(); });
     slider(fig, 'top', (v) => `${v} °C`, (v) => { top = v; draw(); });
-  }
+  });
 </script>

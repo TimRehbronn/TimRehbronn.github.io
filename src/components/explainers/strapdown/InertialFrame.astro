@@ -26,9 +26,9 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, animate, label, slider, arrow, reducedMotion } from '../../../lib/explainer';
+  import { palette, setupCanvas, animate, label, slider, arrow, reducedMotion, lazyInit } from '../../../lib/explainer';
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="inert"]')) {
+  lazyInit('[data-xp="inert"]', (fig) => {
     const ci = fig.querySelector<HTMLCanvasElement>('.c-i')!;
     const cr = fig.querySelector<HTMLCanvasElement>('.c-r')!;
     let om = 0.8, sp = 0.8, r0 = 0, t = 0;
@@ -101,5 +101,5 @@ import M from '../../blog/M.astro';
     slider(fig, 'r0', (v) => `${v.toFixed(2)} m`, (v) => { r0 = v; restart(); });
     fig.querySelector('[data-act="go"]')!.addEventListener('click', restart);
     if (reducedMotion()) { t = tEnd(); running = false; draw(); }
-  }
+  });
 </script>

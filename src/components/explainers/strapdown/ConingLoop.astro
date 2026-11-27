@@ -36,7 +36,7 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, animate, label, slider, arrow, outputs, reducedMotion } from '../../../lib/explainer';
+  import { palette, setupCanvas, animate, label, slider, arrow, outputs, reducedMotion, lazyInit } from '../../../lib/explainer';
   import { camera, rexp, mm, mv, matq, I3, type M3, type V3 } from '../../../lib/rot';
 
   const D2R = Math.PI / 180, R2D = 180 / Math.PI;
@@ -63,7 +63,7 @@ import M from '../../blog/M.astro';
     return r;
   }
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="coneloop"]')) {
+  lazyInit('[data-xp="coneloop"]', (fig) => {
     const c3 = fig.querySelector<HTMLCanvasElement>('.c3d')!, ci = fig.querySelector<HTMLCanvasElement>('.c-inc')!;
     const out = outputs(fig);
     const playBtn = fig.querySelector<HTMLButtonElement>('[data-act="play"]')!;
@@ -187,5 +187,5 @@ import M from '../../blog/M.astro';
     sb.forEach((b) => b.addEventListener('click', () => { const st = Number(b.dataset.st); go(st, st < p ? Math.max(0, st - 1) : undefined); }));
     playBtn.addEventListener('click', () => go(4, 0));
     slider(fig, 'eps', (v) => `${v.toFixed(1)}°`, (v) => { eps = v; draw(); });
-  }
+  });
 </script>

@@ -41,6 +41,9 @@ import ScrewMotion from '../../components/explainers/strapdown/ScrewMotion.astro
 import PoseInterp from '../../components/explainers/strapdown/PoseInterp.astro';
 import AngularVelocity from '../../components/explainers/strapdown/AngularVelocity.astro';
 import CrossProduct from '../../components/explainers/strapdown/CrossProduct.astro';
+import FrameChain from '../../components/explainers/strapdown/FrameChain.astro';
+import SkewLink from '../../components/explainers/strapdown/SkewLink.astro';
+import ExpLimit from '../../components/explainers/strapdown/ExpLimit.astro';
 import ErrorChain from '../../components/explainers/strapdown/ErrorChain.astro';
 import SchulerGeometry from '../../components/explainers/strapdown/SchulerGeometry.astro';
 import SchulerPendulum from '../../components/explainers/strapdown/SchulerPendulum.astro';
@@ -311,6 +314,45 @@ Two rules follow, and they are worth internalizing:
 </FrameVector>
 
 When the meaning is clear from the context, I sometimes drop indices, for example $\mathbf v^n$ for $\mathbf v_{eb}^n$. Whenever there could be doubt, all three are written.
+
+### From the frame we measure in to the frame we want
+
+The sensors and the result live in different frames. The IMU measures along its own sensitive axes, relative to inertial space. A navigation system that fuses the IMU with GNSS, LiDAR or a camera wants position, velocity and attitude in the local navigation frame $n$ or in the Earth-fixed frame $e$. Between the two lies a chain of frames. Each link of the chain is a rotation matrix, plus a lever arm when the two frames have different origins, and each link has to come from somewhere: from a calibration, from geometry, or from the navigation solution itself.
+
+Besides the four frames above, the chain contains a few more, which appear later in this post and in the series:
+
+<Def term="Sensor, vehicle and aiding-sensor frames">
+  The **sensor frame** $s$ is spanned by the sensitive axes of the three gyros and the three accelerometers. In a real IMU these axes are neither exactly perpendicular nor exactly aligned with the IMU housing, which defines the body frame $b$; the error model in the section on sensor errors describes the difference. The **vehicle frame** $v$ has its origin at a chosen reference point of the vehicle and its axes along the vehicle's construction axes; it is defined in detail in the section on extrinsic calibration. Aiding sensors bring their own frames, each with its origin at the sensor's measurement point: a GNSS antenna $a$, a camera $c$ and a LiDAR $l$.
+</Def>
+
+The links of the chain, read from the measurement to the result:
+
+<div class="table-wrap">
+
+| Link | Matrix | Where it comes from | Information needed | How fast it changes |
+| --- | --- | --- | --- | --- |
+| $s \to b$ | $(\mathbf I + \mathbf M)^{-1}$, after subtracting the bias | intrinsic calibration | measurements with precisely known inputs in a laboratory | almost constant (temperature) |
+| $b \to v$ | $\mathbf C_b^v$ and the lever arm $\mathbf l_{vb}^v$ | extrinsic calibration | mounting geometry, a survey, or estimation | constant |
+| $a, c, l \to b$ | $\mathbf C_c^b$, $\mathbf C_l^b$ and lever arms such as $\mathbf l_{ba}^b$ | extrinsic calibration of the aiding sensors | joint measurements of both sensors | constant |
+| $b \to n$ | $\mathbf C_b^n$, the attitude | strapdown integration of the gyros, started by an alignment | gyro measurements and an initial attitude | fast, with every manoeuvre |
+| $n \to e$ | $\mathbf C_n^e = [\mathbf e_N \;\; \mathbf e_E \;\; \mathbf e_D]$ | the position | latitude $L$ and longitude $\lambda$ | slowly, as the vehicle travels |
+| $e \to i$ | $\mathbf C_e^i = \mathbf C_z(\omega_{ie} t)$ | the Earth's rotation | the time $t$ | steadily, one turn per sidereal day |
+
+</div>
+
+The matrix $\mathbf C_n^e$ has the axes $\mathbf e_N$, $\mathbf e_E$, $\mathbf e_D$ of the navigation frame as its columns, written in ECEF coordinates, exactly as in the definition of the navigation frame. $\mathbf C_z$ is the elementary rotation about the $z$-axis, defined in the section on Euler angles. Because the lower index of each matrix cancels the upper index of the vector, the links can be chained. The accelerometer output, for example, reaches the navigation frame as
+
+$$
+\mathbf f_{ib}^n = \mathbf C_b^n\,(\mathbf I + \mathbf M_a)^{-1}\,\big(\tilde{\mathbf f}_{ib}^s - \mathbf b_a\big),
+$$
+
+and the position of a GNSS antenna in the Earth-fixed frame follows from the position of the IMU and the lever arm as $\mathbf r_{ea}^e = \mathbf r_{eb}^e + \mathbf C_n^e\,\mathbf C_b^n\,\mathbf l_{ba}^b$. Here $\tilde{\mathbf f}_{ib}^s$ is the raw output along the sensor axes, with the noise ignored ($\mathbf b_a$ and $\mathbf M_a$ are the bias and the scale factor and misalignment matrix of the error model in the section on sensor errors, which writes the raw output simply as $\tilde{\mathbf f}_{ib}^b$), and $\mathbf r_{eb}^e$, $\mathbf r_{ea}^e$ are the positions of the IMU and the antenna relative to the Earth's centre, in ECEF axes.
+
+The links fall into two groups. The calibration links are constant and are determined once, before the system is used, or estimated slowly alongside. The links $\mathbf C_b^n$ and $\mathbf C_n^e$ change all the time and are exactly what we want to know: attitude and position. The strapdown algorithm computes them from the IMU, and a fusion filter corrects them with GNSS, LiDAR or a camera. Only $\mathbf C_e^i$ is known exactly, from the clock.
+
+<FrameChain>
+  The frames between a raw sensor reading and the result we want, and what connects them: the main chain $s \to b \to n \to e \to i$, the vehicle frame $v$ above $b$, and the aiding sensors $a$, $c$ and $l$ below it. The antenna $a$ is a point without axes, so it is connected by a lever arm only. $\mathbf l_{bc}^b$ and $\mathbf l_{bl}^b$ are the positions of the camera and the LiDAR relative to the IMU, in IMU axes, $\mathbf p_X^W$ is the position of the origin of frame $X$ with components along the axes of $W$, and $\mathbf x$ is any vector. The style of a link shows where it comes from. Dashed links are calibration: measured once and constant. Thin solid links follow from geometry and time. The thick link $\mathbf C_b^n$ is the attitude, the state that the strapdown algorithm computes and that changes with every manoeuvre. Pick where a quantity is measured and where it is wanted: the path between them turns orange, and the readout writes out the product of the matrices along it, with the lower index of each matrix cancelling the upper index of the vector to its right. **Try:** measure in $s$ and want the result in $e$: count the links and note what each needs (a calibration, the attitude, the position $L$, $\lambda$). Then measure in the camera $c$ and want $n$: every aiding sensor connects only through $b$, so its extrinsic calibration and the attitude both enter. Choose $a$: the antenna has no rotation, only a lever arm, so only positions are connected. Tap the link labels to see where each one comes from and which part of the series treats it.
+</FrameChain>
 
 ## One dimension: integrating twice
 
@@ -861,59 +903,136 @@ So the matrix of a small rotation is $\mathbf I + [\delta\boldsymbol\theta\times
 
 ### The attitude differential equation
 
-During a short time $\Delta t$ the body rotates, relative to the navigation frame, by the small rotation vector $\delta\boldsymbol\theta = \boldsymbol\omega_{nb}^b\,\Delta t$, expressed in body axes. A rotation about a *body* axis is applied on the *right* of the DCM (just as the Euler rotations were):
+We now have all the pieces, and this section joins them. The DCM $\mathbf C_b^n$ stores the attitude: its columns are the body axes. The angular velocity $\boldsymbol\omega$ says about which axis and how fast the body turns. The cross product $\boldsymbol\omega \times \mathbf r$, written as the matrix $[\boldsymbol\omega\times]$, gives the velocity of every point of the turning body. What we want is an equation that tells us how $\mathbf C_b^n$ changes when the gyros measure $\boldsymbol\omega$.
+
+**Start in the plane.** In two dimensions the attitude is the single angle $\psi$ and the rotation matrix is $\mathbf C(\psi)$ from the section on two dimensions. Its first column $[\cos\psi,\; \sin\psi]^\mathsf T$ is the forward axis, its second column $[-\sin\psi,\; \cos\psi]^\mathsf T$ the right axis. Differentiating every entry with respect to time, using the chain rule and $\dot\psi = \omega$, gives
 
 $$
-\mathbf C_b^n(t + \Delta t) \approx \mathbf C_b^n(t)\,\big(\mathbf I + [\boldsymbol\omega_{nb}^b \times]\,\Delta t\big) .
+\dot{\mathbf C}(\psi) = \omega \begin{bmatrix} -\sin\psi & -\cos\psi \\ \cos\psi & -\sin\psi \end{bmatrix}
+= \underbrace{\begin{bmatrix} \cos\psi & -\sin\psi \\ \sin\psi & \cos\psi \end{bmatrix}}_{\mathbf C(\psi)} \begin{bmatrix} 0 & -\omega \\ \omega & 0 \end{bmatrix} .
 $$
 
-Subtracting $\mathbf C_b^n(t)$, dividing by $\Delta t$ and letting $\Delta t \to 0$ gives the **attitude kinematics**:
+Read it column by column. The derivative of the forward axis is $\omega\,[-\sin\psi,\; \cos\psi]^\mathsf T$, which is $\omega$ times the right axis: the forward axis swings towards the right axis, perpendicular to itself, at the rate $\omega$. The derivative of the right axis is $\omega$ times the backward axis $[-\cos\psi,\; -\sin\psi]^\mathsf T$. The small matrix on the right is skew-symmetric, and it is not new: for a rotation about the down axis, $\boldsymbol\omega = [0,\; 0,\; \omega]^\mathsf T$, the matrix $[\boldsymbol\omega\times]$ from above is $\begin{bmatrix} 0 & -\omega & 0 \\ \omega & 0 & 0 \\ 0 & 0 & 0 \end{bmatrix}$, and its upper left $2 \times 2$ block is exactly this matrix.
+
+**Why this is a differential equation.** The equation $\dot{\mathbf C} = \mathbf C \begin{bmatrix} 0 & -\omega \\ \omega & 0 \end{bmatrix}$ expresses the rate of change of the unknown $\mathbf C$ through $\mathbf C$ itself. That is what makes it a **differential equation**, of the same kind as $\dot x = a\,x$: how fast $x$ changes depends on where $x$ currently is. Such an equation does not hand us $\mathbf C$ directly. It tells us, at every instant, in which direction $\mathbf C$ moves, and we get $\mathbf C(t)$ by starting from a known $\mathbf C(0)$ and integrating. The simplest way to integrate is to take small steps: multiply the current direction of change by $\Delta t$ and add it, $\mathbf C_{k+1} = \mathbf C_k + \dot{\mathbf C}_k\,\Delta t = \mathbf C_k\,(\mathbf I + [\boldsymbol\omega\times]\,\Delta t)$, which is the small-rotation matrix from the previous section. Each such step pushes every axis a short straight distance along its direction of motion, and that is slightly wrong, because the true axis moves on a circle.
+
+<AttitudeODE>
+  The two-dimensional case: the vehicle turns only about the vertical axis, at a constant yaw rate $\omega$, seen from above with north up and east right. The white arrows are the exact body axes $\mathbf c_1$ (forward, $x^b$) and $\mathbf c_2$ (right, $y^b$), the columns of $\mathbf C(\psi)$; their tips stay on the unit circle (grey). The grey arrows at the tips are the velocities $\dot{\mathbf c}_i$, multiplied by the step time $\Delta t$ so that they show how far a tip moves in one step. Each is the axis itself turned by $90°$ (clockwise seen from above) and multiplied by $\omega$, so it is tangent to the circle: the rate of change of $\mathbf C$ is computed from $\mathbf C$ itself. The orange axes $\mathbf C_k$ are computed in steps $k = 0, 1, 2, \dots$ (dots), each by the angle $\omega\Delta t$, either with the first-order step $\mathbf C_{k+1} = \mathbf C_k\,(\mathbf I + [\boldsymbol\omega\times]\,\Delta t)$ or with the exact step $\mathbf C_{k+1} = \mathbf C_k \exp([\boldsymbol\omega\times]\,\Delta t)$, the matrix exponential of the next section. The first-order step moves each tip in a straight line along its velocity arrow, so it lands outside the circle by about $(\omega\Delta t)^2/2$ times the current length (magnified on the right): the axes grow, $\mathbf C_k^\mathsf T\mathbf C_k = (1 + (\omega\Delta t)^2)^k\,\mathbf I$ instead of $\mathbf I$, and the tips spiral outwards. The exact step follows the arc. In three dimensions the same happens in the plane perpendicular to $\boldsymbol\omega$: each axis tip circles about $\boldsymbol\omega$, and the first-order step pushes it off that circle. **Try:** press *one step* a few times and check that each orange segment is exactly the grey arrow drawn at the start of the step. Press *play* and watch the orange tips spiral away from the white ones while $\mathbf C_k^\mathsf T\mathbf C_k$ grows. Halve the angle per step from $10°$ to $5°$ and play to a full revolution: the final length $\lVert\mathbf c_1\rVert$ drops from about $1.72$ to $1.31$, so the excess roughly halves, because each step errs a quarter as much but twice as many steps are needed. Switch to the exact step: the trail stays on the circle and $\mathbf C_k^\mathsf T\mathbf C_k$ stays $\mathbf I$.
+</AttitudeODE>
+
+In two dimensions we could have avoided all of this, because there the angle simply adds up: integrate $\dot\psi = \omega$ to get $\psi$, then evaluate $\mathbf C(\psi)$. In three dimensions there is no such shortcut. Rotations about different axes do not commute, so three angles cannot just be integrated separately, as the section on Euler angles showed. We have to integrate the matrix itself, and for that we need the same equation in three dimensions.
+
+**Three dimensions, one axis at a time.** Call the three columns of $\mathbf C_b^n$ $\mathbf c_1$, $\mathbf c_2$ and $\mathbf c_3$, so that $\mathbf C_b^n = [\mathbf c_1 \;\; \mathbf c_2 \;\; \mathbf c_3]$. They are the forward, right and down axes of the body, written in north, east and down coordinates. Each one is a unit arrow fixed to the rigid body, so its tip moves like any other point of the body. Let $\boldsymbol\omega_{nb}^n$ be the angular velocity of the body relative to the navigation frame, written in navigation axes. By the definition of the angular velocity, with $\mathbf r = \mathbf c_i$, each axis changes as
 
 $$
-\dot{\mathbf C}_b^n = \mathbf C_b^n\,\boldsymbol\Omega_{nb}^b .
+\dot{\mathbf c}_i = \boldsymbol\omega_{nb}^n \times \mathbf c_i = [\boldsymbol\omega_{nb}^n \times]\,\mathbf c_i, \qquad i = 1, 2, 3 .
 $$
+
+The second form is the cross product written as a matrix. The same matrix $[\boldsymbol\omega_{nb}^n\times]$ acts on all three columns, so the three equations can be written side by side as one matrix product:
+
+$$
+\big[\dot{\mathbf c}_1 \;\; \dot{\mathbf c}_2 \;\; \dot{\mathbf c}_3\big] = [\boldsymbol\omega_{nb}^n \times]\,\big[\mathbf c_1 \;\; \mathbf c_2 \;\; \mathbf c_3\big]
+\qquad\Longleftrightarrow\qquad
+\dot{\mathbf C}_b^n = [\boldsymbol\omega_{nb}^n \times]\,\mathbf C_b^n .
+$$
+
+This is the link between the four objects: the vector $\boldsymbol\omega$ describes the rotation; the cross product turns it into the velocity of one body axis; the skew-symmetric matrix $[\boldsymbol\omega\times]$ is the same cross product as a matrix; and because the columns of $\mathbf C_b^n$ are the body axes, applying that matrix to $\mathbf C_b^n$ moves all three axes at once.
+
+**From navigation to body components.** The gyros do not measure $\boldsymbol\omega_{nb}^n$. They are bolted to the body and measure in body axes, so we want the equation in terms of $\boldsymbol\omega_{nb}^b = \mathbf C_n^b\,\boldsymbol\omega_{nb}^n$. Rotating two vectors and then taking their cross product gives the same as taking the cross product and then rotating: $\mathbf C(\mathbf a \times \mathbf b) = (\mathbf C\mathbf a) \times (\mathbf C\mathbf b)$ for every rotation matrix $\mathbf C$. For any vector $\mathbf x$ this gives
+
+$$
+[(\mathbf C\boldsymbol\omega)\times]\,\mathbf x = (\mathbf C\boldsymbol\omega) \times (\mathbf C\mathbf C^\mathsf T\mathbf x) = \mathbf C\,\big(\boldsymbol\omega \times \mathbf C^\mathsf T\mathbf x\big) = \mathbf C\,[\boldsymbol\omega\times]\,\mathbf C^\mathsf T\,\mathbf x ,
+$$
+
+so $[\boldsymbol\omega_{nb}^n\times] = \mathbf C_b^n\,[\boldsymbol\omega_{nb}^b\times]\,\mathbf C_n^b$. Inserting this and using $\mathbf C_n^b\,\mathbf C_b^n = \mathbf I$ gives the **attitude kinematics** in the form the strapdown algorithm uses:
+
+$$
+\dot{\mathbf C}_b^n = [\boldsymbol\omega_{nb}^n \times]\,\mathbf C_b^n = \mathbf C_b^n\,[\boldsymbol\omega_{nb}^b \times] = \mathbf C_b^n\,\boldsymbol\Omega_{nb}^b .
+$$
+
+The skew-symmetric matrix moves from the left to the right of $\mathbf C_b^n$ when the angular velocity is given in body instead of navigation axes. This is the same rule as for the Euler angles: a rotation about a fixed *navigation* axis multiplies the DCM from the left, a rotation about a *body* axis from the right.
+
+<SkewLink>
+  Left: the fixed navigation axes N, E, D (grey) and the three body axes $\mathbf c_1, \mathbf c_2, \mathbf c_3$ (white), the columns of $\mathbf C_b^n$. The body rotates with the angular velocity $\boldsymbol\omega_{nb}^n$ (orange, along the dashed rotation axis). Each axis tip moves on a circle (dotted) around the rotation axis with the velocity $\dot{\mathbf c}_i = \boldsymbol\omega_{nb}^n \times \mathbf c_i$ (small orange arrows, drawn at the length covered in one second). Right: the same chain in numbers. The first line is $\dot{\mathbf C}_b^n = [\boldsymbol\omega_{nb}^n\times]\,\mathbf C_b^n$, three cross products at once. The second line computes $\mathbf C_b^n\,[\boldsymbol\omega_{nb}^b\times]$ from the body components $\boldsymbol\omega_{nb}^b = \mathbf C_n^b\,\boldsymbol\omega_{nb}^n$ that the gyros measure, and gets the same numbers. **Try:** highlight $\mathbf c_1$ and compare its velocity arrow with the orange column of $\dot{\mathbf C}_b^n$: the column holds the N, E, D components of that arrow. Press "$\boldsymbol\omega$ along $\mathbf c_3$": $\mathbf c_3$ now lies on the rotation axis, stops moving, and its column of $\dot{\mathbf C}_b^n$ becomes zero, while $\boldsymbol\omega_{nb}^b$ keeps only its third component. Drag the rotation rate to a negative value: every velocity arrow reverses and every number in $\dot{\mathbf C}_b^n$ changes sign. Pause and orbit the view: each velocity arrow is perpendicular to both its axis and $\boldsymbol\omega_{nb}^n$.
+</SkewLink>
+
+The same result follows from a short time step. During $\Delta t$ the body rotates by the small rotation vector $\delta\boldsymbol\theta = \boldsymbol\omega_{nb}^b\,\Delta t$, given in body axes, so $\mathbf C_b^n(t + \Delta t) \approx \mathbf C_b^n(t)\,\big(\mathbf I + [\boldsymbol\omega_{nb}^b \times]\,\Delta t\big)$. Subtracting $\mathbf C_b^n(t)$, dividing by $\Delta t$ and letting $\Delta t \to 0$ gives $\dot{\mathbf C}_b^n = \mathbf C_b^n\,\boldsymbol\Omega_{nb}^b$ again.
 
 This is the three-dimensional version of $\dot\psi = \omega$. For now assume the navigation frame does not rotate (flat, non-rotating Earth); then $\boldsymbol\omega_{nb}^b$ is simply what the gyros measure. On the real Earth the navigation frame does rotate, and we will add that correction later.
 
-<AttitudeODE>
-  Left: a body rotating at the constant rate $\boldsymbol\omega_{nb}^b$ about a fixed, tilted axis (dashed). The white arrows are the body axes, the columns $\mathbf c_1, \mathbf c_2, \mathbf c_3$ of $\mathbf C_b^n$. The grey arrows at their tips are the velocities $\dot{\mathbf c}_i = \boldsymbol\omega \times \mathbf c_i$, perpendicular to the axis and to $\mathbf c_i$. The orange axes are computed with repeated first-order steps $\mathbf C_{k+1} = \mathbf C_k\,(\mathbf I + [\boldsymbol\omega_{nb}^b\times]\,\Delta t)$, and the dots mark the individual steps. Each step moves the tips along the tangent, so they spiral outwards, and $\mathbf C_k^\mathsf T \mathbf C_k$ drifts away from $\mathbf I$. Right: the lengths of the orange axes during one revolution; the exact axes keep length $1$. **Try:** halve the step size $\Delta t$: the excess length after one revolution roughly halves, because the error per step falls with $\Delta t^2$ while the number of steps doubles. Drag to look along the rotation axis.
-</AttitudeODE>
-
 ### Finite rotations: the matrix exponential
 
-The differential equation is exact, but we update in discrete steps. Within one IMU interval the body may rotate by a few degrees, and the first-order matrix $\mathbf I + [\delta\boldsymbol\theta\times]$ is then noticeably wrong: it is not even a rotation, because it lengthens vectors. We need the exact solution.
+The differential equation is exact, but we update in discrete steps. Within one IMU interval the body may rotate by a few degrees, and the first-order matrix $\mathbf I + [\delta\boldsymbol\theta\times]$ is then noticeably wrong: as the figure on step-by-step integration showed, it is not even a rotation, because it lengthens vectors. We need the exact solution of $\dot{\mathbf C} = \mathbf C\,[\boldsymbol\omega\times]$ over one interval. This is the place where everything of this chapter meets: the rotation vector, the cross product, the skew-symmetric matrix, the rotation matrix and the complex numbers from the detour. So we take it slowly.
 
-For a scalar, the equation $\dot x = a x$ has the solution $x(t) = e^{a t} x(0)$. Matrices behave the same way, provided we know what the exponential of a matrix is.
+**The scalar blueprint.** Consider first the scalar differential equation $\dot x = a\,x$ with a constant rate $a$, for example a bank balance $x$ that earns interest at the rate $a$ per year. Split the time $t$ into $N$ short steps of length $t/N$. In each step the balance grows by the fraction $a\,t/N$ of itself, so it is multiplied by $1 + a\,t/N$: one first-order step. After all $N$ steps,
+
+$$
+x(t) \approx \Big(1 + \frac{a\,t}{N}\Big)^{N} x(0) \quad\xrightarrow{\;N \to \infty\;}\quad e^{a t}\,x(0) .
+$$
+
+This limit is one of the definitions of the exponential function; it is how Jacob Bernoulli came across the number $e$, by asking what happens when interest is compounded more and more often. The exponential is what you get from infinitely many infinitely small first-order steps. Two details will carry over: the exponent $a\,t$ is *rate times time*, and the exponential solves the equation exactly, because $\frac{d}{dt}e^{at} = a\,e^{at}$.
+
+**The same recipe for rotations.** Now let the body turn with a constant angular velocity $\boldsymbol\omega$, given in body axes, during the interval $\Delta t$. Rate times time is the rotation vector $\boldsymbol\alpha = \boldsymbol\omega\,\Delta t$: its direction is the rotation axis, its length the total angle. Split the interval into $N$ sub-steps. In each one the body turns by the small rotation vector $\boldsymbol\alpha/N$, whose matrix is, to first order, the small-rotation matrix $\mathbf I + [\boldsymbol\alpha\times]/N$. Applying $N$ of them one after the other gives
+
+$$
+\mathbf C_b^n(t + \Delta t) \approx \mathbf C_b^n(t)\,\Big(\mathbf I + \frac{[\boldsymbol\alpha\times]}{N}\Big)^{N} .
+$$
+
+Each factor makes a small error of the order $(\alpha/N)^2$, because it moves vectors along the tangent instead of the circle. There are $N$ factors, so the total error is of the order $\alpha^2/N$, and it vanishes as $N \to \infty$. The limit is a rotation matrix, and it is the matrix version of $e^{at}$: the **matrix exponential** $\exp([\boldsymbol\alpha\times])$.
+
+<ExpLimit>
+  Left: the plane perpendicular to the rotation vector $\boldsymbol\alpha$, whose axis points out of the screen, with the unit circle and the start vector $\mathbf x$ (white). The total rotation by the angle $\alpha$ is split into $N$ equal parts, and each part is done with the small-rotation matrix $\mathbf I + [\boldsymbol\alpha\times]/N$ from above. Each such step goes along the tangent, perpendicular to the current vector, with a length of $\alpha/N$ times its length. The orange polygon shows the $N$ steps (dots at the corners), and its end point is $\mathbf x_N = (\mathbf I + [\boldsymbol\alpha\times]/N)^N\,\mathbf x$. The white dot on the circle is the exact result $\exp([\boldsymbol\alpha\times])\,\mathbf x$, and the dashed line between the two end points is the error. Right: in this plane $[\boldsymbol\alpha\times]$ acts as $\alpha\mathbf J$, where $\mathbf J$ is the quarter-turn matrix with $\mathbf J^2 = -\mathbf I$ (explained below), just as $i^2 = -1$. So the limit is the matrix version of $(1 + i\alpha/N)^N \to e^{i\alpha}$, and both $2\times 2$ matrices are shown with live numbers. The plot below shows, on logarithmic axes, the error over $N$ (orange) next to the relative error of compound interest, $(1 + \alpha/N)^N$ versus $e^\alpha$ (white, dotted). For large $N$ both approach $\alpha^2/2N$ (grey, dashed). **Try:** set $N = 1$: this is the plain small-rotation matrix $\mathbf I + [\boldsymbol\alpha\times]$, and it lands far outside the circle. Double $N$ from 32 to 64 and the error halves. Set $\alpha = 360°$ and slide $N$ up to 256: the polygon becomes a circle and closes almost exactly on the start point. Press *play* to watch $N$ grow step by step.
+</ExpLimit>
+
+This is why a skew-symmetric matrix appears in an exponent. Nothing new is going on: it is the compound-interest limit with a matrix in place of the rate. Each part has a job. The rotation vector $\boldsymbol\alpha$ stores rate times time. The cross product $\boldsymbol\alpha \times \mathbf x$ says in which direction a vector $\mathbf x$ starts to move when it is rotated about $\boldsymbol\alpha$. The matrix $[\boldsymbol\alpha\times]$ is that cross product written as a matrix, so that it can be multiplied, raised to powers and put into a series. And the exponential adds infinitely many infinitely small rotations up into one finite rotation. To compute it, we need a form without a limit, and that is the power series.
 
 <Def term="Matrix exponential">
   The **matrix exponential** of a square matrix $\mathbf A$ is defined by the same power series as the ordinary exponential function, with the identity matrix $\mathbf I$ in place of the number $1$:
   $$
-  \exp(\mathbf A) = \mathbf I + \mathbf A + \frac{1}{2!}\mathbf A^2 + \frac{1}{3!}\mathbf A^3 + \dots = \sum_{k=0}^{\infty} \frac{1}{k!}\,\mathbf A^k .
+  \exp(\mathbf A) = \mathbf I + \mathbf A + \frac{1}{2!}\mathbf A^2 + \frac{1}{3!}\mathbf A^3 + \dots = \sum_{k=0}^{\infty} \frac{1}{k!}\,\mathbf A^k = \lim_{N\to\infty} \Big(\mathbf I + \frac{\mathbf A}{N}\Big)^N .
   $$
-  The series converges for every matrix. Its key property: the solution of the linear differential equation $\dot{\mathbf X} = \mathbf X \mathbf A$ for a matrix $\mathbf X(t)$ and a constant $\mathbf A$ is $\mathbf X(t) = \mathbf X(0)\,\exp(\mathbf A t)$.
+  The series converges for every matrix, and it equals the limit on the right. Its key property: the solution of the linear differential equation $\dot{\mathbf X} = \mathbf X \mathbf A$ for a matrix $\mathbf X(t)$ and a constant $\mathbf A$ is $\mathbf X(t) = \mathbf X(0)\,\exp(\mathbf A t)$, because differentiating the series term by term gives $\frac{d}{dt}\exp(\mathbf A t) = \exp(\mathbf A t)\,\mathbf A$.
 </Def>
 
 <MatrixExpPhase>
   Left: the plane of a two-dimensional linear system $\dot{\mathbf x} = \mathbf A\mathbf x$. The grey arrows show the velocity $\mathbf A\mathbf x$ at each point. The orange curve is the solution $\mathbf x(t) = \exp(\mathbf A t)\,\mathbf x_0$ that starts at $\mathbf x_0$ (white), and the dashed curve is the unit circle after being mapped by $\exp(\mathbf A t)$. Right: the matrices $\mathbf A$ and $\exp(\mathbf A t)$, and the length $\lVert\mathbf x(t)\rVert / \lVert\mathbf x_0\rVert$ compared with the scalar solutions $e^{at}$ of $\dot x = a x$ (dashed) for the growth rates $a$ contained in $\mathbf A$. For the skew-symmetric $\mathbf A$ the velocity is always perpendicular to $\mathbf x$, the trajectories are circles and $\exp(\mathbf A t)$ is a rotation. **Try:** switch to the diagonal matrix: the circle becomes an ellipse and lengths are no longer preserved. With damping, the same rotation is multiplied by the shrinking factor $e^{-0.25t}$. Drag the start point anywhere.
 </MatrixExpPhase>
 
-If the angular velocity is constant during an interval, the attitude equation $\dot{\mathbf C} = \mathbf C\,[\boldsymbol\omega\times]$ is exactly of this form, and the body turns by the rotation vector $\boldsymbol\alpha = \boldsymbol\omega\,\Delta t$:
+If the angular velocity is constant during an interval, the attitude equation $\dot{\mathbf C} = \mathbf C\,[\boldsymbol\omega\times]$ is exactly of this form with $\mathbf A = [\boldsymbol\omega\times]$, and after the time $\Delta t$ the exponent is $[\boldsymbol\omega\times]\,\Delta t = [\boldsymbol\alpha\times]$:
 
 $$
 \mathbf C_b^n(t_{k+1}) = \mathbf C_b^n(t_k)\,\exp([\boldsymbol\alpha_k\times]) .
 $$
 
-So **the rotation matrix of a rotation vector is the matrix exponential of its skew-symmetric matrix.** The figure builds the series term by term for a rotation about one axis. Each new term is the previous one turned by $90°$ and shortened by the factor $\alpha/k$, so the partial sums spiral onto the exact result.
+So **the rotation matrix of a rotation vector is the matrix exponential of its skew-symmetric matrix.**
+
+**Back in the plane: Euler's formula.** In two dimensions the series can be summed by hand, and the result is an old friend. For a rotation by the angle $\alpha$ about the down axis, the $2 \times 2$ skew-symmetric matrix from the previous section is $\alpha\,\mathbf J$ with
+
+$$
+\mathbf J = \begin{bmatrix} 0 & -1 \\ 1 & 0 \end{bmatrix}, \qquad \mathbf J^2 = -\mathbf I .
+$$
+
+The matrix $\mathbf J$ turns a vector by $90°$, so applying it twice turns by $180°$ and reverses the vector. That is the rule $i^2 = -1$ of the imaginary unit from the detour on complex numbers, where multiplying by $i$ also turned by $90°$. With $\mathbf J^2 = -\mathbf I$, $\mathbf J^3 = -\mathbf J$, $\mathbf J^4 = \mathbf I$ and so on, the series sorts itself into even and odd powers:
+
+$$
+\exp(\alpha\mathbf J) = \Big(1 - \frac{\alpha^2}{2!} + \frac{\alpha^4}{4!} - \dots\Big)\mathbf I + \Big(\alpha - \frac{\alpha^3}{3!} + \frac{\alpha^5}{5!} - \dots\Big)\mathbf J
+= \cos\alpha\,\mathbf I + \sin\alpha\,\mathbf J
+= \begin{bmatrix} \cos\alpha & -\sin\alpha \\ \sin\alpha & \cos\alpha \end{bmatrix} .
+$$
+
+The exponential of the two-dimensional skew-symmetric matrix is the two-dimensional rotation matrix $\mathbf C(\alpha)$, and the computation is, line by line, the proof of Euler's formula $e^{i\alpha} = \cos\alpha + i\sin\alpha$ from the detour: replace $\mathbf J$ by $i$ and $\mathbf I$ by $1$, and the same series sorts into the same two brackets. Multiplying by $e^{i\alpha}$ rotates a complex number; multiplying by $\exp(\alpha\mathbf J)$ rotates a vector. The figure builds this series term by term. Each new term is the previous one turned by $90°$ and shortened by the factor $\alpha/k$, so the partial sums spiral onto the exact result.
 
 <MatrixExp>
   The vector $\mathbf x$ (white) and the terms of $\exp([\boldsymbol\alpha\times])\,\mathbf x$ added tip to tail (orange). The first orange arrow is $[\boldsymbol\alpha\times]\mathbf x$: perpendicular to $\mathbf x$, with length $\alpha$. **Try:** with two terms you see the first-order approximation $(\mathbf I + [\boldsymbol\alpha\times])\mathbf x$; it leaves the unit circle. Add terms and watch the chain close in on the exact result. For large angles the first terms overshoot wildly before the factorials win.
 </MatrixExp>
 
-Because $[\boldsymbol\alpha\times]^3 = -\alpha^2 [\boldsymbol\alpha\times]$ with $\alpha = \lVert\boldsymbol\alpha\rVert$, all higher powers reduce to $[\boldsymbol\alpha\times]$ and $[\boldsymbol\alpha\times]^2$, and the infinite series collapses to a closed form, **Rodrigues' formula**:
+**Three dimensions: Rodrigues' formula.** In three dimensions the same idea works with one change. The matrix $[\boldsymbol\alpha\times]$ only turns the part of a vector that is perpendicular to the axis; the part along the axis it sends to zero. So $[\boldsymbol\alpha\times]^2$ is not simply $-\alpha^2\,\mathbf I$, but from the third power on the pattern repeats: $[\boldsymbol\alpha\times]^3 = -\alpha^2 [\boldsymbol\alpha\times]$ with $\alpha = \lVert\boldsymbol\alpha\rVert$, the property noted in the section on the cross product. All higher powers therefore reduce to $[\boldsymbol\alpha\times]$ and $[\boldsymbol\alpha\times]^2$, and the infinite series collapses to a closed form, **Rodrigues' formula**:
 
 $$
 \exp([\boldsymbol\alpha\times]) = \mathbf I + \frac{\sin\alpha}{\alpha}\,[\boldsymbol\alpha\times] + \frac{1 - \cos\alpha}{\alpha^2}\,[\boldsymbol\alpha\times]^2 .
 $$
+
+In the plane perpendicular to the axis it is exactly the two-dimensional result $\cos\alpha\,\mathbf I + \sin\alpha\,\mathbf J$; along the axis it is the identity.
 
 <Derivation title="Derivation of Rodrigues' formula from the series">
 
@@ -928,6 +1047,24 @@ The first bracket is the Taylor series of $\sin\alpha / \alpha$, the second that
 </Derivation>
 
 For small $\alpha$ it reduces to $\mathbf I + [\boldsymbol\alpha\times]$, the small-rotation matrix from above. The inverse operation, from a rotation matrix back to its rotation vector, is called the matrix **logarithm**. Exponential and logarithm are the basic tools for working with rotations as a curved space, a topic that returns in part 8 of this series.
+
+The whole chain of this chapter in one table:
+
+<div class="table-wrap">
+
+| Object | What it is | How it connects |
+| --- | --- | --- |
+| $\boldsymbol\omega_{nb}^b$ | angular velocity in body axes | what the gyros measure |
+| $\boldsymbol\alpha = \boldsymbol\omega\,\Delta t$ | rotation vector: axis times angle | rate times time over one interval |
+| $\boldsymbol\alpha \times \mathbf x$ | cross product | the direction in which $\mathbf x$ starts to move when rotated about $\boldsymbol\alpha$ |
+| $[\boldsymbol\alpha\times]$ | skew-symmetric matrix | the same cross product as a matrix |
+| $\mathbf I + [\boldsymbol\alpha\times]$ | small-rotation matrix | one first-order step, correct only for small $\alpha$ |
+| $\dot{\mathbf C}_b^n = \mathbf C_b^n\,[\boldsymbol\omega_{nb}^b\times]$ | attitude differential equation | each column of $\mathbf C_b^n$ moves with $\boldsymbol\omega \times \mathbf c_i$ |
+| $\exp([\boldsymbol\alpha\times])$ | finite rotation matrix | infinitely many small steps, summed by Rodrigues' formula |
+| $\exp(\alpha\mathbf J) = \mathbf C(\alpha)$, $e^{i\alpha}$ | the two-dimensional case | Euler's formula |
+| $\mathbf C_b^n(t_{k+1}) = \mathbf C_b^n(t_k)\exp([\boldsymbol\alpha_k\times])$ | the attitude update | one exponential per IMU interval |
+
+</div>
 
 ### What the IMU actually outputs
 

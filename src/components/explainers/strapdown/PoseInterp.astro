@@ -21,13 +21,13 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, label, slider } from '../../../lib/explainer';
+  import { palette, setupCanvas, label, slider, lazyInit } from '../../../lib/explainer';
 
   const D2R = Math.PI / 180;
   const SHAPE = [[0.35, 0], [-0.22, 0.18], [-0.22, -0.18]];
   type Pose = { x: number; y: number; t: number };
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="pinterp"]')) {
+  lazyInit('[data-xp="pinterp"]', (fig) => {
     const canvas = fig.querySelector('canvas')!;
     const A: Pose = { x: -1.2, y: -0.6, t: 0 };
     const B: Pose = { x: 1.3, y: 0.9, t: 120 * D2R };
@@ -85,5 +85,5 @@ import M from '../../blog/M.astro';
     slider(fig, 'by', (v) => v.toFixed(2), (v) => { B.y = v; draw(); });
     slider(fig, 'bt', (v) => `${v}°`, (v) => { B.t = v * D2R; draw(); });
     slider(fig, 's', (v) => v.toFixed(2), (v) => { s = v; draw(); });
-  }
+  });
 </script>

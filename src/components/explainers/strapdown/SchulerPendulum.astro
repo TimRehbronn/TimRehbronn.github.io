@@ -35,7 +35,7 @@ import M from '../../blog/M.astro';
 </style>
 
 <script>
-  import { palette, setupCanvas, animate, label, slider, axes, reducedMotion, outputs } from '../../../lib/explainer';
+  import { palette, setupCanvas, animate, label, slider, axes, reducedMotion, outputs, lazyInit } from '../../../lib/explainer';
 
   const G = 9.80665, R = 6.371e6, TS = 2 * Math.PI * Math.sqrt(R / G);
   const LMAX = Math.log10(R);
@@ -44,7 +44,7 @@ import M from '../../blog/M.astro';
   const fmtL = (L: number) => (L >= 1000 ? `${(L / 1000).toFixed(L >= 1e5 ? 0 : 1)} km` : `${L.toFixed(L >= 10 ? 0 : 1)} m`);
   const fmtT = (s: number) => (s < 120 ? `${s.toFixed(1)} s` : s < 7200 ? `${(s / 60).toFixed(1)} min` : `${(s / 3600).toFixed(1)} h`);
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="schpend"]')) {
+  lazyInit('[data-xp="schpend"]', (fig) => {
     const scene = fig.querySelector<HTMLCanvasElement>('[data-c="scene"]')!;
     const plot = fig.querySelector<HTMLCanvasElement>('[data-c="plot"]')!;
     const out = outputs(fig);
@@ -139,5 +139,5 @@ import M from '../../blog/M.astro';
     const sL = slider(fig, 'L', (v) => fmtL(v >= LMAX - 1e-3 ? R : 10 ** v), (v) => { lg = v; phP = 0; phS = Math.PI / 2; draw(); });
     fig.querySelector('[data-act="R"]')!.addEventListener('click', () => sL.set(LMAX));
     setRun(running);
-  }
+  });
 </script>

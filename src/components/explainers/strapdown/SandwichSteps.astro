@@ -31,10 +31,10 @@ import M from '../../blog/M.astro';
 </style>
 
 <script>
-  import { palette, setupCanvas, label, slider, arrow, outputs } from '../../../lib/explainer';
+  import { palette, setupCanvas, label, slider, arrow, outputs, lazyInit } from '../../../lib/explainer';
 
   const D2R = Math.PI / 180, RP = 1, RA = 0.75;     // lengths of the perpendicular and parallel parts
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="sandw"]')) {
+  lazyInit('[data-xp="sandw"]', (fig) => {
     const c1 = fig.querySelector<HTMLCanvasElement>('.c-perp')!, c2 = fig.querySelector<HTMLCanvasElement>('.c-par')!;
     const out = outputs(fig);
     let al = 120, st = 2;
@@ -96,5 +96,5 @@ import M from '../../blog/M.astro';
     slider(fig, 'al', (v) => `${v}°`, (v) => { al = v; draw(); });
     const sb = fig.querySelectorAll<HTMLButtonElement>('[data-st]');
     sb.forEach((b) => b.addEventListener('click', () => { st = Number(b.dataset.st); sb.forEach((x) => x.setAttribute('aria-pressed', String(x === b))); draw(); }));
-  }
+  });
 </script>

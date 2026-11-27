@@ -24,7 +24,7 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, animate, label, slider, arrow, axes, series, outputs } from '../../../lib/explainer';
+  import { palette, setupCanvas, animate, label, slider, arrow, axes, series, outputs, lazyInit } from '../../../lib/explainer';
   import { camera, cross, qmul, qconj, qexp, qnormalize, qangle, qmat, mv, type Q, type V3 } from '../../../lib/rot';
 
   const R2D = 180 / Math.PI;
@@ -55,7 +55,7 @@ import M from '../../blog/M.astro';
     return [(e1 / Tend) * R2D * 3600, (e2 / Tend) * R2D * 3600];
   }
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="cone"]')) {
+  lazyInit('[data-xp="cone"]', (fig) => {
     const c3d = fig.querySelector<HTMLCanvasElement>('.c3d')!;
     const cpl = fig.querySelector<HTMLCanvasElement>('.cplot')!;
     const out = outputs(fig);
@@ -117,5 +117,5 @@ import M from '../../blog/M.astro';
     slider(fig, 'beta', (v) => `${v.toFixed(1)}°`, (v) => { beta = v; upd(); });
     slider(fig, 'freq', (v) => `${v} Hz`, (v) => { freq = v; upd(); });
     slider(fig, 'rate', (v) => `${Math.round(10 ** v)} Hz`, (v) => { lrate = v; upd(); });
-  }
+  });
 </script>

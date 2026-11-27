@@ -25,10 +25,10 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, arrow, label, slider, outputs } from '../../../lib/explainer';
+  import { palette, setupCanvas, arrow, label, slider, outputs, lazyInit } from '../../../lib/explainer';
 
   const G = 9.81;
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="sf"]')) {
+  lazyInit('[data-xp="sf"]', (fig) => {
     const canvas = fig.querySelector('canvas')!;
     const out = outputs(fig);
     const fallBtn = fig.querySelector<HTMLButtonElement>('[data-act="fall"]')!;
@@ -140,5 +140,5 @@ import M from '../../blog/M.astro';
     fig.querySelector('[data-act="rest"]')!.addEventListener('click', () => {
       fall = false; fallBtn.setAttribute('aria-pressed', 'false'); accS.set(0); errS.set(0); pitchS.set(0);
     });
-  }
+  });
 </script>

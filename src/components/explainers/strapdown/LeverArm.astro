@@ -30,14 +30,14 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, label, slider, arrow, axes, series, outputs } from '../../../lib/explainer';
+  import { palette, setupCanvas, label, slider, arrow, axes, series, outputs, lazyInit } from '../../../lib/explainer';
 
   const D2R = Math.PI / 180, G = 9.80665, R = 20; // radius of the reference point's path [m]
   const DIR = 18 * D2R;                             // direction of the lever arm: forward and slightly to the right
   const EXAG = 4;                                   // mounting rotation drawn exaggerated
   const MAG = 8;                                    // lever-arm acceleration drawn longer than the centripetal one
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="lever"]')) {
+  lazyInit('[data-xp="lever"]', (fig) => {
     const out = outputs(fig);
     let la = 1.5, tw = 20, dm = 1;
     const Pt = setupCanvas(fig.querySelector<HTMLCanvasElement>('.c-top')!, 0.86, draw);
@@ -133,5 +133,5 @@ import M from '../../blog/M.astro';
     slider(fig, 'la', (v) => `${v.toFixed(2)} m`, (v) => { la = v; draw(); });
     slider(fig, 'tw', (v) => `${v.toFixed(1)} °/s`, (v) => { tw = v; draw(); });
     slider(fig, 'dm', (v) => `${v.toFixed(1)}°`, (v) => { dm = v; draw(); });
-  }
+  });
 </script>

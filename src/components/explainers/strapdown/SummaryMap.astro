@@ -160,7 +160,8 @@ const groups = [
 </style>
 
 <script>
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="summap"]')) {
+  import { lazyInit } from '../../../lib/explainer';
+  lazyInit('[data-xp="summap"]', (fig) => {
     const boxes = [...fig.querySelectorAll<HTMLButtonElement>('[data-n]')];
     const paths = [...fig.querySelectorAll<SVGPathElement>('path[data-a]')];
     const whys = [...fig.querySelectorAll<HTMLElement>('[data-w]')];
@@ -194,5 +195,5 @@ const groups = [
       b.setAttribute('aria-pressed', 'false');
     }
     show('');
-  }
+  });
 </script>

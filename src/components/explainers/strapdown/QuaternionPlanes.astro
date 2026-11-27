@@ -33,11 +33,11 @@ import M from '../../blog/M.astro';
 </style>
 
 <script>
-  import { palette, setupCanvas, label, slider, arrow, outputs } from '../../../lib/explainer';
+  import { palette, setupCanvas, label, slider, arrow, outputs, lazyInit } from '../../../lib/explainer';
   import { camera, type V3 } from '../../../lib/rot';
 
   const D2R = Math.PI / 180;
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="qplanes"]')) {
+  lazyInit('[data-xp="qplanes"]', (fig) => {
     const cu = fig.querySelector<HTMLCanvasElement>('.c-u')!, cp = fig.querySelector<HTMLCanvasElement>('.c-p')!;
     const out = outputs(fig);
     let mode = 'i', ph = 40, uaz = 35, uel = 30, az = 0.7, el = 0.35;
@@ -109,5 +109,5 @@ import M from '../../blog/M.astro';
     cu.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, az, el }; cu.setPointerCapture(e.pointerId); });
     cu.addEventListener('pointermove', (e) => { if (!drag) return; az = drag.az - (e.clientX - drag.x) * 0.01; el = Math.max(-1.4, Math.min(1.4, drag.el + (e.clientY - drag.y) * 0.01)); draw(); });
     cu.addEventListener('pointerup', () => (drag = null));
-  }
+  });
 </script>

@@ -77,7 +77,7 @@ import M from '../../blog/M.astro';
 </style>
 
 <script>
-  import { palette, setupCanvas, label, slider, rng, lin, type Palette } from '../../../lib/explainer';
+  import { palette, setupCanvas, label, slider, rng, lin, type Palette, lazyInit } from '../../../lib/explainer';
 
   type Plot = { ctx: CanvasRenderingContext2D; sx: (v: number) => number; sy: (v: number) => number; x0: number; x1: number; y0: number; y1: number };
 
@@ -120,7 +120,7 @@ import M from '../../blog/M.astro';
   }
   const range = (a: number, b: number, n: number) => Array.from({ length: n + 1 }, (_, i) => a + ((b - a) * i) / n);
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="egal"]')) {
+  lazyInit('[data-xp="egal"]', (fig) => {
     const tile = (t: string) => fig.querySelector<HTMLElement>(`[data-t="${t}"]`)!;
     const v = { b0: 0.35, b1: 0.12, s: 15, m: 8, k: 20, q: 2, g: 0.25, n: 0.25, tc: 0.5, seed: 7 };
 
@@ -214,5 +214,5 @@ import M from '../../blog/M.astro';
     slider(fig, 'eg-n', (x) => `${x.toFixed(2)} °/s`, (x) => { v.n = x; dNoise(); });
     slider(fig, 'eg-tc', (x) => `${x.toFixed(2)} °/s`, (x) => { v.tc = x; dTemp(); });
     fig.querySelector('[data-act="eg-new"]')!.addEventListener('click', () => { v.seed++; makeNoise(); dNoise(); });
-  }
+  });
 </script>

@@ -286,3 +286,26 @@ export function series(ctx: CanvasRenderingContext2D, b: Box, xs: ArrayLike<numb
   ctx.stroke();
   ctx.restore();
 }
+
+/**
+ * Initializes every element matching `selector` only when it comes near the viewport,
+ * so that a long post does not start all its figures at once.
+ */
+export function lazyInit(selector: string, init: (el: HTMLElement) => void, margin = '800px 0px') {
+  const els = document.querySelectorAll<HTMLElement>(selector);
+  if (!('IntersectionObserver' in window)) { els.forEach((el) => init(el)); return; }
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (!e.isIntersecting) continue;
+      io.unobserve(e.target);
+      try { init(e.target as HTMLElement); } catch (err) { console.error(err); }
+    }
+  }, { rootMargin: margin });
+  els.forEach((el) => io.observe(el));
+}
+
+/** Runs an expensive computation once, on first use. */
+export function once<T>(fn: () => T): () => T {
+  let done = false, value: T;
+  return () => { if (!done) { value = fn(); done = true; } return value; };
+}

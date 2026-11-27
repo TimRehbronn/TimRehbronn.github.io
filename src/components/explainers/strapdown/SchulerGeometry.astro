@@ -36,13 +36,13 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, animate, label, slider, arrow, axes, series, reducedMotion, outputs, niceStep } from '../../../lib/explainer';
+  import { palette, setupCanvas, animate, label, slider, arrow, axes, series, reducedMotion, outputs, niceStep, lazyInit } from '../../../lib/explainer';
 
   const G = 9.80665, R = 6.371e6, WS = Math.sqrt(G / R), TS = (2 * Math.PI) / WS;
   const TEND = 3 * TS;
   const DEG_PER_KM = 4;   // drawing exaggeration: 10 km of error is drawn as 40 degrees
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="schgeo"]')) {
+  lazyInit('[data-xp="schgeo"]', (fig) => {
     const geo = fig.querySelector<HTMLCanvasElement>('[data-c="geo"]')!;
     const plot = fig.querySelector<HTMLCanvasElement>('[data-c="plot"]')!;
     const out = outputs(fig);
@@ -205,5 +205,5 @@ import M from '../../blog/M.astro';
     slider(fig, 'x0', (v) => `${v.toFixed(1)} km`, (v) => { x0 = v * 1000; draw(); });
     slider(fig, 'ab', (v) => `${v.toFixed(2)} mg`, (v) => { ab = v; draw(); });
     setRun(running);
-  }
+  });
 </script>

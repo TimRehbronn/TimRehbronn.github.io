@@ -29,7 +29,7 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, animate, label, slider, axes, series, outputs, reducedMotion } from '../../../lib/explainer';
+  import { palette, setupCanvas, animate, label, slider, axes, series, outputs, reducedMotion, lazyInit } from '../../../lib/explainer';
 
   const W0 = 2 * Math.PI * 1.2, Z = 0.15, DT = 1e-3, T = 3, N = Math.round(T / DT) + 1, T_STEP = 0.3;
   const KP = 60, KI = 300, KD = 3;
@@ -47,7 +47,7 @@ import M from '../../blog/M.astro';
     return { th, cur };
   }
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="servo"]')) {
+  lazyInit('[data-xp="servo"]', (fig) => {
     const cs = fig.querySelector<HTMLCanvasElement>('.c-s')!, ct = fig.querySelector<HTMLCanvasElement>('.c-t')!;
     const out = outputs(fig);
     const loopBtn = fig.querySelector<HTMLButtonElement>('[data-act="loop"]')!;
@@ -109,5 +109,5 @@ import M from '../../blog/M.astro';
     slider(fig, 'a', (v) => `${v.toFixed(2)} g`, (v) => { a = v; open = simulate(a, false); cl = simulate(a, true); restart(); });
     loopBtn.addEventListener('click', () => { closed = !closed; loopBtn.setAttribute('aria-pressed', String(closed)); loopBtn.textContent = closed ? 'Control loop on' : 'Control loop off'; restart(); });
     fig.querySelector('[data-act="replay"]')!.addEventListener('click', restart);
-  }
+  });
 </script>

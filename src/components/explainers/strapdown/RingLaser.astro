@@ -29,7 +29,7 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, animate, label, slider, axes, series, outputs, reducedMotion } from '../../../lib/explainer';
+  import { palette, setupCanvas, animate, label, slider, axes, series, outputs, reducedMotion, lazyInit } from '../../../lib/explainer';
 
   // triangle with 10 cm sides, HeNe laser
   const SIDE = 0.1, LAMBDA = 633e-9, PER = 3 * SIDE, AREA = (Math.sqrt(3) / 4) * SIDE * SIDE;
@@ -46,7 +46,7 @@ import M from '../../blog/M.astro';
     return s / n;
   };
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="rlg"]')) {
+  lazyInit('[data-xp="rlg"]', (fig) => {
     const cl = fig.querySelector<HTMLCanvasElement>('.c-l')!, ct = fig.querySelector<HTMLCanvasElement>('.c-t')!;
     const out = outputs(fig);
     const dBtn = fig.querySelector<HTMLButtonElement>('[data-act="dither"]')!;
@@ -117,5 +117,5 @@ import M from '../../blog/M.astro';
     slider(fig, 'om', (v) => `${v.toFixed(3)} °/s`, (v) => { om = v; drawCurve(); anim.kick(); });
     slider(fig, 'ol', (v) => `${v.toFixed(3)} °/s`, (v) => { ol = v; drawCurve(); });
     dBtn.addEventListener('click', () => { dither = !dither; dBtn.setAttribute('aria-pressed', String(dither)); dBtn.textContent = dither ? 'Dither on' : 'Dither off'; drawCurve(); });
-  }
+  });
 </script>

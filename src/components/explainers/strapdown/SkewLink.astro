@@ -1,0 +1,269 @@
+---
+import M from '../../blog/M.astro';
+// The link between angular velocity, cross product, skew-symmetric matrix and the DCM: each column c_i of C_b^n is a
+// body axis, its tip moves with c_i' = ω^n × c_i = [ω^n×] c_i, all three columns at once give Ċ = [ω^n×] C = C [ω^b×].
+const R3 = [0, 1, 2];
+const ROWS = ['N', 'E', 'D'];
+---
+
+<figure class="xp wide" data-xp="skewlink">
+  <div class="xp-head"><span class="label fig-title">From one cross product to the whole matrix</span><span class="label" style="color:var(--muted)">drag to orbit</span></div>
+  <div class="xp-row two">
+    <canvas class="drag" role="img" aria-label="The fixed navigation axes N, E, D, the three body axes c1, c2, c3 rotating with the angular velocity omega, and at each axis tip its velocity, the cross product of omega with the axis"></canvas>
+    <div class="sl-side">
+      <p class="small sl-p">Column <M t="i" /> of <M t={String.raw`\dot{\mathbf C}_b^n`} /> is <M t={String.raw`[\boldsymbol\omega_{nb}^n\times]`} /> times column <M t="i" /> of <M t={String.raw`\mathbf C_b^n`} />:</p>
+      <div class="sl-eq">
+        <div class="sl-blk">
+          <table class="sl-m" data-m="Cd" data-hl>
+            <thead><tr><th></th>{R3.map((c) => <th data-c={c}><M t={String.raw`\dot{\mathbf c}_${c + 1}`} /></th>)}</tr></thead>
+            <tbody>{ROWS.map((r) => <tr><th>{r}</th>{R3.map((c) => <td data-c={c}></td>)}</tr>)}</tbody>
+          </table>
+          <span class="sl-cap"><M t={String.raw`\dot{\mathbf C}_b^n`} /></span>
+        </div>
+        <div class="sl-op">=</div>
+        <div class="sl-blk">
+          <table class="sl-m" data-m="Wn">
+            <thead><tr>{R3.map(() => <th></th>)}</tr></thead>
+            <tbody>{ROWS.map(() => <tr>{R3.map((c) => <td data-c={c}></td>)}</tr>)}</tbody>
+          </table>
+          <span class="sl-cap"><M t={String.raw`[\boldsymbol\omega_{nb}^n\times]`} /></span>
+        </div>
+        <div class="sl-blk">
+          <table class="sl-m" data-m="C" data-hl>
+            <thead><tr>{R3.map((c) => <th data-c={c}><M t={String.raw`\mathbf c_${c + 1}`} /></th>)}</tr></thead>
+            <tbody>{ROWS.map(() => <tr>{R3.map((c) => <td data-c={c}></td>)}</tr>)}</tbody>
+          </table>
+          <span class="sl-cap"><M t={String.raw`\mathbf C_b^n`} /></span>
+        </div>
+      </div>
+      <p class="small muted sl-p">The skew matrix holds the three components of the angular velocity in a fixed pattern:</p>
+      <div class="sl-disp"><M display t={String.raw`\boldsymbol\omega_{nb}^n = \begin{bmatrix} \omega_N \\ \omega_E \\ \omega_D \end{bmatrix}\!, \quad [\boldsymbol\omega_{nb}^n\times] = \begin{bmatrix} 0 & -\omega_D & \omega_E \\ \omega_D & 0 & -\omega_N \\ -\omega_E & \omega_N & 0 \end{bmatrix}`} /></div>
+      <p class="small sl-p">The same <M t={String.raw`\dot{\mathbf C}_b^n`} /> from the body components <M t={String.raw`\boldsymbol\omega_{nb}^b = \mathbf C_n^b\boldsymbol\omega_{nb}^n`} /> that the gyros measure, now with the skew matrix on the right:</p>
+      <div class="sl-eq">
+        <div class="sl-blk">
+          <table class="sl-m" data-m="C2">
+            <thead><tr>{R3.map((c) => <th data-c={c}><M t={String.raw`\mathbf c_${c + 1}`} /></th>)}</tr></thead>
+            <tbody>{ROWS.map(() => <tr>{R3.map((c) => <td data-c={c}></td>)}</tr>)}</tbody>
+          </table>
+          <span class="sl-cap"><M t={String.raw`\mathbf C_b^n`} /></span>
+        </div>
+        <div class="sl-blk">
+          <table class="sl-m" data-m="Wb" data-hl>
+            <thead><tr>{R3.map(() => <th></th>)}</tr></thead>
+            <tbody>{ROWS.map(() => <tr>{R3.map((c) => <td data-c={c}></td>)}</tr>)}</tbody>
+          </table>
+          <span class="sl-cap"><M t={String.raw`[\boldsymbol\omega_{nb}^b\times]`} /></span>
+        </div>
+        <div class="sl-op">=</div>
+        <div class="sl-blk">
+          <table class="sl-m" data-m="R" data-hl>
+            <thead><tr>{R3.map(() => <th></th>)}</tr></thead>
+            <tbody>{ROWS.map(() => <tr>{R3.map((c) => <td data-c={c}></td>)}</tr>)}</tbody>
+          </table>
+          <span class="sl-cap"><M t={String.raw`\dot{\mathbf C}_b^n`} /></span>
+        </div>
+      </div>
+      <p class="small muted sl-p">Both lines agree because <M t={String.raw`\boldsymbol\omega_{nb}^n = \mathbf C_b^n\boldsymbol\omega_{nb}^b`} /> and, for any rotation matrix, <M t={String.raw`[(\mathbf C\boldsymbol\omega)\times] = \mathbf C\,[\boldsymbol\omega\times]\,\mathbf C^\mathsf T`} />.</p>
+    </div>
+  </div>
+  <ul class="xp-legend">
+    <li class="c-fg"><i></i><span>body axes <M t={String.raw`\mathbf c_1, \mathbf c_2, \mathbf c_3`} /> (columns of <M t={String.raw`\mathbf C_b^n`} />)</span></li>
+    <li class="c-accent"><i></i><span><M t={String.raw`\boldsymbol\omega_{nb}^n`} /> and the tip velocities <M t={String.raw`\dot{\mathbf c}_i = \boldsymbol\omega_{nb}^n \times \mathbf c_i`} /></span></li>
+    <li class="c-muted"><i></i><span>navigation axes N, E, D</span></li>
+  </ul>
+  <div class="xp-btns">
+    <span class="small muted">Highlight:</span>
+    <button class="btn sl-b" type="button" data-hl="-1" aria-pressed="true">all</button>
+    <button class="btn sl-b" type="button" data-hl="0" aria-pressed="false"><M t={String.raw`\mathbf c_1`} /></button>
+    <button class="btn sl-b" type="button" data-hl="1" aria-pressed="false"><M t={String.raw`\mathbf c_2`} /></button>
+    <button class="btn sl-b" type="button" data-hl="2" aria-pressed="false"><M t={String.raw`\mathbf c_3`} /></button>
+    <span class="sl-gap"></span>
+    <button class="btn" type="button" data-act="play" aria-pressed="true">pause</button>
+    <button class="btn sl-b" type="button" data-act="c3"><M t={String.raw`\boldsymbol\omega`} />&nbsp;along&nbsp;<M t={String.raw`\mathbf c_3`} /></button>
+    <button class="btn" type="button" data-act="reset">reset</button>
+  </div>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Rotation rate <M t={String.raw`\lVert\boldsymbol\omega_{nb}^n\rVert`} /> (sign = sense)</span><output for="w"></output></span><input type="range" name="w" min="-1.2" max="1.2" step="0.05" value="0.6" /></label>
+    <label class="xp-ctl"><span><span>Axis azimuth (from N towards E)</span><output for="uaz"></output></span><input type="range" name="uaz" min="-180" max="180" step="1" value="-30" /></label>
+    <label class="xp-ctl"><span><span>Axis elevation (above horizontal)</span><output for="uel"></output></span><input type="range" name="uel" min="-90" max="90" step="1" value="50" /></label>
+  </div>
+  <p class="xp-readout" aria-live="polite">
+    <span><M t={String.raw`\boldsymbol\omega_{nb}^n`} /> = <b class="hot" data-o="wn"></b></span>
+    <span><M t={String.raw`\boldsymbol\omega_{nb}^b = \mathbf C_n^b\boldsymbol\omega_{nb}^n`} /> = <b data-o="wb"></b></span>
+    <span>largest difference between the two products: <b data-o="diff"></b></span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<style>
+  .sl-side { min-width: 0; overflow-x: auto; }
+  .sl-p { margin: 0 0 0.4rem; text-align: left; }
+  .sl-eq { display: flex; align-items: flex-start; gap: 0.45rem; margin: 0.2rem 0 0.7rem; overflow-x: auto; }
+  .sl-p :global(.katex) { white-space: nowrap; }
+  .sl-blk { display: flex; flex-direction: column; align-items: center; }
+  .sl-cap { height: 1.6rem; display: flex; align-items: center; font-size: 0.85rem; color: var(--fg-soft); }
+  .sl-op { align-self: stretch; display: flex; align-items: center; padding: 1.45rem 0 1.6rem; color: var(--fg); }
+  .sl-m { border-collapse: collapse; margin: 0; width: auto; font-variant-numeric: tabular-nums; font-size: 0.8rem; }
+  .sl-m th { text-transform: none; letter-spacing: 0; font-family: inherit; }
+  .sl-m thead th { height: 1.45rem; padding: 0 0.3rem; font-weight: 400; color: var(--fg-soft); text-align: center; border: 0; font-size: 0.8rem; }
+  .sl-m tbody th { padding: 0 0.35rem 0 0; font-weight: 400; color: var(--muted); border: 0; font-size: 0.72rem; }
+  .sl-m td { border: 0; padding: 0.1rem 0.35rem; min-width: 2.6em; text-align: right; color: var(--fg); }
+  .sl-m tr td:first-of-type { border-left: 1px solid var(--border-strong); }
+  .sl-m tr td:last-of-type { border-right: 1px solid var(--border-strong); }
+  .sl-m .hot, .sl-m thead th.hot { color: var(--accent); }
+  .sl-m.dim td:not(.hot) { color: var(--muted); }
+  .xp .sl-b { text-transform: none; letter-spacing: 0.02em; }
+  .sl-disp { margin: 0 0 0.6rem; font-size: 0.9rem; }
+  .sl-disp :global(.katex-display) { margin: 0.3rem 0; text-align: left; }
+  @media (max-width: 560px) {
+    .sl-eq { gap: 0.2rem; }
+    .sl-m, .sl-m thead th { font-size: 0.7rem; }
+    .sl-m td { padding: 0.08rem 0.18rem; min-width: 2.3em; }
+    .sl-m tbody th { padding-right: 0.15rem; }
+  }
+  .sl-gap { width: 0.6rem; }
+</style>
+
+<script>
+  import { palette, setupCanvas, animate, label, slider, arrow, outputs, reducedMotion, lazyInit } from '../../../lib/explainer';
+  import { camera, rexp, mm, mv, tr, cross, dot, norm, scale, sub, add, euler, type M3, type V3 } from '../../../lib/rot';
+
+  const D2R = Math.PI / 180;
+  const C0 = euler(25 * D2R, -20 * D2R, 40 * D2R);
+  const col = (C: M3, i: number): V3 => [C[i], C[3 + i], C[6 + i]];
+  const skew = (a: V3): M3 => [0, -a[2], a[1], a[2], 0, -a[0], -a[1], a[0], 0];
+  const f2 = (x: number) => (Math.abs(x) < 5e-3 ? '0' : (x < 0 ? '−' : '') + Math.abs(x).toFixed(2));
+  const vec = (v: V3) => `(${v.map(f2).join(', ')}) rad/s`;
+  const NAMES = ['$\\b{c}_1$', '$\\b{c}_2$', '$\\b{c}_3$'];
+  const DOTS = ['$\\b{ċ}_1$', '$\\b{ċ}_2$', '$\\b{ċ}_3$'];
+
+  lazyInit('[data-xp="skewlink"]', (fig) => {
+    const canvas = fig.querySelector('canvas')!;
+    const out = outputs(fig);
+    const tables = new Map<string, HTMLTableElement>();
+    fig.querySelectorAll<HTMLTableElement>('table[data-m]').forEach((t) => tables.set(t.dataset.m!, t));
+    const cells = (k: string) => Array.from(tables.get(k)!.querySelectorAll<HTMLTableCellElement>('tbody td'));
+    const cellMap = new Map<string, HTMLTableCellElement[]>();
+    for (const k of tables.keys()) cellMap.set(k, cells(k));
+    const playBtn = fig.querySelector<HTMLButtonElement>('[data-act="play"]')!;
+    const hlBtns = Array.from(fig.querySelectorAll<HTMLButtonElement>('[data-hl]'));
+
+    let C: M3 = [...C0] as M3;
+    let anim: { kick: () => void } | null = null;
+    let w = 0.6, u: V3 = [1, 0, 0], hl = -1, playing = !reducedMotion(), az = 0.55, el = 0.38;
+    const { ctx, size } = setupCanvas(canvas, (wd) => Math.min(wd * 1.0, 560), draw);
+
+    function draw() {
+      const P = palette(), W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const cam = camera(az, el, Math.min(W, H) * 0.34, W / 2, H / 2 - 6);
+      const pr = (v: V3) => cam.project(v);                            // NED world
+      const o = pr([0, 0, 0]);
+      const omn = scale(u, w);
+
+      // navigation axes
+      for (const [v, n] of [[[1.45, 0, 0], 'N'], [[0, 1.45, 0], 'E'], [[0, 0, 1.45], 'D']] as [V3, string][]) {
+        const p = pr(v); arrow(ctx, o.x, o.y, p.x, p.y, P.strong, 1, 7);
+        const dx = p.x - o.x, dy = p.y - o.y, l = Math.hypot(dx, dy) || 1;
+        label(ctx, n, p.x + (dx / l) * 10, p.y + (dy / l) * 10, P.muted, { size: 11, align: 'center' });
+      }
+      // rotation axis (dashed)
+      const a1 = pr(scale(u, 1.75)), a0 = pr(scale(u, -1.5));
+      ctx.strokeStyle = P.muted; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.moveTo(a0.x, a0.y); ctx.lineTo(a1.x, a1.y); ctx.stroke(); ctx.setLineDash([]);
+
+      const on = (i: number) => hl < 0 || hl === i;
+      // circles traced by the tips around the axis
+      for (let i = 0; i < 3; i++) {
+        const c = col(C, i), m = scale(u, dot(c, u)), e1 = sub(c, m), e2 = cross(u, e1);
+        if (norm(e1) < 1e-3) continue;
+        ctx.strokeStyle = on(i) && hl >= 0 ? P.soft : P.strong; ctx.lineWidth = 1; ctx.setLineDash([2, 4]);
+        ctx.globalAlpha = on(i) ? 1 : 0.4;
+        ctx.beginPath();
+        for (let j = 0; j <= 72; j++) {
+          const t = (j / 72) * 2 * Math.PI, p = pr(add(m, add(scale(e1, Math.cos(t)), scale(e2, Math.sin(t)))));
+          j ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y);
+        }
+        ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+      }
+      // body axes and their tip velocities
+      for (let i = 0; i < 3; i++) {
+        const c = col(C, i), p = pr(c), v = cross(omn, c), q = pr(add(c, v));
+        ctx.globalAlpha = on(i) ? 1 : 0.3;
+        arrow(ctx, o.x, o.y, p.x, p.y, P.fg, on(i) && hl >= 0 ? 3 : 2.25, 10);
+        arrow(ctx, p.x, p.y, q.x, q.y, P.accent, 1.75, 8);
+        const dx = p.x - o.x, dy = p.y - o.y, l = Math.hypot(dx, dy) || 1;
+        // put the axis label on the side away from the velocity arrow
+        const vx = q.x - p.x, vy = q.y - p.y, vl = Math.hypot(vx, vy);
+        let lx = dx / l, ly = dy / l;
+        if (vl > 4) { lx -= (vx / vl) * 0.8; ly -= (vy / vl) * 0.8; const n = Math.hypot(lx, ly) || 1; lx /= n; ly /= n; }
+        label(ctx, NAMES[i], p.x + lx * 16, p.y + ly * 14, P.fg, { size: 14, align: 'center' });
+        if (hl === i && vl > 6) label(ctx, DOTS[i], q.x + (vx / vl) * 16, q.y + (vy / vl) * 14, P.accent, { size: 14, align: 'center' });
+        ctx.globalAlpha = 1;
+      }
+      // omega (drawn on top; label beside the shaft so it does not collide with an axis label at the tip)
+      if (Math.abs(w) > 1e-3) {
+        const L = (0.35 + Math.abs(w)) * Math.sign(w), pw = pr(scale(u, L)), pm = pr(scale(u, L * 0.62));
+        arrow(ctx, o.x, o.y, pw.x, pw.y, P.accent, 3, 11);
+        const dx = pw.x - o.x, dy = pw.y - o.y, l = Math.hypot(dx, dy) || 1;
+        const nx = -dy / l, ny = dx / l, sgn = nx >= 0 ? 1 : -1;
+        label(ctx, '$\\boldsymbol\\omega_{nb}^n$', pm.x + nx * sgn * 16, pm.y + ny * sgn * 16, P.accent, { size: 14, align: sgn > 0 ? 'left' : 'right' });
+      }
+      ctx.fillStyle = P.fg; ctx.beginPath(); ctx.arc(o.x, o.y, 2.5, 0, Math.PI * 2); ctx.fill();
+      label(ctx, 'orange arrows at the tips: velocity, drawn as one second of motion', 8, 10, P.muted, { size: 10 });
+      numbers(omn);
+    }
+
+    function fill(k: string, A: M3) { cellMap.get(k)!.forEach((td, j) => { const s = f2(A[j]); if (td.textContent !== s) td.textContent = s; }); }
+    function numbers(omn: V3) {
+      const Wn = skew(omn), Cd = mm(Wn, C), omb = mv(tr(C), omn), Wb = skew(omb), R = mm(C, Wb);
+      fill('Cd', Cd); fill('Wn', Wn); fill('C', C); fill('C2', C); fill('Wb', Wb); fill('R', R);
+      out('wn', vec(omn)); out('wb', vec(omb));
+      out('diff', Math.max(...Cd.map((x, j) => Math.abs(x - R[j]))).toExponential(1));
+    }
+    function setHl(i: number) {
+      hl = i;
+      hlBtns.forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.hl) === i)));
+      for (const t of tables.values()) {
+        const on = t.hasAttribute('data-hl') && i >= 0;
+        t.classList.toggle('dim', on);
+        t.querySelectorAll<HTMLElement>('[data-c]').forEach((el) => el.classList.toggle('hot', on && Number(el.dataset.c) === i));
+      }
+      draw();
+    }
+    hlBtns.forEach((b) => b.addEventListener('click', () => setHl(Number(b.dataset.hl))));
+
+    const sw = slider(fig, 'w', (v) => `${v.toFixed(2)} rad/s`, (v) => { w = v; draw(); });
+    const inAz = fig.querySelector<HTMLInputElement>('input[name="uaz"]')!, inEl = fig.querySelector<HTMLInputElement>('input[name="uel"]')!;
+    const fromAngles = () => { const a = Number(inAz.value) * D2R, e = Number(inEl.value) * D2R; u = [Math.cos(e) * Math.cos(a), Math.cos(e) * Math.sin(a), -Math.sin(e)]; draw(); };
+    const saz = slider(fig, 'uaz', (v) => `${v}°`, () => fromAngles());
+    const sel = slider(fig, 'uel', (v) => `${v}°`, () => fromAngles());
+
+    const setPlaying = (p: boolean) => { playing = p; playBtn.setAttribute('aria-pressed', String(p)); playBtn.textContent = p ? 'pause' : 'play'; if (p) anim?.kick(); };
+    anim = animate(fig, (dt) => { C = mm(rexp(scale(u, w * dt)), C); draw(); }, () => playing);
+    playBtn.addEventListener('click', () => setPlaying(!playing));
+
+    // set the axis exactly along the current c_3; the sliders show the nearest whole degrees
+    fig.querySelector('[data-act="c3"]')!.addEventListener('click', () => {
+      u = col(C, 2);
+      const a = Math.round(Math.atan2(u[1], u[0]) / D2R), e = Math.round(Math.asin(Math.max(-1, Math.min(1, -u[2]))) / D2R);
+      saz.input.value = String(a); sel.input.value = String(e);
+      fig.querySelector('output[for="uaz"]')!.textContent = `${a}°`;
+      fig.querySelector('output[for="uel"]')!.textContent = `${e}°`;
+      draw();
+    });
+    fig.querySelector('[data-act="reset"]')!.addEventListener('click', () => {
+      C = [...C0] as M3; sw.set(0.6); saz.set(-30); sel.set(50);
+    });
+
+    let drag: { x: number; y: number; az: number; el: number } | null = null;
+    canvas.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, az, el }; canvas.setPointerCapture(e.pointerId); });
+    canvas.addEventListener('pointermove', (e) => { if (!drag) return; az = drag.az - (e.clientX - drag.x) * 0.01; el = Math.max(-1.2, Math.min(1.4, drag.el + (e.clientY - drag.y) * 0.01)); draw(); });
+    canvas.addEventListener('pointerup', () => (drag = null));
+
+    fromAngles();
+    setHl(-1);
+    setPlaying(playing);
+  });
+</script>

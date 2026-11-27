@@ -29,12 +29,12 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, animate, label, arrow, axes, series, outputs, reducedMotion } from '../../../lib/explainer';
+  import { palette, setupCanvas, animate, label, arrow, axes, series, outputs, reducedMotion, lazyInit } from '../../../lib/explainer';
 
   const D2R = Math.PI / 180, WIE_DEGH = (7.292115e-5 * 180 * 3600) / Math.PI;
   const num = (x: number, d = 2) => (Math.abs(x) < 0.5 * 10 ** -d ? (0).toFixed(d) : x.toFixed(d)).replace('-', '−');
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="erate"]')) {
+  lazyInit('[data-xp="erate"]', (fig) => {
     const cg = fig.querySelector<HTMLCanvasElement>('.c-g')!, cp = fig.querySelector<HTMLCanvasElement>('.c-p')!;
     const out = outputs(fig);
     const input = fig.querySelector<HTMLInputElement>('input[name="lat"]')!, outLat = fig.querySelector<HTMLOutputElement>('output[for="lat"]')!;
@@ -160,5 +160,5 @@ import M from '../../blog/M.astro';
       btn.setAttribute('aria-pressed', String(sweeping));
       anim.kick();
     });
-  }
+  });
 </script>

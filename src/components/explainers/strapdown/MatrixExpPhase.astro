@@ -49,16 +49,16 @@ import M from '../../blog/M.astro';
   .mp-cap { font-size: 0.85rem; color: var(--fg-soft); }
   .mp-blk.hot .mp-cap { color: var(--accent); }
   .mp-m { border-collapse: collapse; margin: 0; font-variant-numeric: tabular-nums; font-size: 0.85rem; }
-  .mp-m tr, .mp-m tbody { border: 0; }
-  .mp-m td { border: 0; padding: 0.1rem 0.5rem; text-align: right; color: var(--fg); min-width: 3.2rem; }
-  .mp-blk.hot .mp-m td { color: var(--accent); }
-  .mp-m tr td:first-child { border-left: 1px solid var(--border-strong); }
-  .mp-m tr td:last-child { border-right: 1px solid var(--border-strong); }
+  .mp-m :global(tr), .mp-m tbody { border: 0; }
+  .mp-m :global(td) { border: 0; padding: 0.1rem 0.5rem; text-align: right; color: var(--fg); min-width: 3.2rem; }
+  .mp-blk.hot .mp-m :global(td) { color: var(--accent); }
+  .mp-m :global(tr td:first-child) { border-left: 1px solid var(--border-strong); }
+  .mp-m :global(tr td:last-child) { border-right: 1px solid var(--border-strong); }
   .mp-note { text-align: left; margin: 0 0 0.6rem; min-height: 3em; }
 </style>
 
 <script>
-  import { palette, setupCanvas, animate, label, slider, arrow, outputs, reducedMotion, axes, series } from '../../../lib/explainer';
+  import { palette, setupCanvas, animate, label, slider, arrow, outputs, reducedMotion, axes, series, lazyInit } from '../../../lib/explainer';
 
   type M2 = [number, number, number, number];
   const PRESETS: Record<string, M2> = { rot: [0, -1, 1, 0], diag: [0.3, 0, 0, -0.6], spiral: [-0.25, -1, 1, -0.25] };
@@ -81,7 +81,7 @@ import M from '../../blog/M.astro';
     return d >= 0 ? [...new Set([s + Math.sqrt(d), s - Math.sqrt(d)].map((v) => +v.toFixed(6)))] : [s];
   }
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="mexpph"]')) {
+  lazyInit('[data-xp="mexpph"]', (fig) => {
     const cph = fig.querySelector<HTMLCanvasElement>('.c-ph')!, csc = fig.querySelector<HTMLCanvasElement>('.c-sc')!;
     const out = outputs(fig);
     const tA = fig.querySelector<HTMLElement>('[data-o-a]')!, tE = fig.querySelector<HTMLElement>('[data-o-e]')!;
@@ -199,5 +199,5 @@ import M from '../../blog/M.astro';
     cph.addEventListener('pointerdown', (e) => { dragging = true; cph.setPointerCapture(e.pointerId); setX0(e); });
     cph.addEventListener('pointermove', (e) => { if (dragging) setX0(e); });
     cph.addEventListener('pointerup', () => (dragging = false));
-  }
+  });
 </script>

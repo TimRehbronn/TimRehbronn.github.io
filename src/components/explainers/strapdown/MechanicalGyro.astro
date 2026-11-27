@@ -24,13 +24,13 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, animate, label, slider, arrow, outputs, reducedMotion } from '../../../lib/explainer';
+  import { palette, setupCanvas, animate, label, slider, arrow, outputs, reducedMotion, lazyInit } from '../../../lib/explainer';
   import { camera, type V3 } from '../../../lib/rot';
 
   const J = 1e-5;               // rotor inertia [kg m²] (50 g, 2 cm radius)
   const R2D = 180 / Math.PI;
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="mgyro"]')) {
+  lazyInit('[data-xp="mgyro"]', (fig) => {
     const canvas = fig.querySelector('canvas')!;
     const out = outputs(fig);
     let rpm = 24000, tq = 0.015, t = 0, phase = 0, az = 0.8, el = 0.35;
@@ -110,5 +110,5 @@ import M from '../../blog/M.astro';
     canvas.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, az, el }; canvas.setPointerCapture(e.pointerId); });
     canvas.addEventListener('pointermove', (e) => { if (!drag) return; az = drag.az - (e.clientX - drag.x) * 0.01; el = Math.max(-1.2, Math.min(1.4, drag.el + (e.clientY - drag.y) * 0.01)); draw(); });
     canvas.addEventListener('pointerup', () => (drag = null));
-  }
+  });
 </script>

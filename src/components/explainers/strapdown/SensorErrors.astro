@@ -26,10 +26,10 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, label, slider, arrow, axes, series, rng, outputs } from '../../../lib/explainer';
+  import { palette, setupCanvas, label, slider, arrow, axes, series, rng, outputs, lazyInit } from '../../../lib/explainer';
 
   const FS = 300, D2R = Math.PI / 180;
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="serr"]')) {
+  lazyInit('[data-xp="serr"]', (fig) => {
     const ce = fig.querySelector<HTMLCanvasElement>('.c-e')!, cm = fig.querySelector<HTMLCanvasElement>('.c-m')!;
     const out = outputs(fig);
     let b = 0.3, s = 0.4, k = 0.1, q = 0, n = 0.1, m = 1;
@@ -91,5 +91,5 @@ import M from '../../blog/M.astro';
     slider(fig, 'q', (v) => (v ? `${v.toFixed(2)} °/s` : 'off'), (v) => { q = v; draw(); });
     slider(fig, 'n', (v) => `${v.toFixed(2)} °/s`, (v) => { n = v; draw(); });
     slider(fig, 'm', (v) => `${v.toFixed(2)}°`, (v) => { m = v; draw(); });
-  }
+  });
 </script>

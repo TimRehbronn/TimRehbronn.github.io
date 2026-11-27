@@ -32,13 +32,13 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, label, slider, arrow, outputs } from '../../../lib/explainer';
+  import { palette, setupCanvas, label, slider, arrow, outputs, lazyInit } from '../../../lib/explainer';
 
   const D2R = Math.PI / 180, A = 6378137, F = 1 / 298.257223563, E2 = F * (2 - F);
   // illustrative geoid shape for the cross-section (not a real geoid model)
   const geoidShape = (t: number) => 0.6 * Math.sin(3 * t + 0.4) + 0.4 * Math.cos(5 * t + 1.2);
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="eshape"]')) {
+  lazyInit('[data-xp="eshape"]', (fig) => {
     const cg = fig.querySelector<HTMLCanvasElement>('.c-g')!, cz = fig.querySelector<HTMLCanvasElement>('.c-z')!;
     const out = outputs(fig);
     let lat = 51, ex = 40, h = 210, n = 47, dv = 10;
@@ -142,5 +142,5 @@ import M from '../../blog/M.astro';
     slider(fig, 'h', (v) => `${v} m`, (v) => { h = v; draw(); });
     slider(fig, 'n', (v) => `${v} m`, (v) => { n = v; draw(); });
     slider(fig, 'dv', (v) => `${v}″`, (v) => { dv = v; draw(); });
-  }
+  });
 </script>

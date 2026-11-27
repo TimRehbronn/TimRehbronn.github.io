@@ -32,7 +32,7 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, label, slider, arrow, axes, rng, outputs, type Palette } from '../../../lib/explainer';
+  import { palette, setupCanvas, label, slider, arrow, axes, rng, outputs, type Palette, lazyInit } from '../../../lib/explainer';
   import { camera, mv, rx, ry, I3, type M3, type V3 } from '../../../lib/rot';
 
   const G = 9.80665;
@@ -46,7 +46,7 @@ import M from '../../blog/M.astro';
   const RATES = [-300, -225, -150, -75, 0, 75, 150, 225, 300];
   const HALF: V3 = [0.95, 0.7, 0.42]; // half extents of the IMU box
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="sixpos"]')) {
+  lazyInit('[data-xp="sixpos"]', (fig) => {
     const out = outputs(fig);
     let ba = 8, sa = 0.4, bg = 0.3, sg = -0.3, nz = 1, seed = 3;
     // readings[k][0] = axis up, [1] = axis down, in m/s²; gyro errors in °/s
@@ -173,5 +173,5 @@ import M from '../../blog/M.astro';
     slider(fig, 'sg', (v) => `${v.toFixed(2)} %`, (v) => { sg = v; upd(); });
     slider(fig, 'nz', (v) => (v ? `${v.toFixed(1)} mg, ${(v * 0.02).toFixed(3)} °/s` : 'off'), (v) => { nz = v; upd(); });
     fig.querySelector('[data-act="new"]')!.addEventListener('click', () => { seed++; upd(); });
-  }
+  });
 </script>

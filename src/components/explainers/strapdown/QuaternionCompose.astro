@@ -22,7 +22,7 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, label, slider, arrow, outputs } from '../../../lib/explainer';
+  import { palette, setupCanvas, label, slider, arrow, outputs, lazyInit } from '../../../lib/explainer';
   import { camera, mv, qmat, qmul, type Q, type V3 } from '../../../lib/rot';
 
   const D2R = Math.PI / 180;
@@ -30,7 +30,7 @@ import M from '../../blog/M.astro';
   const FACES = [[0, 1, 2], [1, 3, 4, 2], [0, 5, 1], [0, 2, 6], [1, 5, 7, 3], [2, 4, 8, 6], [5, 6, 8, 7], [3, 7, 8, 4], [0, 6, 5]];
   const f3 = (x: number) => (Math.abs(x) < 5e-4 ? 0 : x).toFixed(3);
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="qcomp"]')) {
+  lazyInit('[data-xp="qcomp"]', (fig) => {
     const ca = fig.querySelector<HTMLCanvasElement>('.c-a')!, cb = fig.querySelector<HTMLCanvasElement>('.c-b')!;
     const out = outputs(fig);
     let a1 = 90, a2 = 90;
@@ -66,5 +66,5 @@ import M from '../../blog/M.astro';
     }
     slider(fig, 'a1', (v) => `${v}°`, (v) => { a1 = v; draw(); });
     slider(fig, 'a2', (v) => `${v}°`, (v) => { a2 = v; draw(); });
-  }
+  });
 </script>

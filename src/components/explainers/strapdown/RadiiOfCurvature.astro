@@ -29,14 +29,14 @@ import M from '../../blog/M.astro';
 </figure>
 
 <script>
-  import { palette, setupCanvas, label, slider, arrow, axes, series, outputs } from '../../../lib/explainer';
+  import { palette, setupCanvas, label, slider, arrow, axes, series, outputs, lazyInit } from '../../../lib/explainer';
 
   const D2R = Math.PI / 180, R0 = 6378137, E2 = 6.69437999014e-3, F = 1 / 298.257223563;
   const RN = (L: number, e2 = E2, a = R0) => (a * (1 - e2)) / (1 - e2 * Math.sin(L) ** 2) ** 1.5;
   const RE = (L: number, e2 = E2, a = R0) => a / Math.sqrt(1 - e2 * Math.sin(L) ** 2);
   const km = (m: number, d = 1) => `${(m / 1000).toFixed(d).replace(/\B(?=(\d{3})+(?!\d))/, ' ')} km`;
 
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="radii"]')) {
+  lazyInit('[data-xp="radii"]', (fig) => {
     const cg = fig.querySelector<HTMLCanvasElement>('.c-g')!, cp = fig.querySelector<HTMLCanvasElement>('.c-p')!;
     const out = outputs(fig);
     let lat = 51, ex = 60;
@@ -150,5 +150,5 @@ import M from '../../blog/M.astro';
     }
     slider(fig, 'lat', (v) => `${v}°`, (v) => { lat = v; draw(); });
     slider(fig, 'ex', (v) => `×${v}`, (v) => { ex = v; draw(); });
-  }
+  });
 </script>
