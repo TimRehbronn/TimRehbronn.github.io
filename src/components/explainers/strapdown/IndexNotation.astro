@@ -1,0 +1,42 @@
+---
+// Static figure explaining the index notation v_{eb}^n: which index means what, with examples.
+---
+
+<figure class="xp wide ixn">
+  <div class="xp-head"><span class="label fig-title">How to read the indices</span></div>
+  <div class="ixn-canvas" role="img" aria-label="The symbol v with lower indices e and b and upper index n, with callouts: e is the reference the motion is measured against, b is the frame that moves, n is the frame whose axes are used for the numbers">
+    <svg viewBox="0 0 800 300" aria-hidden="true">
+      <path d="M 455 92 C 520 80 560 60 600 60" class="ixn-l hot" />
+      <path d="M 438 205 C 420 250 330 262 250 262" class="ixn-l" />
+      <path d="M 470 205 C 500 250 560 262 620 262" class="ixn-l" />
+    </svg>
+    <div class="ixn-sym" style="left:40%;top:22%;">
+      <span class="v">v</span><span class="sup hot">n</span><span class="sub"><span class="e">e</span><span class="b">b</span></span>
+    </div>
+    <div class="ixn-call hot" style="left:75.5%;top:12%;"><b>upper index: resolved in</b><br />the axes along which the arrow is written as three numbers</div>
+    <div class="ixn-call" style="left:2%;top:80%;"><b>first lower index: relative to</b><br />the reference the motion is measured against</div>
+    <div class="ixn-call" style="left:78%;top:80%;"><b>second lower index: of</b><br />the frame (object) that moves</div>
+  </div>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<style>
+  .ixn .ixn-canvas { position: relative; width: 100%; aspect-ratio: 800 / 300; container-type: inline-size; }
+  .ixn svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .ixn .ixn-l { fill: none; stroke: var(--soft, #a3a3a3); stroke: var(--fg-soft); stroke-width: 1.5; }
+  .ixn .ixn-l.hot { stroke: var(--accent); }
+  .ixn .ixn-sym { position: absolute; font-size: 11cqw; line-height: 1; color: var(--fg); white-space: nowrap; }
+  .ixn .ixn-sym .v { font-family: KaTeX_Main, serif; font-weight: 700; }
+  .ixn .ixn-sym .sup { font-family: KaTeX_Math, serif; font-style: italic; font-size: 0.5em; position: relative; top: -0.95em; margin-left: 0.04em; }
+  .ixn .ixn-sym .sub { font-family: KaTeX_Math, serif; font-style: italic; font-size: 0.5em; position: relative; top: 0.45em; margin-left: -0.5em; }
+  .ixn .ixn-sym .sub .e { margin-right: 0.12em; color: var(--fg-soft); }
+  .ixn .ixn-sym .sub .b { color: var(--fg); }
+  .ixn .hot { color: var(--accent); }
+  .ixn .ixn-call { position: absolute; width: 21%; font-size: 1.55cqw; line-height: 1.35; color: var(--fg-soft); text-align: left; }
+  .ixn .ixn-call b { color: var(--fg); font-weight: 600; }
+  .ixn .ixn-call.hot b { color: var(--accent); }
+  .ixn .ixn-t { border-collapse: collapse; margin: 1rem 0 0; font-size: 0.84rem; width: 100%; }
+  .ixn .ixn-t th { text-align: left; font-weight: 400; color: var(--muted); padding: 0.35rem 0.6rem 0.35rem 0; border-bottom: 1px solid var(--border-strong); white-space: nowrap; }
+  .ixn .ixn-t td { text-align: left; padding: 0.35rem 0.6rem 0.35rem 0; border-bottom: 1px solid var(--border); color: var(--fg-soft); vertical-align: top; }
+  .ixn .ixn-t td.hot { color: var(--accent); }
+</style>

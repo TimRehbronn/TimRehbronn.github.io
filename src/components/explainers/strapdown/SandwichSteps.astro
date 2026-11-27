@@ -1,0 +1,100 @@
+---
+import M from '../../blog/M.astro';
+// The sandwich product step by step: the part of v perpendicular to u turns by alpha/2 twice (total alpha);
+// the part along u turns by alpha/2 into the scalar direction and back again (total 0).
+---
+
+<figure class="xp wide" data-xp="sandw">
+  <div class="xp-head"><span class="label fig-title">Why the sandwich multiplies twice</span></div>
+  <div class="xp-row two">
+    <canvas class="c-perp" role="img" aria-label="The plane perpendicular to the axis: the perpendicular part of v turns by half the angle in each step"></canvas>
+    <canvas class="c-par" role="img" aria-label="The plane spanned by 1 and u: the parallel part of v turns into the scalar direction in the first step and back in the second"></canvas>
+  </div>
+  <div class="xp-btns">
+    <button class="btn nocap" type="button" data-st="0" aria-pressed="false"><M t={String.raw`\mathbf v`} /></button>
+    <button class="btn nocap" type="button" data-st="1" aria-pressed="false">step 1: <M t={String.raw`\mathbf q \otimes \mathbf v`} /></button>
+    <button class="btn nocap" type="button" data-st="2" aria-pressed="true">step 2: <M t={String.raw`(\mathbf q \otimes \mathbf v) \otimes \mathbf q^*`} /></button>
+  </div>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Rotation angle <M t={String.raw`\alpha`} /></span><output for="al"></output></span><input type="range" name="al" min="0" max="360" step="1" value="120" /></label>
+  </div>
+  <p class="xp-readout" aria-live="polite">
+    <span>perpendicular part turned by <b class="hot" data-o="perp"></b></span>
+    <span>parallel part turned by <b data-o="par"></b></span>
+    <span>scalar part <b data-o="sc"></b></span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<style>
+  [data-xp='sandw'] .nocap { text-transform: none; letter-spacing: 0.02em; }
+</style>
+
+<script>
+  import { palette, setupCanvas, label, slider, arrow, outputs } from '../../../lib/explainer';
+
+  const D2R = Math.PI / 180, RP = 1, RA = 0.75;     // lengths of the perpendicular and parallel parts
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="sandw"]')) {
+    const c1 = fig.querySelector<HTMLCanvasElement>('.c-perp')!, c2 = fig.querySelector<HTMLCanvasElement>('.c-par')!;
+    const out = outputs(fig);
+    let al = 120, st = 2;
+    const A = setupCanvas(c1, 1, () => draw()), B = setupCanvas(c2, 1, () => draw());
+
+    function panel(cv: typeof A, kind: 'perp' | 'par') {
+      const P = palette(), { ctx, size } = cv, W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const cx = W / 2, cy = H / 2 + 10, R = Math.min(W, H) * 0.34;
+      const half = (al / 2) * D2R;
+      ctx.strokeStyle = P.strong; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cx - R * 1.3, cy); ctx.lineTo(cx + R * 1.3, cy); ctx.moveTo(cx, cy + R * 1.3); ctx.lineTo(cx, cy - R * 1.3); ctx.stroke();
+      if (kind === 'perp') {
+        // plane perpendicular to u; v_perp starts along the horizontal axis; each step turns by alpha/2
+        const r = R * RP;
+        ctx.strokeStyle = P.border; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+        label(ctx, 'plane perpendicular to $\\mathbf{u}$ ($\\mathbf{u}$ points out of the screen)', 8, 12, P.soft, { size: 11 });
+        const angs = [0, half, 2 * half];
+        angs.forEach((a, k) => {
+          const x = cx + Math.cos(a) * r, y = cy - Math.sin(a) * r, on = k === st, done = k <= st;
+          if (!done) return;
+          ctx.globalAlpha = on ? 1 : 0.35;
+          arrow(ctx, cx, cy, x, y, k === 0 ? P.fg : P.accent, on ? 2.5 : 1.5, 10);
+          label(ctx, ['$\\mathbf{v}_\\perp$', 'after step 1', 'after step 2'][k], x + 8, y - 8, k === 0 ? P.fg : P.accent, { size: 12 });
+          ctx.globalAlpha = 1;
+        });
+        if (st >= 1) { ctx.strokeStyle = P.accent; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(cx, cy, r * 0.3, 0, -half, true); ctx.stroke(); label(ctx, '$\\alpha/2$', cx + Math.cos(half / 2) * r * 0.42, cy - Math.sin(half / 2) * r * 0.42, P.accent, { size: 12, align: 'center' }); }
+        if (st >= 2) { ctx.strokeStyle = P.accent; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(cx, cy, r * 0.48, -half, -2 * half, true); ctx.stroke(); label(ctx, '$\\alpha/2$', cx + Math.cos(1.5 * half) * r * 0.6, cy - Math.sin(1.5 * half) * r * 0.6, P.accent, { size: 12, align: 'center' }); }
+        label(ctx, 'turns by $\\alpha/2 + \\alpha/2 = \\alpha$', 8, H - 10, P.accent, { size: 12 });
+      } else {
+        // plane spanned by 1 (horizontal) and u (vertical); v_par starts on the u axis
+        const r = R * RA;
+        ctx.strokeStyle = P.border; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+        label(ctx, 'plane spanned by $1$ (scalar) and $\\mathbf{u}$', 8, 12, P.soft, { size: 11 });
+        label(ctx, 'scalar', cx + R * 1.3, cy + 14, P.muted, { size: 10, align: 'right' });
+        label(ctx, '$\\mathbf{u}$', cx + 6, cy - R * 1.3 + 6, P.muted, { size: 13 });
+        const base = Math.PI / 2, angs = [base, base + half, base];
+        angs.forEach((a, k) => {
+          if (k > st) return;
+          const on = k === st, x = cx + Math.cos(a) * r, y = cy - Math.sin(a) * r;
+          ctx.globalAlpha = on ? 1 : 0.35;
+          arrow(ctx, cx, cy, x, y, k === 1 ? P.accent : P.fg, on ? 2.5 : 1.5, 10);
+          label(ctx, ['$\\mathbf{v}_\\parallel$', 'after step 1', 'after step 2'][k], x + (k === 1 ? -8 : 8), y - 8, k === 1 ? P.accent : P.fg, { size: 12, align: k === 1 ? 'right' : 'left' });
+          ctx.globalAlpha = 1;
+        });
+        if (st >= 1) { ctx.strokeStyle = P.accent; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(cx, cy, r * 0.35, -base, -(base + half), true); ctx.stroke(); }
+        if (st === 1) label(ctx, 'leaves the vector space: scalar part $\\neq 0$', 8, H - 10, P.accent, { size: 12 });
+        else label(ctx, st === 2 ? 'turns by $+\\alpha/2$ and back by $-\\alpha/2$' : 'the part along the axis', 8, H - 10, P.soft, { size: 12 });
+      }
+    }
+
+    function draw() {
+      panel(A, 'perp'); panel(B, 'par');
+      const half = al / 2;
+      out('perp', `${st * half}°`);
+      out('par', st === 1 ? `${half}° (into the scalar direction)` : '0°');
+      out('sc', st === 1 ? `${(-RA * Math.sin(half * D2R)).toFixed(3)} (not a vector)` : '0 (a vector)');
+    }
+    slider(fig, 'al', (v) => `${v}°`, (v) => { al = v; draw(); });
+    const sb = fig.querySelectorAll<HTMLButtonElement>('[data-st]');
+    sb.forEach((b) => b.addEventListener('click', () => { st = Number(b.dataset.st); sb.forEach((x) => x.setAttribute('aria-pressed', String(x === b))); draw(); }));
+  }
+</script>

@@ -1,0 +1,72 @@
+---
+import M from '../../blog/M.astro';
+// Chasles' theorem: every rigid motion is a screw motion, a rotation about an axis combined with a translation along it.
+---
+
+<figure class="xp wide" data-xp="screw">
+  <div class="xp-head"><span class="label fig-title">Every rigid motion is a screw</span><span class="label" style="color:var(--muted)">drag to orbit</span></div>
+  <canvas class="drag" role="img" aria-label="A box moving along a screw: it rotates about an axis and slides along it; a point of the box traces a helix"></canvas>
+  <ul class="xp-legend">
+    <li class="c-accent"><i></i><span>screw axis and the helix traced by one corner</span></li>
+    <li class="c-fg"><i></i><span>the body at start, in between and at the end</span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Rotation about the axis <M t={String.raw`\theta`} /></span><output for="th"></output></span><input type="range" name="th" min="0" max="360" step="1" value="180" /></label>
+    <label class="xp-ctl"><span><span>Translation along the axis <M t="d" /></span><output for="d"></output></span><input type="range" name="d" min="0" max="2" step="0.05" value="1.2" /></label>
+    <label class="xp-ctl"><span><span>Motion parameter <M t="s" /></span><output for="s"></output></span><input type="range" name="s" min="0" max="1" step="0.01" value="1" /></label>
+  </div>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, label, slider, arrow } from '../../../lib/explainer';
+  import { camera, type V3 } from '../../../lib/rot';
+
+  const D2R = Math.PI / 180;
+  // a box centred 0.9 away from the axis (axis = world z through the origin)
+  const BOX: V3[] = [];
+  for (const x of [-0.3, 0.3]) for (const y of [-0.2, 0.2]) for (const z of [-0.15, 0.15]) BOX.push([0.9 + x, y, z]);
+  const EDGES = [[0, 1], [2, 3], [4, 5], [6, 7], [0, 2], [1, 3], [4, 6], [5, 7], [0, 4], [1, 5], [2, 6], [3, 7]];
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="screw"]')) {
+    const canvas = fig.querySelector('canvas')!;
+    let th = 180, d = 1.2, s = 1, az = 0.6, el = 0.3;
+    const { ctx, size } = setupCanvas(canvas, (w) => Math.max(320, w * 0.5), draw);
+    const motion = (p: V3, k: number): V3 => { const a = th * D2R * k, c = Math.cos(a), sn = Math.sin(a); return [c * p[0] - sn * p[1], sn * p[0] + c * p[1], p[2] + d * k - d / 2]; };
+
+    function draw() {
+      const P = palette(), W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const cam = camera(az, el, Math.min(W, H) * 0.3, W / 2, H / 2);
+      const pr = (v: V3) => cam.project([v[0], -v[1], -v[2]]);
+      // screw axis
+      const a0 = pr([0, 0, -1.4]), a1 = pr([0, 0, 1.5]);
+      arrow(ctx, a0.x, a0.y, a1.x, a1.y, P.accent, 1.5, 9);
+      label(ctx, 'screw axis', a1.x + 6, a1.y, P.accent, { size: 11 });
+      // helix of one corner
+      ctx.strokeStyle = P.accent; ctx.lineWidth = 1.5; ctx.beginPath();
+      for (let i = 0; i <= 100; i++) { const q = pr(motion(BOX[7], (i / 100) * s)); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); }
+      ctx.stroke();
+      // ghosts
+      const ks = [0, 0.25, 0.5, 0.75, 1].filter((k) => k <= s + 1e-9);
+      if (ks[ks.length - 1] !== s) ks.push(s);
+      ks.forEach((k, idx) => {
+        const pts = BOX.map((p) => pr(motion(p, k))), last = idx === ks.length - 1;
+        ctx.strokeStyle = P.fg; ctx.globalAlpha = last || k === 0 ? 1 : 0.3; ctx.lineWidth = last ? 2 : 1;
+        for (const [i, j] of EDGES) { ctx.beginPath(); ctx.moveTo(pts[i].x, pts[i].y); ctx.lineTo(pts[j].x, pts[j].y); ctx.stroke(); }
+        ctx.globalAlpha = 1;
+      });
+      const pt = pr(motion(BOX[7], s)); ctx.fillStyle = P.accent; ctx.beginPath(); ctx.arc(pt.x, pt.y, 4, 0, Math.PI * 2); ctx.fill();
+      label(ctx, d === 0 ? 'no translation: a pure rotation' : th === 0 ? 'no rotation: a pure translation' : 'rotation about the axis plus translation along it', 8, 14, P.soft, { size: 12 });
+    }
+    slider(fig, 'th', (v) => `${v}°`, (v) => { th = v; draw(); });
+    slider(fig, 'd', (v) => v.toFixed(2), (v) => { d = v; draw(); });
+    slider(fig, 's', (v) => v.toFixed(2), (v) => { s = v; draw(); });
+
+    let drag: { x: number; y: number; az: number; el: number } | null = null;
+    canvas.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, az, el }; canvas.setPointerCapture(e.pointerId); });
+    canvas.addEventListener('pointermove', (e) => { if (!drag) return; az = drag.az - (e.clientX - drag.x) * 0.01; el = Math.max(-1.2, Math.min(1.4, drag.el + (e.clientY - drag.y) * 0.01)); draw(); });
+    canvas.addEventListener('pointerup', () => (drag = null));
+  }
+</script>

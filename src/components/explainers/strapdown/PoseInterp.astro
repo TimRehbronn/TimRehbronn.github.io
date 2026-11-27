@@ -1,0 +1,89 @@
+---
+import M from '../../blog/M.astro';
+// Interpolating between two poses: separately (translation straight, angle linear) vs. as one screw motion,
+// which is what dual-quaternion interpolation does (in the plane: a rotation about one fixed centre).
+---
+
+<figure class="xp wide" data-xp="pinterp">
+  <div class="xp-head"><span class="label fig-title">Interpolating a pose: separately or as one screw</span></div>
+  <canvas role="img" aria-label="Two poses of a vehicle and the in-between poses for two interpolation methods: separate interpolation of position and angle, and a single rotation about a fixed centre"></canvas>
+  <ul class="xp-legend">
+    <li class="c-fg"><i></i><span>position and angle interpolated separately</span></li>
+    <li class="c-accent"><i></i><span>dual-quaternion interpolation: one screw (here a rotation about the centre <M t={String.raw`\mathbf c`} />)</span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>End pose: <M t="x" /></span><output for="bx"></output></span><input type="range" name="bx" min="-1" max="2" step="0.05" value="1.3" /></label>
+    <label class="xp-ctl"><span><span>End pose: <M t="y" /></span><output for="by"></output></span><input type="range" name="by" min="-1" max="1.5" step="0.05" value="0.9" /></label>
+    <label class="xp-ctl"><span><span>End pose: angle</span><output for="bt"></output></span><input type="range" name="bt" min="-180" max="180" step="1" value="120" /></label>
+    <label class="xp-ctl"><span><span>Interpolation parameter <M t="s" /></span><output for="s"></output></span><input type="range" name="s" min="0" max="1" step="0.01" value="0.5" /></label>
+  </div>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, label, slider } from '../../../lib/explainer';
+
+  const D2R = Math.PI / 180;
+  const SHAPE = [[0.35, 0], [-0.22, 0.18], [-0.22, -0.18]];
+  type Pose = { x: number; y: number; t: number };
+
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="pinterp"]')) {
+    const canvas = fig.querySelector('canvas')!;
+    const A: Pose = { x: -1.2, y: -0.6, t: 0 };
+    const B: Pose = { x: 1.3, y: 0.9, t: 120 * D2R };
+    let s = 0.5;
+    const { ctx, size } = setupCanvas(canvas, (w) => Math.max(300, w * 0.48), draw);
+
+    const sep = (k: number): Pose => ({ x: A.x + k * (B.x - A.x), y: A.y + k * (B.y - A.y), t: A.t + k * (B.t - A.t) });
+    function centre() {
+      const dt = B.t - A.t, c = Math.cos(dt), sn = Math.sin(dt);
+      // (I - R) c = pB - R pA
+      const rx = B.x - (c * A.x - sn * A.y), ry = B.y - (sn * A.x + c * A.y);
+      const m00 = 1 - c, m01 = sn, m10 = -sn, m11 = 1 - c, det = m00 * m11 - m01 * m10;
+      if (Math.abs(det) < 1e-6) return null;
+      return { x: (m11 * rx - m01 * ry) / det, y: (-m10 * rx + m00 * ry) / det };
+    }
+    const screw = (k: number): Pose => {
+      const c = centre();
+      if (!c) return sep(k);
+      const a = k * (B.t - A.t), cs = Math.cos(a), sn = Math.sin(a), dx = A.x - c.x, dy = A.y - c.y;
+      return { x: c.x + cs * dx - sn * dy, y: c.y + sn * dx + cs * dy, t: A.t + a };
+    };
+
+    function draw() {
+      const P = palette(), W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const S = Math.min(W / 4.6, H / 3.2), cx = W / 2 - 0.2 * S, cy = H / 2 + 0.2 * S;
+      const X = (x: number) => cx + x * S, Y = (y: number) => cy - y * S;
+      ctx.strokeStyle = P.border; ctx.lineWidth = 1;
+      for (let g = -3; g <= 3; g++) { ctx.beginPath(); ctx.moveTo(X(g), 0); ctx.lineTo(X(g), H); ctx.moveTo(0, Y(g)); ctx.lineTo(W, Y(g)); ctx.stroke(); }
+      const body = (p: Pose, col: string, alpha: number, fill: boolean) => {
+        const c = Math.cos(p.t), sn = Math.sin(p.t);
+        ctx.globalAlpha = alpha; ctx.beginPath();
+        SHAPE.forEach(([u, v], i) => { const x = X(p.x + c * u - sn * v), y = Y(p.y + sn * u + c * v); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+        ctx.closePath(); ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.stroke(); if (fill) { ctx.fillStyle = col; ctx.fill(); }
+        ctx.globalAlpha = 1;
+      };
+      const tip = (p: Pose) => ({ x: X(p.x + Math.cos(p.t) * 0.35), y: Y(p.y + Math.sin(p.t) * 0.35) });
+      // paths of the nose for both methods
+      for (const [f, col] of [[sep, P.fg], [screw, P.accent]] as [(k: number) => Pose, string][]) {
+        ctx.strokeStyle = col; ctx.lineWidth = 1.25; ctx.setLineDash([4, 4]); ctx.beginPath();
+        for (let i = 0; i <= 60; i++) { const q = tip(f(i / 60)); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); }
+        ctx.stroke(); ctx.setLineDash([]);
+        for (let i = 1; i < 6; i++) body(f(i / 6), col, 0.25, false);
+        body(f(s), col, 1, false);
+      }
+      body(A, P.soft, 1, true); body(B, P.soft, 1, true);
+      label(ctx, 'start', X(A.x), Y(A.y) + 22, P.soft, { size: 11, align: 'center' });
+      label(ctx, 'end', X(B.x), Y(B.y) - 22, P.soft, { size: 11, align: 'center' });
+      const c = centre();
+      if (c) { ctx.fillStyle = P.accent; ctx.beginPath(); ctx.arc(X(c.x), Y(c.y), 4, 0, Math.PI * 2); ctx.fill(); label(ctx, '$\\mathbf{c}$', X(c.x) + 8, Y(c.y) - 8, P.accent, { size: 13 }); }
+      label(ctx, 'dashed: path of the nose', 8, H - 10, P.muted, { size: 11 });
+    }
+    slider(fig, 'bx', (v) => v.toFixed(2), (v) => { B.x = v; draw(); });
+    slider(fig, 'by', (v) => v.toFixed(2), (v) => { B.y = v; draw(); });
+    slider(fig, 'bt', (v) => `${v}°`, (v) => { B.t = v * D2R; draw(); });
+    slider(fig, 's', (v) => v.toFixed(2), (v) => { s = v; draw(); });
+  }
+</script>

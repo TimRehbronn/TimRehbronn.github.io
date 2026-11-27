@@ -1,0 +1,104 @@
+---
+import M from '../../blog/M.astro';
+// Cross product a x b in 3D (perpendicular, length = parallelogram area) and the same product as the matrix [a x] times b.
+---
+
+<figure class="xp wide" data-xp="cross">
+  <div class="xp-head"><span class="label fig-title">The cross product and its matrix</span><span class="label" style="color:var(--muted)">drag to orbit</span></div>
+  <div class="xp-row two">
+    <canvas class="drag" role="img" aria-label="Two vectors a and b, the parallelogram they span and the cross product a x b perpendicular to both; dashed: the part of b perpendicular to a and its quarter turn"></canvas>
+    <div class="cp-side">
+      <p class="small" style="text-align:left">The same product as a matrix times a vector:</p>
+      <div class="cp-eq">
+        <div class="cp-blk"><span class="cp-cap"><M t={String.raw`[\mathbf a\times]`} /></span><table class="cp-m"><tbody data-o-ax></tbody></table></div>
+        <div class="cp-op"><M t={String.raw`\cdot`} /></div>
+        <div class="cp-blk"><span class="cp-cap"><M t={String.raw`\mathbf b`} /></span><table class="cp-m"><tbody data-o-b></tbody></table></div>
+        <div class="cp-op"><M t="=" /></div>
+        <div class="cp-blk hot"><span class="cp-cap"><M t={String.raw`\mathbf a \times \mathbf b`} /></span><table class="cp-m"><tbody data-o-c></tbody></table></div>
+      </div>
+      <p class="small muted" style="text-align:left">The matrix contains only the three numbers of <M t={String.raw`\mathbf a`} />, with zeros on the diagonal and each number once with a plus and once with a minus sign: <M t={String.raw`[\mathbf a\times]^\mathsf T = -[\mathbf a\times]`} />.</p>
+    </div>
+  </div>
+  <ul class="xp-legend">
+    <li class="c-fg"><i></i><span><M t={String.raw`\mathbf a`} /> and <M t={String.raw`\mathbf b`} /></span></li>
+    <li class="c-accent"><i></i><span><M t={String.raw`\mathbf a \times \mathbf b`} />, length = area of the parallelogram</span></li>
+    <li class="c-muted dash"><i></i><span>part of <M t={String.raw`\mathbf b`} /> perpendicular to <M t={String.raw`\mathbf a`} />, turned by <M t={String.raw`90^\circ`} /></span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Direction of <M t={String.raw`\mathbf b`} /> (azimuth)</span><output for="baz"></output></span><input type="range" name="baz" min="-180" max="180" step="1" value="70" /></label>
+    <label class="xp-ctl"><span><span>Direction of <M t={String.raw`\mathbf b`} /> (elevation)</span><output for="bel"></output></span><input type="range" name="bel" min="-80" max="80" step="1" value="25" /></label>
+    <label class="xp-ctl"><span><span>Length of <M t={String.raw`\mathbf a`} /></span><output for="al"></output></span><input type="range" name="al" min="0.3" max="1.6" step="0.05" value="1" /></label>
+  </div>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<style>
+  .cp-side { min-width: 0; overflow-x: auto; }
+  .cp-eq { display: flex; align-items: center; gap: 0.5rem; margin: 0.4rem 0 0.8rem; }
+  .cp-blk { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; }
+  .cp-cap { font-size: 0.85rem; color: var(--fg-soft); }
+  .cp-blk.hot .cp-cap { color: var(--accent); }
+  .cp-op { color: var(--fg); }
+  .cp-m { border-collapse: collapse; margin: 0; font-variant-numeric: tabular-nums; font-size: 0.82rem; }
+  .cp-m td { border: 0; padding: 0.1rem 0.4rem; text-align: right; color: var(--fg); }
+  .cp-blk.hot .cp-m td { color: var(--accent); }
+  .cp-m tr td:first-child { border-left: 1px solid var(--border-strong); }
+  .cp-m tr td:last-child { border-right: 1px solid var(--border-strong); }
+</style>
+
+<script>
+  import { palette, setupCanvas, label, slider, arrow } from '../../../lib/explainer';
+  import { camera, cross, dot, scale, sub, add, norm, type V3 } from '../../../lib/rot';
+
+  const D2R = Math.PI / 180;
+  const f2 = (x: number) => (Math.abs(x) < 5e-3 ? '0' : x.toFixed(2));
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="cross"]')) {
+    const canvas = fig.querySelector('canvas')!;
+    const tAx = fig.querySelector<HTMLElement>('[data-o-ax]')!, tB = fig.querySelector<HTMLElement>('[data-o-b]')!, tC = fig.querySelector<HTMLElement>('[data-o-c]')!;
+    let baz = 70, bel = 25, al = 1, az = 0.8, el = 0.4;
+    const { ctx, size } = setupCanvas(canvas, 0.95, draw);
+
+    function draw() {
+      const P = palette(), W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const cam = camera(az, el, Math.min(W, H) * 0.27, W / 2, H / 2 + 20);
+      const pr = (v: V3) => cam.project([v[0], -v[1], -v[2]]);       // z up on screen
+      const o = pr([0, 0, 0]);
+      for (const [v, n] of [[[1.6, 0, 0], '$x$'], [[0, 1.6, 0], '$y$'], [[0, 0, 1.6], '$z$']] as [V3, string][]) { const p = pr(v); arrow(ctx, o.x, o.y, p.x, p.y, P.strong, 1, 7); label(ctx, n, p.x + 4, p.y, P.muted, { size: 11 }); }
+      const a: V3 = [al, 0, 0];
+      const b: V3 = [Math.cos(bel * D2R) * Math.cos(baz * D2R), Math.cos(bel * D2R) * Math.sin(baz * D2R), Math.sin(bel * D2R)];
+      const c = cross(a, b);
+      // parallelogram
+      const p1 = pr(a), p2 = pr(add(a, b)), p3 = pr(b);
+      ctx.fillStyle = P.accent; ctx.globalAlpha = 0.15; ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.lineTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.lineTo(p3.x, p3.y); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
+      // construction: b_perp and its quarter turn about a
+      const ah: V3 = scale(a, 1 / norm(a)), bp = sub(b, scale(ah, dot(b, ah))), turned = cross(ah, bp);
+      const pb = pr(bp), pt = pr(turned);
+      ctx.setLineDash([4, 4]);
+      arrow(ctx, o.x, o.y, pb.x, pb.y, P.muted, 1.5, 8);
+      arrow(ctx, o.x, o.y, pt.x, pt.y, P.muted, 1.5, 8);
+      ctx.strokeStyle = P.muted; ctx.beginPath(); ctx.moveTo(p3.x, p3.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
+      ctx.setLineDash([]);
+      label(ctx, '$\\mathbf{b}_\\perp$', pb.x + 6, pb.y + 10, P.muted, { size: 12 });
+      // vectors
+      arrow(ctx, o.x, o.y, p1.x, p1.y, P.fg, 2.5, 10); label(ctx, '$\\mathbf{a}$', p1.x + 6, p1.y + 10, P.fg, { size: 15 });
+      arrow(ctx, o.x, o.y, p3.x, p3.y, P.fg, 2.5, 10); label(ctx, '$\\mathbf{b}$', p3.x + 6, p3.y - 6, P.fg, { size: 15 });
+      const pc = pr(c); arrow(ctx, o.x, o.y, pc.x, pc.y, P.accent, 3, 11); label(ctx, '$\\mathbf{a}\\times\\mathbf{b}$', pc.x + 8, pc.y - 6, P.accent, { size: 14 });
+      label(ctx, `length ${norm(c).toFixed(2)} = area of the parallelogram`, 8, H - 10, P.muted, { size: 11 });
+      // matrix panel
+      const M = [[0, -a[2], a[1]], [a[2], 0, -a[0]], [-a[1], a[0], 0]];
+      tAx.innerHTML = M.map((r) => `<tr>${r.map((x) => `<td>${f2(x)}</td>`).join('')}</tr>`).join('');
+      tB.innerHTML = b.map((x) => `<tr><td>${f2(x)}</td></tr>`).join('');
+      tC.innerHTML = c.map((x) => `<tr><td>${f2(x)}</td></tr>`).join('');
+    }
+    slider(fig, 'baz', (v) => `${v}°`, (v) => { baz = v; draw(); });
+    slider(fig, 'bel', (v) => `${v}°`, (v) => { bel = v; draw(); });
+    slider(fig, 'al', (v) => v.toFixed(2), (v) => { al = v; draw(); });
+
+    let drag: { x: number; y: number; az: number; el: number } | null = null;
+    canvas.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, az, el }; canvas.setPointerCapture(e.pointerId); });
+    canvas.addEventListener('pointermove', (e) => { if (!drag) return; az = drag.az - (e.clientX - drag.x) * 0.01; el = Math.max(-1.2, Math.min(1.4, drag.el + (e.clientY - drag.y) * 0.01)); draw(); });
+    canvas.addEventListener('pointerup', () => (drag = null));
+  }
+</script>

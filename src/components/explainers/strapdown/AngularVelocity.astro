@@ -1,0 +1,89 @@
+---
+import M from '../../blog/M.astro';
+// Angular velocity vector: a rotating disc, the axis and rate as one vector omega, and the velocity omega x r of a point.
+---
+
+<figure class="xp wide" data-xp="angvel">
+  <div class="xp-head"><span class="label fig-title">The angular velocity vector</span><span class="label" style="color:var(--muted)">drag to orbit</span></div>
+  <canvas class="drag" role="img" aria-label="A rotating disc with its angular velocity vector along the axis, a point on the disc and its velocity, which is perpendicular to both"></canvas>
+  <ul class="xp-legend">
+    <li class="c-accent"><i></i><span>angular velocity <M t={String.raw`\boldsymbol\omega`} /> and velocity of the point <M t={String.raw`\dot{\mathbf r} = \boldsymbol\omega \times \mathbf r`} /></span></li>
+    <li class="c-fg"><i></i><span>position <M t={String.raw`\mathbf r`} /> of the point</span></li>
+  </ul>
+  <div class="xp-controls">
+    <label class="xp-ctl"><span><span>Rotation rate <M t={String.raw`\lVert\boldsymbol\omega\rVert`} /></span><output for="w"></output></span><input type="range" name="w" min="-2" max="2" step="0.05" value="0.8" /></label>
+    <label class="xp-ctl"><span><span>Axis tilt</span><output for="tl"></output></span><input type="range" name="tl" min="0" max="80" step="1" value="25" /></label>
+    <label class="xp-ctl"><span><span>Radius of the point</span><output for="rr"></output></span><input type="range" name="rr" min="0.2" max="1.2" step="0.05" value="1" /></label>
+  </div>
+  <p class="xp-readout" aria-live="polite">
+    <span><M t={String.raw`\lVert\dot{\mathbf r}\rVert = \lVert\boldsymbol\omega\rVert\, r_\perp`} /> = <b class="hot" data-o="v"></b></span>
+    <span>angle between <M t={String.raw`\dot{\mathbf r}`} /> and <M t={String.raw`\boldsymbol\omega`} />, <M t={String.raw`\mathbf r`} />: <b data-o="ang"></b></span>
+  </p>
+  <figcaption><slot /></figcaption>
+</figure>
+
+<script>
+  import { palette, setupCanvas, animate, label, slider, arrow, outputs, reducedMotion } from '../../../lib/explainer';
+  import { camera, cross, type V3 } from '../../../lib/rot';
+
+  const D2R = Math.PI / 180;
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-xp="angvel"]')) {
+    const canvas = fig.querySelector('canvas')!;
+    const out = outputs(fig);
+    let w = 0.8, tl = 25, rr = 1, phase = 0.6, az = 0.9, el = 0.35;
+    const { ctx, size } = setupCanvas(canvas, (wd) => Math.max(320, wd * 0.5), draw);
+
+    function frame() {
+      const t = tl * D2R;
+      const u: V3 = [Math.sin(t), 0, Math.cos(t)];            // axis direction (z up world)
+      const a1: V3 = [Math.cos(t), 0, -Math.sin(t)], a2: V3 = [0, 1, 0];
+      return { u, a1, a2 };
+    }
+
+    function draw() {
+      const P = palette(), W = size.w, H = size.h;
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const cam = camera(az, el, Math.min(W, H) * 0.3, W / 2, H / 2 + 10);
+      const pr = (v: V3) => cam.project([v[0], -v[1], -v[2]]);
+      const o = pr([0, 0, 0]);
+      const { u, a1, a2 } = frame();
+      const disc = (ang: number, r: number): V3 => [r * (Math.cos(ang) * a1[0] + Math.sin(ang) * a2[0]), r * (Math.cos(ang) * a1[1] + Math.sin(ang) * a2[1]), r * (Math.cos(ang) * a1[2] + Math.sin(ang) * a2[2])];
+      // disc outline and spokes
+      ctx.strokeStyle = P.strong; ctx.lineWidth = 1.25; ctx.beginPath();
+      for (let i = 0; i <= 72; i++) { const q = pr(disc((i / 72) * 2 * Math.PI, 1.3)); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); }
+      ctx.stroke();
+      for (let k = 0; k < 6; k++) { const q = pr(disc(phase + (k * Math.PI) / 3, 1.3)); ctx.strokeStyle = P.border; ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.lineTo(q.x, q.y); ctx.stroke(); }
+      // rotation arrow around the axis (right-hand rule)
+      ctx.strokeStyle = P.soft; ctx.lineWidth = 1.25; ctx.beginPath();
+      const sgn = Math.sign(w) || 1;
+      for (let i = 0; i <= 30; i++) { const q = pr([u[0] * 1.1 + disc(sgn * (i / 30) * 4.5, 0.35)[0], u[1] * 1.1 + disc(sgn * (i / 30) * 4.5, 0.35)[1], u[2] * 1.1 + disc(sgn * (i / 30) * 4.5, 0.35)[2]]); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); }
+      ctx.stroke();
+      // omega vector along the axis
+      const wl = 0.4 + Math.abs(w) * 0.6, wEnd = pr([u[0] * wl * sgn * 1.4, u[1] * wl * sgn * 1.4, u[2] * wl * sgn * 1.4]);
+      const axA = pr([u[0] * 1.9, u[1] * 1.9, u[2] * 1.9]), axB = pr([-u[0] * 1.2, -u[1] * 1.2, -u[2] * 1.2]);
+      ctx.strokeStyle = P.muted; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(axB.x, axB.y); ctx.lineTo(axA.x, axA.y); ctx.stroke(); ctx.setLineDash([]);
+      arrow(ctx, o.x, o.y, wEnd.x, wEnd.y, P.accent, 3, 11);
+      label(ctx, '$\\boldsymbol\\omega$', wEnd.x + 8, wEnd.y - 6, P.accent, { size: 15 });
+      // point on the disc, position r and velocity omega x r
+      const r = disc(phase, rr * 1.3), pp = pr(r);
+      arrow(ctx, o.x, o.y, pp.x, pp.y, P.fg, 2, 9);
+      label(ctx, '$\\mathbf{r}$', (o.x + pp.x) / 2 + 6, (o.y + pp.y) / 2 + 10, P.fg, { size: 14 });
+      const om: V3 = [u[0] * w, u[1] * w, u[2] * w], v = cross(om, r), ve = pr([r[0] + v[0] * 0.9, r[1] + v[1] * 0.9, r[2] + v[2] * 0.9]);
+      arrow(ctx, pp.x, pp.y, ve.x, ve.y, P.accent, 2.5, 10);
+      label(ctx, '$\\boldsymbol\\omega\\times\\mathbf{r}$', ve.x + 6, ve.y - 6, P.accent, { size: 13 });
+      ctx.fillStyle = P.fg; ctx.beginPath(); ctx.arc(pp.x, pp.y, 4, 0, Math.PI * 2); ctx.fill();
+      label(ctx, 'curl the fingers of your right hand with the rotation: the thumb points along $\\boldsymbol\\omega$', 8, H - 10, P.muted, { size: 11 });
+      out('v', `${(Math.abs(w) * rr * 1.3).toFixed(2)} (units per second)`); out('ang', '90° to both');
+    }
+    animate(fig, (dt) => { phase += w * dt; draw(); }, () => !reducedMotion());
+    slider(fig, 'w', (v) => `${v.toFixed(2)} rad/s`, (v) => { w = v; draw(); });
+    slider(fig, 'tl', (v) => `${v}°`, (v) => { tl = v; draw(); });
+    slider(fig, 'rr', (v) => v.toFixed(2), (v) => { rr = v; draw(); });
+
+    let drag: { x: number; y: number; az: number; el: number } | null = null;
+    canvas.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, az, el }; canvas.setPointerCapture(e.pointerId); });
+    canvas.addEventListener('pointermove', (e) => { if (!drag) return; az = drag.az - (e.clientX - drag.x) * 0.01; el = Math.max(-1.2, Math.min(1.4, drag.el + (e.clientY - drag.y) * 0.01)); draw(); });
+    canvas.addEventListener('pointerup', () => (drag = null));
+  }
+</script>

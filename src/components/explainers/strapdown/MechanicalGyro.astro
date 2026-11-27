@@ -50,7 +50,7 @@ import M from '../../blog/M.astro';
       if (!W) return;
       ctx.clearRect(0, 0, W, Hh);
       const cam = camera(az, el, Math.min(W, Hh) * 0.28, W / 2, Hh * 0.45);
-      const pr = (v: V3) => cam.project([v[0], v[1], -v[2]]);     // z up on screen
+      const pr = (v: V3) => cam.project([v[0], -v[1], -v[2]]);     // z up on screen
       const o = pr([0, 0, 0]);
       // stand and ground circle
       const base = pr([0, 0, -1.3]);

@@ -78,7 +78,7 @@ const GREEK: Record<string, string> = {
   sigma: 'σ', phi: 'ϕ', varphi: 'φ', psi: 'ψ', omega: 'ω', mu: 'μ', pi: 'π', tau: 'τ', eta: 'η', rho: 'ρ', xi: 'ξ', nu: 'ν', kappa: 'κ', zeta: 'ζ', chi: 'χ', iota: 'ι',
   Delta: 'Δ', Omega: 'Ω', Gamma: 'Γ', Theta: 'Θ', Lambda: 'Λ', Sigma: 'Σ', Phi: 'Φ', Psi: 'Ψ', Pi: 'Π',
 };
-const SYMBOLS: Record<string, string> = { pm: '±', mp: '∓', times: '×', cdot: '·', approx: '≈', leq: '≤', geq: '≥', infty: '∞', to: '→', propto: '∝', partial: '∂' };
+const SYMBOLS: Record<string, string> = { pm: '±', mp: '∓', times: '×', cdot: '·', approx: '≈', leq: '≤', geq: '≥', infty: '∞', to: '→', propto: '∝', partial: '∂', neq: '≠', perp: '⊥', parallel: '∥', otimes: '⊗', ast: '∗' };
 type Face = 'it' | 'rm' | 'bf' | 'bi';
 type Atom = { t: string; f: Face; s: 0 | 1 | -1; stack?: boolean };
 

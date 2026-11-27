@@ -143,3 +143,6 @@
 @media (prefers-reduced-motion: reduce) {
   .timeline a, .timeline .dot::before { transition: none; }
 }
+
+/* wide figures inside collapsible boxes stay within the box */
+.prose details.derivation .xp.wide { width: auto; }

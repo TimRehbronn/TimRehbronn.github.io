@@ -32,6 +32,15 @@ import ServoAccel from '../../components/explainers/strapdown/ServoAccel.astro';
 import VibratingBeamAccel from '../../components/explainers/strapdown/VibratingBeamAccel.astro';
 import ComplexRotation from '../../components/explainers/strapdown/ComplexRotation.astro';
 import QuaternionSandwich from '../../components/explainers/strapdown/QuaternionSandwich.astro';
+import IndexNotation from '../../components/explainers/strapdown/IndexNotation.astro';
+import QuaternionCycle from '../../components/explainers/strapdown/QuaternionCycle.astro';
+import QuaternionPlanes from '../../components/explainers/strapdown/QuaternionPlanes.astro';
+import QuaternionCompose from '../../components/explainers/strapdown/QuaternionCompose.astro';
+import SandwichSteps from '../../components/explainers/strapdown/SandwichSteps.astro';
+import ScrewMotion from '../../components/explainers/strapdown/ScrewMotion.astro';
+import PoseInterp from '../../components/explainers/strapdown/PoseInterp.astro';
+import AngularVelocity from '../../components/explainers/strapdown/AngularVelocity.astro';
+import CrossProduct from '../../components/explainers/strapdown/CrossProduct.astro';
 import FrameVector from '../../components/explainers/strapdown/FrameVector.astro';
 import NoiseWalk from '../../components/explainers/strapdown/NoiseWalk.astro';
 import Representations from '../../components/explainers/strapdown/Representations.astro';
@@ -103,7 +112,7 @@ An INS is dead reckoning with inertial sensors. Gyros tell us how the attitude c
 A closely related device is often confused with an INS:
 
 <Def term="AHRS">
-  An **attitude and heading reference system (AHRS)** is a device that outputs only the attitude, $\boldsymbol\Theta = [\phi,\; \theta,\; \psi]^\mathsf T$. It consists of an IMU, a **heading reference** (a sensor that measures a horizontal direction, explained below) and an estimation algorithm, a **filter**: software that fuses the measurements of several sensors into one estimate. Like an INS it integrates the gyro rates $\tilde{\boldsymbol\omega}$ over time, but it continuously corrects the result with **references**, measured directions that are fixed in the navigation frame and whose errors do not grow with time:
+  An **attitude and heading reference system (AHRS)** is a device that outputs only the attitude, $\boldsymbol\Theta = [\phi,\; \theta,\; \psi]^\mathsf T$. It consists of an IMU, a **heading reference** (a sensor that measures a horizontal direction, explained below) and an estimation algorithm, a **filter**: software that fuses the measurements of several sensors into one estimate. Like an INS it integrates the gyro rates $\tilde{\boldsymbol\omega}$ over time, but it continuously corrects the result with **references**, measured directions that are fixed relative to the Earth, such as "down" and "north", and whose errors do not grow with time:
   - for roll $\phi$ and pitch $\theta$, the direction of gravity, measured by the accelerometers;
   - for heading $\psi$, a horizontal direction. Most often this is the Earth's magnetic field, measured as the vector $\tilde{\mathbf m}$ by a three-axis **magnetometer**. Alternatives are a GNSS receiver with two antennas, the GNSS course over ground while the vehicle moves, or the Earth's rotation measured by very good gyros (gyrocompassing, explained later).
 
@@ -118,12 +127,16 @@ A closely related device is often confused with an INS:
 
 Every gyro has a bias, and integrating the measured rate integrates the bias too. With a gyro bias $b_g$, an attitude angle obtained purely by integration is off by $b_g\,t$ after the time $t$: the error grows without bound. This is true for any device that only integrates, an AHRS as well as an INS. The two differ in how they deal with it.
 
-An **AHRS** corrects its integrated attitude with references. A reference is a direction that is fixed in the navigation frame and that a sensor can measure *directly*, without integration, so that its error does not grow with time. It may be noisy or disturbed, but it does not drift. Two different directions are enough to fix an orientation in three dimensions:
+An **AHRS** corrects its integrated attitude with references. A reference is a direction that is fixed relative to the Earth and that a sensor can measure *directly*, without integration, so that its error does not grow with time. It may be noisy or disturbed, but it does not drift. Two different directions are enough to fix an orientation in three dimensions:
 
 - **Gravity fixes roll and pitch.** The accelerometers measure the specific force $\mathbf f = \mathbf a - \mathbf g$. If the vehicle does not accelerate, $\mathbf a = \mathbf 0$ and $-\mathbf f$ points straight up, so its direction in body axes gives roll and pitch. This only holds **on average**: a vehicle cannot keep accelerating in one direction, because its velocity would grow without limit, so over minutes the accelerations average out and the average of $\mathbf f$ is $-\mathbf g$. The AHRS filter therefore trusts this reference only slowly. During a sustained acceleration it is wrong: a car driving at $20\,\text{m/s}$ through a curve of $200\,\text{m}$ radius has a centripetal acceleration of $v^2/r = 2\,\text{m/s}^2$, and the apparent "down" tilts by $\arctan(2/9.81) \approx 11.5°$. An AHRS that relied on it too quickly would report a roll angle of that size.
 - **Gravity says nothing about heading.** Turning the vehicle about the vertical does not change the direction of gravity in body axes. Heading therefore needs a second, horizontal direction: the magnetic field (pointing to magnetic north, which differs from true north by the local **declination**), the line between two GNSS antennas, the direction of motion from GNSS, or the Earth's rotation axis. A magnetometer does not drift, because it measures the field directly, but it is disturbed by nearby iron, steel hulls and electric currents.
 
 An **INS** does not use gravity as a reference during operation. It does not assume $\mathbf a = \mathbf 0$; it tracks the full acceleration and integrates it into velocity and position. The accelerometers are used for navigation, not for attitude, so a long curve causes no error by itself. The price is that nothing bounds the drift: the attitude drifts with the gyro biases, and velocity and position drift with everything. An INS still needs references at two points. At the **start**, it determines its initial attitude from gravity and, with good gyros, from the Earth's rotation (alignment, explained later). And during operation, unless its sensors are of navigation grade, it needs **aiding**: external measurements such as GNSS positions that bound the drift. Combining an INS with such measurements is GNSS/INS fusion, the subject of later parts of this series. As we will see in the error analysis, the Earth's curvature also keeps the roll and pitch errors of an INS bounded, while the heading error keeps growing.
+
+Two clarifications help to keep the devices apart. First, an AHRS determines the attitude relative to the local directions north, east and down, i.e. relative to the Earth, not relative to inertial space; its references, gravity and the magnetic field, are tied to the Earth. Second, an INS does not contain an AHRS. It integrates the gyros itself, keeps its own attitude estimate, uses it to rotate the measured specific force into north, east and down, and integrates velocity and position from that.
+
+But how does an INS know where north is, if it has no magnetometer? From its **initial alignment**. An INS whose gyros are good enough to measure the Earth's rotation finds north by itself (gyrocompassing, explained in the section on alignment). Otherwise it receives the initial heading from outside, for example from a magnetometer, from two GNSS antennas or from the GNSS course while the vehicle moves, or a filter estimates it during the first manoeuvres. From then on the heading is propagated by integrating the gyros. Using a magnetometer for the initial heading does not turn an INS into an AHRS: the difference is that an AHRS keeps correcting its attitude with references under the assumption $\mathbf a \approx \mathbf 0$, while an INS tracks the acceleration and relies on integration in between.
 
 ### IMU, AHRS, INS and dead reckoning: how they differ
 
@@ -242,6 +255,10 @@ $$
 - The **lower indices** describe the physics: the motion of the second frame ($b$, the body) relative to the first ($e$, the Earth).
 - The **upper index** describes the bookkeeping: the axes along which the vector is written as three numbers. It is also called the **resolving frame**.
 
+<IndexNotation>
+  The three index positions of $\mathbf v_{eb}^n$. Read from bottom right to bottom left to top: the velocity *of* $b$, *relative to* $e$, *resolved in* $n$. The lower indices decide which physical arrow is meant; the upper index only decides in which axes its three numbers are written.
+</IndexNotation>
+
 The same letters are used for all kinematic quantities:
 
 <div class="table-wrap">
@@ -318,11 +335,26 @@ $$
 
 Let us also allow the initial velocity to be wrong by $\delta v_0$. Throughout this post the symbol $\delta$ in front of a quantity denotes its **error**, defined as *computed value minus true value*. For example, $\delta p = \hat p - p$, where the hat marks the value computed by the navigation algorithm.
 
-Now feed the biased measurement into the integration. Because integration is linear, the errors integrate separately from the true motion. For the bias alone:
+Now feed the biased measurement into the integration and follow the errors step by step. Ignore the noise for the moment. The INS starts with the correct initial position $p_0$ but with the velocity $v_0 + \delta v_0$, where $v_0$ is the true initial velocity and $\delta v_0$ the error of the initial velocity. It integrates the measured acceleration $\tilde a = a + b$ to obtain its computed velocity $\hat v(t)$:
 
 $$
-\delta v(t) = \delta v_0 + b\,t, \qquad \delta p(t) = \delta v_0\, t + \tfrac{1}{2}\, b\, t^2 .
+\hat v(t) = v_0 + \delta v_0 + \int_0^t \big(a(\tau) + b\big)\, d\tau
+= \underbrace{v_0 + \int_0^t a(\tau)\, d\tau}_{v(t)} \;+\; \delta v_0 + b\,t .
 $$
+
+The first two terms are exactly the true velocity $v(t)$, so the velocity error is
+
+$$
+\delta v(t) = \hat v(t) - v(t) = \delta v_0 + b\,t .
+$$
+
+The computed position is the integral of the computed velocity, $\hat p(t) = p_0 + \int_0^t \hat v(\tau)\, d\tau$, and in the same way the true parts cancel. The position error is the integral of the velocity error:
+
+$$
+\delta p(t) = \hat p(t) - p(t) = \int_0^t \delta v(\tau)\, d\tau = \delta v_0\, t + \tfrac{1}{2}\, b\, t^2 .
+$$
+
+The measured acceleration is of course used: it enters through $\hat v$, and the true motion it contains drops out in the difference to the truth. Because integration is linear, the true motion and the errors can be integrated separately; only the errors remain.
 
 A constant acceleration error becomes a velocity error that grows linearly in time and a position error that grows **quadratically**. This is the most important equation of this section. A bias of only $5\,\text{mg}$, which is quite good for a cheap sensor, produces $\tfrac12 \cdot 0.049 \cdot 60^2 \approx 88\,\text{m}$ of position error after one minute and more than $300\,\text{km}$ after one hour.
 
@@ -349,6 +381,8 @@ $$
 because after $t/\Delta t$ samples we have summed $t/\Delta t$ independent errors of size $\sigma \Delta t$ each, and variances of independent errors add up. Integrating once more gives a position error whose standard deviation grows like $t^{3/2}$. In IMU datasheets this effect appears as **velocity random walk** (VRW) for accelerometers, in units like $\text{m/s}/\sqrt{\text{h}}$, and as **angle random walk** (ARW) for gyros, in $°/\sqrt{\text{h}}$. The square root of hours in the unit is exactly the $\sqrt{t}$ from the formula above.
 
 The figure shows why the square root appears. Each realization (each possible run of the experiment) wanders off differently, but on average they spread out like $\sqrt t$. Note also the role of the sample rate: what matters is not the noise per sample $\sigma_w$ but the **noise density** $N = \sigma_w \sqrt{\Delta t}$. A sensor sampled ten times faster shows more noise per sample, but each sample is weighted with a smaller $\Delta t$, and the random walk is the same. This is why datasheets specify noise as a density, for example in $\text{m/s}^2/\sqrt{\text{Hz}}$ or $°/\text{s}/\sqrt{\text{Hz}}$.
+
+To summarize how a random walk is built: at every sample $k$ a new random value $w_k$ is drawn from the distribution of the noise, here a normal distribution with standard deviation $\sigma_w$, and added to the running sum. The histogram on the right of the figure shows something else: the value of the *sum* at $t = 60\,\text{s}$, collected over 300 independent runs. Each of these values is a sum of many independent random numbers, and such a sum is itself normally distributed: exactly if the $w_k$ are Gaussian, and approximately for almost any noise distribution, by the **central limit theorem**. Its variance grows linearly with the number of samples, so its standard deviation grows with $\sqrt t$. The narrow distribution of a single step and the wide bell curve at the end are therefore two different things: the second is the result of adding up many draws from the first.
 
 <NoiseWalk>
   Three hundred simulated runs of the same experiment; thirty are drawn, the histogram on the right collects the values of all three hundred at $t = 60\,\text{s}$. **Try:** switch between white noise, random walk and integrated random walk: the envelope grows like $\sqrt t$ for the random walk and like $t^{3/2}$ for its integral (the position error). Then change the sample rate with the noise density fixed: the white noise gets wider, the random walk does not change.
@@ -378,6 +412,21 @@ Three lessons from one dimension carry through the entire post:
 2. Bias errors are the dominant long-term problem. They grow polynomially in time: $t$ in velocity, $t^2$ in position, and we will see $t^3$ once gyros are involved.
 3. Without an external reference (like GNSS) to correct it, any INS eventually becomes useless. The question is only *when*: after seconds, minutes or hours, depending on the sensor quality.
 
+The two error types behave fundamentally differently. A **bias** is systematic: it has the same value at every sample, so it is predictable once known, and a filter can estimate and remove it. **Noise** is random: it has zero mean and a new value at every sample, so it cannot be predicted or removed, only averaged. Integration does not average it away, though; it adds it up into a random walk. The table summarizes how both errors of both sensors travel through the integrations. The gyro rows anticipate the next sections: the gyro is integrated into the attitude, and an attitude error $\delta\theta$ leaks the gravity reading into the horizontal as a false acceleration $g\,\delta\theta$, as explained in the next section. The formulas hold for short times on a flat Earth; the section on error growth shows the long-term behaviour.
+
+<div class="table-wrap">
+
+| Sensor error | in the measurement | in the attitude | in the velocity | in the position |
+| --- | --- | --- | --- | --- |
+| accelerometer bias $b_a$ | constant $b_a$ | none | $b_a\, t$ | $\tfrac12 b_a t^2$ |
+| accelerometer noise, density $N_a$ | random, zero mean | none | random walk, std. $N_a \sqrt t$ | std. $N_a\, t^{3/2}/\sqrt 3$ |
+| gyro bias $b_g$ | constant $b_g$ | $b_g\, t$ | $\tfrac12 g\, b_g\, t^2$ | $\tfrac16 g\, b_g\, t^3$ |
+| gyro noise, density $N_g$ | random, zero mean | random walk, std. $N_g\sqrt t$ | std. $g N_g\, t^{3/2}/\sqrt 3$ | std. $g N_g\, t^{5/2}/\sqrt{20}$ |
+
+</div>
+
+Every integration raises the power of $t$ by one for a bias and by one for the standard deviation of noise, plus a square root. The gyro errors go through one integration more than the accelerometer errors, because they first have to become an attitude error.
+
 ## What an accelerometer really measures
 
 So far we pretended that an accelerometer measures acceleration. It does not, and the difference is at the heart of inertial navigation.
@@ -385,7 +434,7 @@ So far we pretended that an accelerometer measures acceleration. It does not, an
 Look at a simple accelerometer design: a small **proof mass** suspended by springs inside a case. When the case accelerates, the springs have to push the mass along, so they deflect; the deflection is measured and converted into an acceleration. Now consider three thought experiments.
 
 1. **The accelerometer lies still on a table.** Its acceleration is zero. Yet gravity pulls the proof mass down, the lower spring compresses, and the sensor reports $9.81\,\text{m/s}^2$ *upward*. A still accelerometer does not read zero.
-2. **The accelerometer is in free fall** (say, dropped from a tower, ignoring air drag). It accelerates downward at $9.81\,\text{m/s}^2$. But case and mass fall together, the springs are relaxed, and the sensor reads *zero*. Astronauts in orbit are weightless for the same reason.
+2. **The accelerometer is in free fall** (say, dropped from a tower, ignoring air drag). It accelerates downward at $9.81\,\text{m/s}^2$. But case and mass fall together, the springs are relaxed, and the sensor reads *zero*. Gravity acts on every part of the sensor in exactly the same way: it accelerates the case and the proof mass equally, so the mass does not move relative to the case and the springs carry no load. An accelerometer can only sense forces that push or pull the case and are passed on to the mass through the springs, and gravity is not such a force. Astronauts on the International Space Station are weightless for the same reason, not because gravity is missing: at an altitude of $400\,\text{km}$ it is still about $90\,\%$ of its value on the ground. They are weightless because they and the station fall together, around the Earth in orbit.
 3. **The accelerometer sits in a car that accelerates forward** at $2\,\text{m/s}^2$. The springs push the mass forward, and the sensor reads $2\,\text{m/s}^2$ forward, plus $9.81\,\text{m/s}^2$ upward on the vertical axis.
 
 The sensor cannot distinguish gravity from acceleration. This is Einstein's equivalence principle, and it is not a design flaw that a better sensor could fix. What the sensor measures is the force that the springs (i.e. everything except gravity) exert on the proof mass, divided by its mass.
@@ -395,7 +444,7 @@ The sensor cannot distinguish gravity from acceleration. This is Einstein's equi
   $$
   \mathbf{f} = \mathbf{a} - \mathbf{g} .
   $$
-  Accelerometers measure specific force. At rest $\mathbf f = -\mathbf g$ points up, in free fall $\mathbf f = \mathbf 0$.
+  Accelerometers measure specific force. At rest $\mathbf f = -\mathbf g$ points up, in free fall $\mathbf f = \mathbf 0$. That is why an IMU lying on a table shows $-9.81\,\text{m/s}^2$ instead of $+9.81\,\text{m/s}^2$ on its $z$-axis if that axis points down, as in this post. (Many consumer IMUs define $z$ upwards and then show $+9.81\,\text{m/s}^2$; the physics is the same.)
 </Def>
 
 Bold symbols like $\mathbf f$ denote **vectors**, here in three dimensions. We use the two frames defined earlier: the navigation frame $n$ (north, east, down) and the body frame $b$ (forward, right, down). In NED axes gravity is $\mathbf g^n = [0,\; 0,\; g]^\mathsf{T}$ with $g \approx 9.81\,\text{m/s}^2$; the $\mathsf T$ means transpose, i.e. the vector is a column. The accelerometers measure $\mathbf f^b$, the specific force resolved in body axes.
@@ -403,14 +452,16 @@ Bold symbols like $\mathbf f$ denote **vectors**, here in three dimensions. We u
 To navigate we need the acceleration in the navigation frame, so we have to undo the subtraction of gravity: $\mathbf a^n = \mathbf f^n + \mathbf g^n$. But the sensor gives us $\mathbf f^b$, not $\mathbf f^n$. To convert between the two we need to know how the body is oriented relative to north, east and down. **The accelerometers are useless without the attitude.**
 
 <SpecificForce>
-  A two-axis accelerometer seen from the side, with the box tilted by the pitch angle $\theta$. The white proof mass is displaced against the specific force (orange). **Try:** tilt the box and watch how the two body-axis readings change although nothing accelerates. Press *Free fall*: the springs relax and both readings drop to zero. Finally, set a small *pitch error* $\delta\theta$: the navigation computer now rotates the measurement with a slightly wrong angle, and part of the gravity reading leaks into the horizontal axis as a false acceleration.
+  A schematic two-axis accelerometer seen from the side, with the box tilted by the pitch angle $\theta$. Real accelerometers do not use coil springs: they hold the proof mass with thin flexures or a hinge, usually with one sensitive axis per proof mass, as the section on accelerometer types shows. The white proof mass is displaced against the specific force (orange). **Try:** tilt the box and watch how the two body-axis readings change although nothing accelerates. Press *Free fall*: the springs relax and both readings drop to zero. Finally, set a small *pitch error* $\delta\theta$: the navigation computer now rotates the measurement with a slightly wrong angle, and part of the gravity reading leaks into the horizontal axis as a false acceleration.
 </SpecificForce>
 
-The last experiment in the figure deserves a number. If the computed pitch is off by a small angle $\delta\theta$ (in radians), the computer rotates the "up" reading of $9.81\,\text{m/s}^2$ by that angle. The horizontal part of the rotated vector is $g \sin\delta\theta \approx g\,\delta\theta$, and the computer mistakes it for a real horizontal acceleration:
+The last experiment in the figure deserves a closer look. What exactly does an attitude error do? The navigation computer uses the attitude to rotate the measured specific force from body axes into north, east and down. If the attitude is wrong, the measurement is rotated into a slightly wrong direction. At rest, and in most vehicles most of the time, the measured vector is dominated by the $9.81\,\text{m/s}^2$ "up" reading. A **tilt error**, i.e. an error $\delta\theta$ (in radians) in pitch or roll, therefore turns part of that large vector into the horizontal. The horizontal part is $g \sin\delta\theta \approx g\,\delta\theta$, and the computer mistakes it for a real horizontal acceleration:
 
 $$
 \delta a_{\text{horizontal}} \approx g\,\delta\theta .
 $$
+
+This false acceleration acts exactly like an accelerometer bias of size $g\,\delta\theta$. A constant tilt error therefore makes the velocity error grow linearly and the position error quadratically, just as in the one-dimensional section. If the tilt error itself grows, because a gyro bias $b_g$ is integrated into $\delta\theta = b_g t$, the false acceleration grows linearly too, and the velocity and position errors grow like $\tfrac12 g\, b_g\, t^2$ and $\tfrac16 g\, b_g\, t^3$. A **heading error** behaves differently: rotating about the vertical keeps the "up" reading vertical, so no gravity leaks into the horizontal. Instead, every horizontal acceleration is turned into a slightly wrong direction, and the vehicle's computed path is rotated; the next section shows this in the plane.
 
 An attitude error of $1\,\text{mrad}$ ($0.057°$) produces an acceleration error of about $1\,\text{mg}$, exactly the same as a $1\,\text{mg}$ accelerometer bias. A tilt error of one degree already corresponds to $17\,\text{mg}$, which after one minute integrates to a position error of about $300\,\text{m}$. Because gravity is large compared with the accelerations of most vehicles, **attitude errors are the main way in which gyro errors turn into position errors.** This is why the gyros of a navigation-grade INS are such expensive pieces of hardware.
 
@@ -562,7 +613,13 @@ Multiplying any $z$ by $e^{i\theta}$ therefore rotates $z$ by $\theta$ without c
 
 ### Quaternions
 
-In 1843 William Rowan Hamilton found the corresponding trick for three dimensions. One imaginary unit is not enough; it takes three, $i$, $j$ and $k$, with the rule he famously carved into a Dublin bridge:
+In 1843 William Rowan Hamilton found the corresponding trick for three dimensions. One imaginary unit is not enough; it takes three, $i$, $j$ and $k$. Each of them squares to $-1$, just like the $i$ of the complex numbers, so each pair $(1, i)$, $(1, j)$ and $(1, k)$ spans a copy of the complex plane. In fact every unit direction $\mathbf u$ in the three-dimensional space of $i$, $j$ and $k$ does, as we will see below. The quaternions contain the complex numbers many times over, once for every direction.
+
+<QuaternionPlanes>
+  Left: the three imaginary directions $i$, $j$, $k$ and a chosen unit direction $\mathbf u$. Right: the plane spanned by the real unit $1$ and $\mathbf u$, with the quaternion $\mathbf q = \cos\varphi + \mathbf u \sin\varphi$ on its unit circle. **Try:** with $\mathbf u = i$ the right panel is exactly the complex plane from the previous figure. Switch to $j$, $k$ or any direction: the picture stays the same, only the label of the vertical axis changes.
+</QuaternionPlanes>
+
+How the three units multiply with each other is fixed by the rule Hamilton famously carved into a Dublin bridge:
 
 $$
 i^2 = j^2 = k^2 = i\,j\,k = -1 .
@@ -580,7 +637,12 @@ From it follow the products of the units, and they depend on the order:
 
 </div>
 
-(Read: row times column, e.g. $i\,j = k$ but $j\,i = -k$.) A quaternion is a number $q_w + q_x\,i + q_y\,j + q_z\,k$ with one real and three imaginary parts. That its multiplication is not commutative is not a flaw but exactly the property needed: rotations in three dimensions do not commute either.
+(Read: row times column, e.g. $i\,j = k$ but $j\,i = -k$.) The table is easier to remember as a cycle:
+
+<QuaternionCycle>
+  Going around the circle in the direction of the arrows, the product of two neighbouring units is the third with a plus sign; against the arrows it gets a minus sign. This is the same pattern as for the cross product of the unit vectors $x$, $y$, $z$.
+</QuaternionCycle>
+ A quaternion is a number $q_w + q_x\,i + q_y\,j + q_z\,k$ with one real and three imaginary parts. That its multiplication is not commutative is not a flaw but exactly the property needed: rotations in three dimensions do not commute either.
 
 Most strapdown implementations store the attitude as a **unit quaternion**: four numbers instead of nine, only one constraint (unit length) instead of six, and no singularities.
 
@@ -597,7 +659,11 @@ $$
 \mathbf p \otimes \mathbf q = \begin{bmatrix} p_w q_w - \mathbf p_v^\mathsf T \mathbf q_v \\ p_w \mathbf q_v + q_w \mathbf p_v + \mathbf p_v \times \mathbf q_v \end{bmatrix} ,
 $$
 
-where $\mathbf p_v^\mathsf T \mathbf q_v$ is the dot product and $\mathbf p_v \times \mathbf q_v$ the **cross product**, the vector perpendicular to both whose length is $\lVert\mathbf p_v\rVert\,\lVert\mathbf q_v\rVert$ times the sine of the angle between them. The product corresponds to multiplying rotation matrices: if $\mathbf q_b^n$ represents $\mathbf C_b^n$, then $\mathbf q_b^n \otimes \mathbf q_c^b$ represents $\mathbf C_b^n \mathbf C_c^b$. The cross product makes it non-commutative, just like rotations.
+where $\mathbf p_v^\mathsf T \mathbf q_v$ is the dot product and $\mathbf p_v \times \mathbf q_v$ the **cross product**, the vector perpendicular to both whose length is $\lVert\mathbf p_v\rVert\,\lVert\mathbf q_v\rVert$ times the sine of the angle between them. The product corresponds to multiplying rotation matrices: if $\mathbf q_b^n$ represents $\mathbf C_b^n$, then $\mathbf q_b^n \otimes \mathbf q_c^b$ represents $\mathbf C_b^n \mathbf C_c^b$. The cross product makes it non-commutative, just like rotations: swapping the two factors changes only the sign of the cross-product term, so $\mathbf q \otimes \mathbf p$ and $\mathbf p \otimes \mathbf q$ differ by $2\,\mathbf q_v \times \mathbf p_v$.
+
+<QuaternionCompose>
+  Two rotations, $\mathbf p$ by an angle about $x$ and $\mathbf q$ by an angle about $z$, combined in both orders. **Try:** with $90°$ each, the vehicle ends up in clearly different attitudes, and the two products differ exactly by $2\,\mathbf q_v \times \mathbf p_v$. Set one angle to zero: the order no longer matters and the difference vanishes.
+</QuaternionCompose>
 
 ### Why half the angle: the sandwich product
 
@@ -617,7 +683,11 @@ $$
 \mathbf v' = \mathbf q \otimes \mathbf v \otimes \mathbf q^* ,
 $$
 
-where $\mathbf q^* = [q_w,\; -\mathbf q_v]$ is the **conjugate** of $\mathbf q$ (for a unit quaternion also its inverse). Each of the two multiplications turns the part of $\mathbf v$ perpendicular to $\mathbf u$ by $\alpha/2$, together by $\alpha$, while the part along $\mathbf u$ is left alone. That is why the half angle appears.
+where $\mathbf q^* = [q_w,\; -\mathbf q_v]$ is the **conjugate** of $\mathbf q$ (for a unit quaternion also its inverse). Each of the two multiplications turns the part of $\mathbf v$ perpendicular to $\mathbf u$ by $\alpha/2$, together by $\alpha$, while the part along $\mathbf u$ is left alone. That is why the half angle appears. The figure shows the two steps separately.
+
+<SandwichSteps>
+  The vector $\mathbf v$ is split into the part $\mathbf v_\perp$ perpendicular to the axis $\mathbf u$ (left) and the part $\mathbf v_\parallel$ along it (right). **Try:** step through the two multiplications. In the left plane, both steps turn $\mathbf v_\perp$ by $\alpha/2$ in the same direction, so it ends up turned by $\alpha$. In the right plane, the first step turns $\mathbf v_\parallel$ by $\alpha/2$ towards the scalar axis, out of the space of vectors, and the second step turns it back. A single multiplication would leave a wrongly turned vector with a scalar part; the second multiplication completes the rotation and cleans up the scalar part.
+</SandwichSteps>
 
 <Derivation title="Derivation: why the sandwich rotates by the full angle">
 
@@ -642,6 +712,42 @@ The half angle has a famous consequence. Turning by $\alpha = 360°$ brings ever
 <QuaternionSandwich>
   Left: the plane spanned by $1$ and the rotation axis $\mathbf u$, with the unit quaternion $\mathbf q$ at half the rotation angle. Right: the vector $\mathbf v$ rotated with the sandwich product about $\mathbf u$ by the full angle. **Try:** move the angle from $0°$ to $360°$: $\mathbf v'$ makes a full turn and returns, while $\mathbf q$ only reaches $-1$. Continue to $720°$ to bring $\mathbf q$ home. Switch on *$\mathbf q \otimes \mathbf v$ alone*: its vector part is turned by only half the angle and its scalar part is not zero.
 </QuaternionSandwich>
+
+<Derivation title="In more depth: dual quaternions">
+
+**Motivation.** A quaternion describes a rotation. A robot arm, a SLAM algorithm or a navigation system often needs the full **pose**: rotation and translation together. With rotation matrices one stacks both into a $4 \times 4$ homogeneous transformation matrix. The quaternion counterpart is the **dual quaternion**, and it solves three problems at once: it holds the whole pose in a single object that is composed by one multiplication; it needs only $8$ numbers with $2$ constraints instead of $16$; and it allows smooth, frame-independent interpolation between poses.
+
+**The geometry behind it.** Chasles' theorem states that every rigid motion, however it was carried out, can be reproduced by a **screw motion**: a rotation by an angle $\theta$ about some axis, combined with a translation by a distance $d$ along the same axis. A rotation is the special case $d = 0$, a translation the special case $\theta = 0$.
+
+<ScrewMotion>
+  A box moved by a screw motion. **Try:** set the translation to zero for a pure rotation, or the rotation to zero for a pure translation. Any other combination makes one corner of the box trace a helix around the screw axis.
+</ScrewMotion>
+
+**Dual numbers.** A **dual number** is $\hat a = a + \varepsilon\, a_\varepsilon$ with a real part $a$, a dual part $a_\varepsilon$ and a **dual unit** $\varepsilon$ defined by $\varepsilon^2 = 0$ (with $\varepsilon \neq 0$). Multiplying out with this rule gives
+$$
+(a + \varepsilon\, a_\varepsilon)(b + \varepsilon\, b_\varepsilon) = ab + \varepsilon\,(a\, b_\varepsilon + a_\varepsilon\, b) ,
+$$
+because the term $\varepsilon^2 a_\varepsilon b_\varepsilon$ vanishes. The dual part behaves like a small first-order change, which is exactly how a translation is attached to a rotation.
+
+**Dual quaternions.** A **dual quaternion** is $\boldsymbol\sigma = \mathbf q_r + \varepsilon\, \mathbf q_d$, whose real part $\mathbf q_r$ and dual part $\mathbf q_d$ are quaternions. For a pose with the rotation $\mathbf q_r$ (a unit quaternion) followed by the translation $\mathbf t$ (written as the pure quaternion $[0,\; \mathbf t]$), the dual part is
+$$
+\mathbf q_d = \tfrac12\, \mathbf t \otimes \mathbf q_r .
+$$
+A point $\mathbf x$ is then transformed into $\mathbf x' = \mathbf q_r \otimes \mathbf x \otimes \mathbf q_r^* + \mathbf t$, which can be written as one dual-quaternion sandwich product. Two poses combine by multiplying their dual quaternions,
+$$
+\boldsymbol\sigma_2 \otimes \boldsymbol\sigma_1 = \mathbf q_{r2} \otimes \mathbf q_{r1} + \varepsilon\,\big(\mathbf q_{r2} \otimes \mathbf q_{d1} + \mathbf q_{d2} \otimes \mathbf q_{r1}\big) ,
+$$
+in the same way as the dual numbers above.
+
+**Interpolation.** Interpolating rotation and translation separately moves the body along a path that depends on which point of the body is chosen as its reference. Interpolating the dual quaternion, known as screw linear interpolation (ScLERP), moves it along the screw instead: a constant rotation about and a constant translation along one axis. In the plane this is a rotation about a single fixed point.
+
+<PoseInterp>
+  Two poses of a vehicle and the poses in between. White: position and angle interpolated separately. Orange: dual-quaternion interpolation, a single rotation about the fixed centre $\mathbf c$. **Try:** change the end angle and watch the two paths of the nose diverge. With an end angle of zero both methods give the same straight translation.
+</PoseInterp>
+
+Dual quaternions are popular in robot kinematics and computer graphics, for example to deform animated characters smoothly. In navigation and SLAM the same poses are more often handled with the Lie-group view of rotations and poses ($SE(3)$), which part 8 of this series introduces; the two descriptions are equivalent.
+
+</Derivation>
 
 The representations convert into each other. From a unit quaternion to the rotation matrix:
 
@@ -690,6 +796,10 @@ The gyros measure angular velocity. We now need the equation that turns angular 
   A triad of gyros measures the three components of $\boldsymbol\omega$ in body axes, $\boldsymbol\omega_{ib}^b$.
 </Def>
 
+<AngularVelocity>
+  A disc rotating about a tilted axis. The orange vector $\boldsymbol\omega$ lies along the axis, its length is the rotation rate. The point on the rim moves with $\boldsymbol\omega \times \mathbf r$, perpendicular to both the axis and $\mathbf r$. **Try:** reverse the rotation and watch $\boldsymbol\omega$ flip: by the right-hand rule its direction encodes the sense of rotation. Move the point closer to the axis: it moves more slowly.
+</AngularVelocity>
+
 ### The cross product as a matrix: $[\mathbf a\times]$
 
 A point on a rigid body that rotates with angular velocity $\boldsymbol\omega$ moves with the velocity $\boldsymbol\omega \times \mathbf r$, where $\mathbf r$ is the position of the point relative to the rotation axis: perpendicular to both the axis and $\mathbf r$, and faster the farther the point is from the axis. Rotations and cross products therefore belong together. For fixed $\mathbf a$, the map $\mathbf b \mapsto \mathbf a \times \mathbf b$ is linear in $\mathbf b$, so it can be written as a matrix. Writing out the components of the cross product,
@@ -702,6 +812,10 @@ $$
 <Def term="Skew-symmetric matrix">
   The **skew-symmetric matrix** $[\mathbf a \times]$ of a vector $\mathbf a$, read "a cross", is the matrix above. It satisfies $[\mathbf a \times]\,\mathbf b = \mathbf a \times \mathbf b$ for every vector $\mathbf b$, and it is **skew-symmetric**: $[\mathbf a\times]^\mathsf T = -[\mathbf a\times]$, so its diagonal is zero and it contains just the three numbers of $\mathbf a$. In equations with angular rates, $\boldsymbol\Omega$ denotes the skew-symmetric matrix of $\boldsymbol\omega$, e.g. $\boldsymbol\Omega_{nb}^b = [\boldsymbol\omega_{nb}^b \times]$. Some texts write $\mathbf a^\wedge$ or $\lfloor\mathbf a\rfloor_\times$ for the same matrix.
 </Def>
+
+<CrossProduct>
+  Left: two vectors $\mathbf a$ and $\mathbf b$, the parallelogram they span (shaded) and their cross product $\mathbf a \times \mathbf b$, perpendicular to both, with a length equal to the area of the parallelogram. The dashed vectors show what the cross product does to $\mathbf b$: it removes the component along $\mathbf a$, leaving $\mathbf b_\perp$, turns it by $90°$ about $\mathbf a$ and scales it by $\lVert\mathbf a\rVert$. Right: the same product computed as the matrix $[\mathbf a\times]$ times $\mathbf b$. **Try:** turn $\mathbf b$ until it points along $\mathbf a$: the parallelogram collapses and the cross product vanishes.
+</CrossProduct>
 
 Two properties are used below. Applying the matrix twice gives $[\mathbf a\times]^2 = \mathbf a\mathbf a^\mathsf T - \lVert\mathbf a\rVert^2\,\mathbf I$, and three times gives $[\mathbf a\times]^3 = -\lVert\mathbf a\rVert^2\,[\mathbf a\times]$. Geometrically: $[\mathbf a\times]$ removes the component of a vector along $\mathbf a$ and turns the rest by $90°$ about $\mathbf a$ (scaled by $\lVert\mathbf a\rVert$). Doing that twice turns by $180°$, i.e. flips the sign of the perpendicular part, and a third time brings us back to the first result with a minus sign.
 
